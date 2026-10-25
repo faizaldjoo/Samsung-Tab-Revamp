@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Car Home Glass</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/bold/style.css">
+<style>
+  /* Liquid Glass look: an approximation of Apple's material (no official web version exists).
+     Built from backdrop blur + saturation, an SVG edge-refraction filter, specular rim highlights.
+     Radius system: glass panels 32px, app tiles 20px, controls full pill. One accent: --accent. */
+  :root {
+    --text: #f7f8fa;
+    --muted: rgba(247, 248, 250, 0.72);
+    --faint: rgba(247, 248, 250, 0.5);
+    --accent: #5aa7ff;
+    --r-glass: 32px;
+    --r-tile: 20px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; background: #07080a; color: var(--text); font-family: "Geist", system-ui, sans-serif; overflow: hidden; -webkit-font-smoothing: antialiased; }
+  button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+
+  #screen { text-shadow: 0 1px 2px rgba(0,0,0,0.25);
+    width: 1340px; height: 800px; position: absolute; left: 50%; top: 50%; overflow: hidden;
+    display: grid; grid-template-columns: 96px 1fr; gap: 18px; padding: 20px 20px 20px 16px;
+    transform-origin: center center;
+  }
+  .wall { position: absolute; inset: -20px; background: #1a1d22 center / cover no-repeat; transition: opacity 0.6s ease; }
+  /* Darken the photo toward the bottom so white text always clears contrast. */
+  .wall::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(5,7,10,0.15), rgba(5,7,10,0.45)); }
+
+  .glass {
+    position: relative; isolation: isolate; border-radius: var(--r-glass); overflow: hidden;
+    background: linear-gradient(160deg, rgba(255,255,255,0.13), rgba(255,255,255,0.03) 45%, rgba(10,14,22,0.34));
+    backdrop-filter: url(#refract) blur(16px) saturate(1.6) brightness(0.74);
+    -webkit-backdrop-filter: blur(16px) saturate(1.6) brightness(0.74);
+    box-shadow:
+      inset 0 1.5px 0 rgba(255,255,255,0.55),
+      inset 0 -1px 0 rgba(255,255,255,0.12),
+      inset 0 0 0 1px rgba(255,255,255,0.14),
+      inset 0 0 24px rgba(255,255,255,0.06),
+      0 18px 40px rgba(4, 8, 16, 0.35);
+  }
+  /* Specular rim: bright on the top-left edge, fading around the panel. */
+  .glass::before {
+    content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1.5px; pointer-events: none; z-index: 2;
+    background: linear-gradient(135deg, rgba(255,255,255,0.75), rgba(255,255,255,0.08) 30%, rgba(255,255,255,0) 60%, rgba(255,255,255,0.35));
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude;
+  }
+  @supports not (backdrop-filter: url(#refract)) { .glass { backdrop-filter: blur(16px) saturate(1.6) brightness(0.74); } }
+  @media (prefers-reduced-transparency: reduce) { .glass { background: rgba(28, 32, 40, 0.94); backdrop-filter: none; -webkit-backdrop-filter: none; } }
+
+  .press { transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), filter 0.22s; }
+  .press:active { transform: scale(0.95); filter: brightness(1.15); }
+  @media (prefers-reduced-motion: reduce) { .press, .press:active { transition: none; transform: none; } .wall { transition: none; } }
+
+  /* Rail */
+  .rail { display: flex; flex-direction: column; align-items: center; padding: 18px 0 14px; }
+  .clock { font-size: 27px; font-weight: 600; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+  .status { display: flex; gap: 6px; align-items: center; color: var(--muted); font-size: 13px; font-weight: 600; margin-top: 6px; }
+  .status i { font-size: 16px; }
+  .dock { margin: auto 0; display: flex; flex-direction: column; gap: 18px; }
+  .dock .tile { width: 62px; height: 62px; }
+  .all-apps { width: 62px; height: 62px; border-radius: 999px; display: grid; place-items: center; font-size: 28px; background: rgba(255,255,255,0.14); box-shadow: inset 0 1px 0 rgba(255,255,255,0.4), inset 0 0 0 1px rgba(255,255,255,0.12); }
+
+  .main { display: grid; grid-template-columns: 1.08fr 2fr; gap: 18px; min-width: 0; }
+  .right { display: grid; grid-template-rows: 296px 1fr; gap: 18px; min-width: 0; }
+  .top { display: grid; grid-template-columns: 1.35fr 1fr; gap: 18px; }
+  .bottom { display: grid; grid-template-columns: 1fr 150px; gap: 18px; }
+
+  /* Map: map sits inside a glass frame, like a lens. */
+  .map { padding: 8px; display: flex; }
+  .map-inner { position: relative; flex: 1; border-radius: 25px; overflow: hidden; display: flex; flex-direction: column; background: #12161c; }
+  .map-tiles { position: absolute; inset: 0; overflow: hidden; }
+  .map-tiles .grid { position: absolute; display: grid; grid-template-columns: repeat(4, 256px); left: 50%; top: 50%; transform: translate(-46%, -52%) scale(1.15);
+    filter: invert(1) hue-rotate(180deg) brightness(0.82) contrast(0.9) saturate(0.4); }
+  .map-tiles img { width: 256px; height: 256px; display: block; }
+  .map-shade { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(10,13,18,0.45) 0%, rgba(10,13,18,0) 28%, rgba(10,13,18,0) 60%, rgba(10,13,18,0.85) 100%); }
+  .route { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .puck { position: absolute; left: 50%; top: 66%; width: 28px; height: 28px; margin: -14px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 6px rgba(90,167,255,0.28), 0 0 0 3px #fff inset; }
+  .maneuver { position: relative; margin: 14px; align-self: flex-start; display: flex; gap: 14px; align-items: center; padding: 12px 18px 12px 12px; border-radius: 24px; }
+  .maneuver .arrow { width: 50px; height: 50px; border-radius: 16px; background: var(--accent); display: grid; place-items: center; font-size: 28px; color: #061223; }
+  .maneuver .dist { font-size: 27px; font-weight: 700; letter-spacing: -0.02em; }
+  .maneuver .street { font-size: 15px; color: var(--muted); margin-top: 2px; }
+  .eta { position: relative; margin-top: auto; display: grid; grid-template-columns: repeat(3, 1fr); padding: 0 20px 18px; }
+  .eta b { display: block; font-size: 24px; font-weight: 600; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+  .eta span { font-size: 13px; color: var(--muted); }
+
+  /* Now playing: album art tints the panel. */
+  .np { padding: 22px; display: grid; grid-template-rows: auto 1fr auto; }
+  .np .tint { position: absolute; inset: -30%; z-index: -1; background: center / cover; filter: blur(40px) saturate(1.3) brightness(0.7); opacity: 0.3; }
+  .np-head { display: flex; gap: 18px; align-items: center; }
+  .art { width: 112px; height: 112px; border-radius: 22px; object-fit: cover; flex: none; box-shadow: 0 12px 28px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.18); background: #333; }
+  .np-title { font-size: 24px; font-weight: 600; letter-spacing: -0.015em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .np-artist { font-size: 16px; color: var(--muted); margin-top: 4px; }
+  .np-src { display: inline-flex; align-items: center; gap: 6px; margin-top: 12px; font-size: 13px; color: var(--muted); }
+  .np-src img { width: 15px; height: 15px; }
+  .progress { align-self: end; margin-top: 16px; }
+  .bar { height: 5px; border-radius: 999px; background: rgba(255,255,255,0.22); overflow: hidden; }
+  .bar i { display: block; height: 100%; width: 38%; background: var(--text); border-radius: inherit; }
+  .times { display: flex; justify-content: space-between; font-size: 12px; color: var(--faint); margin-top: 6px; font-variant-numeric: tabular-nums; }
+  .controls { display: flex; justify-content: space-between; align-items: center; padding: 6px 18px 0; }
+  .controls button { font-size: 34px; width: 64px; height: 64px; display: grid; place-items: center; border-radius: 999px; }
+  .controls .play { width: 76px; height: 76px; font-size: 36px; background: rgba(255,255,255,0.22); box-shadow: inset 0 1.5px 0 rgba(255,255,255,0.6), inset 0 0 0 1px rgba(255,255,255,0.2), 0 8px 20px rgba(0,0,0,0.25); }
+
+  /* Glance */
+  .glance { padding: 22px 24px; display: flex; flex-direction: column; }
+  .date { font-size: 15px; font-weight: 600; color: var(--muted); }
+  .speed { margin-top: 10px; display: flex; align-items: baseline; gap: 8px; }
+  .speed b { font-size: 92px; line-height: 1; font-weight: 600; letter-spacing: -0.05em; font-variant-numeric: tabular-nums; }
+  .speed span { font-size: 18px; color: var(--muted); font-weight: 500; }
+  .weather { margin-top: auto; display: flex; align-items: center; gap: 12px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.16); }
+  .weather i { font-size: 34px; color: #ffd36b; }
+  .weather b { font-size: 22px; font-weight: 600; }
+  .weather span { display: block; font-size: 13px; color: var(--muted); }
+
+  /* Apps */
+  .apps { padding: 24px 28px; display: grid; grid-template-columns: repeat(4, 1fr); grid-template-rows: repeat(2, 1fr); gap: 10px 8px; }
+  .app { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; }
+  .tile { width: 78px; height: 78px; border-radius: var(--r-tile); display: grid; place-items: center; position: relative;
+    box-shadow: inset 0 1.5px 0 rgba(255,255,255,0.45), inset 0 -2px 6px rgba(0,0,0,0.12), 0 8px 18px rgba(0,0,0,0.28); }
+  .tile::after { content: ""; position: absolute; inset: 0; border-radius: inherit; background: linear-gradient(180deg, rgba(255,255,255,0.28), rgba(255,255,255,0) 50%); pointer-events: none; }
+  .tile img { width: 44%; height: 44%; }
+  .tile i { font-size: 38px; color: #fff; }
+  .app span { font-size: 14px; font-weight: 500; text-shadow: 0 1px 2px rgba(0,0,0,0.35); }
+
+  /* Sliders: glass tubes filled with light. */
+  .sliders { padding: 18px 14px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .vs { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  .vs .val { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .track { flex: 1; width: 52px; border-radius: 999px; position: relative; overflow: hidden; touch-action: none; cursor: ns-resize;
+    background: rgba(0,0,0,0.18); box-shadow: inset 0 2px 6px rgba(0,0,0,0.25), inset 0 0 0 1px rgba(255,255,255,0.12); }
+  .track .fill { position: absolute; left: 0; right: 0; bottom: 0; background: linear-gradient(180deg, rgba(255,255,255,0.96), rgba(255,255,255,0.82)); box-shadow: inset 0 2px 0 #fff; }
+  .track i { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); font-size: 24px; color: #1a1d22; pointer-events: none; }
+
+  .toast { position: absolute; left: 50%; bottom: 30px; transform: translate(-50%, 20px); opacity: 0; padding: 12px 22px; border-radius: 999px; font-size: 15px; pointer-events: none; transition: opacity 0.2s, transform 0.25s cubic-bezier(0.16,1,0.3,1); z-index: 5; }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+</style>
+</head>
+<body>
+<!-- Edge refraction for the glass (Chromium honours SVG filters in backdrop-filter). -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <filter id="refract" x="0" y="0" width="100%" height="100%">
+    <feTurbulence type="fractalNoise" baseFrequency="0.008 0.012" numOctaves="2" seed="7" result="n"/>
+    <feDisplacementMap in="SourceGraphic" in2="n" scale="18" xChannelSelector="R" yChannelSelector="G"/>
+  </filter>
+</svg>
+
+<div id="screen">
+  <div class="wall" id="wall"></div>
+
+  <aside class="glass rail">
+    <button class="clock press" id="clock" aria-label="Change wallpaper">08:30</button>
+    <div class="status"><i class="ph-fill ph-cell-signal-high"></i>LTE<i class="ph-fill ph-battery-charging-vertical"></i></div>
+    <nav class="dock">
+      <button class="tile press" style="background:#33ccff" data-app="Waze"><img src="https://cdn.simpleicons.org/waze/ffffff" alt="Waze"></button>
+      <button class="tile press" style="background:#1db954" data-app="Spotify"><img src="https://cdn.simpleicons.org/spotify/ffffff" alt="Spotify"></button>
+      <button class="tile press" style="background:#f2711c" data-app="Prambors"><i class="ph-fill ph-radio" style="font-size:30px"></i></button>
+    </nav>
+    <button class="all-apps press" data-app="All apps" aria-label="All apps"><i class="ph-bold ph-dots-nine"></i></button>
+  </aside>
+
+  <main class="main">
+    <section class="glass map press" data-app="Waze">
+      <div class="map-inner">
+        <div class="map-tiles"><div class="grid" id="tiles"></div></div>
+        <svg class="route" viewBox="0 0 400 760" preserveAspectRatio="none" aria-hidden="true">
+          <path d="M200 520 L200 420 Q200 380 240 360 L300 330 Q330 315 330 280 L330 120" fill="none" stroke="#5aa7ff" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <div class="map-shade"></div>
+        <div class="puck"></div>
+        <div class="glass maneuver">
+          <div class="arrow"><i class="ph-bold ph-arrow-bend-up-right"></i></div>
+          <div><div class="dist">300 m</div><div class="street">Jl. Jend. Sudirman</div></div>
+        </div>
+        <div class="eta">
+          <div><b id="arrive">08:47</b><span>arrival</span></div>
+          <div><b>17 min</b><span>left</span></div>
+          <div><b>6.4 km</b><span>to go</span></div>
+        </div>
+      </div>
+    </section>
+
+    <div class="right">
+      <div class="top">
+        <section class="glass np">
+          <div class="tint" id="tint"></div>
+          <div class="np-head">
+            <img class="art" id="art" src="https://picsum.photos/seed/night-drive-city-lights/240/240" alt="Album art">
+            <div style="min-width:0">
+              <div class="np-title">Secukupnya</div>
+              <div class="np-artist">Hindia</div>
+              <div class="np-src"><img src="https://cdn.simpleicons.org/spotify/ffffff" alt="">Spotify</div>
+            </div>
+          </div>
+          <div class="progress">
+            <div class="bar"><i id="prog"></i></div>
+            <div class="times"><span id="tNow">1:31</span><span>4:02</span></div>
+          </div>
+          <div class="controls">
+            <button class="press" aria-label="Previous"><i class="ph-fill ph-skip-back"></i></button>
+            <button class="play press" id="play" aria-label="Pause"><i class="ph-fill ph-pause"></i></button>
+            <button class="press" aria-label="Next"><i class="ph-fill ph-skip-forward"></i></button>
+          </div>
+        </section>
+
+        <section class="glass glance">
+          <div class="date" id="date">Sunday, 25 October</div>
+          <div class="speed"><b id="speed">48</b><span>km/h</span></div>
+          <div class="weather">
+            <i class="ph-fill ph-cloud-sun"></i>
+            <div><b>31°</b><span>Partly cloudy, Jakarta</span></div>
+          </div>
+        </section>
+      </div>
+
+      <div class="bottom">
+        <section class="glass apps">
+          <button class="app press" data-app="Waze"><div class="tile" style="background:#33ccff"><img src="https://cdn.simpleicons.org/waze/ffffff" alt=""></div><span>Waze</span></button>
+          <button class="app press" data-app="Spotify"><div class="tile" style="background:#1db954"><img src="https://cdn.simpleicons.org/spotify/ffffff" alt=""></div><span>Spotify</span></button>
+          <button class="app press" data-app="YouTube Music"><div class="tile" style="background:#ff0033"><img src="https://cdn.simpleicons.org/youtubemusic/ffffff" alt=""></div><span>YT Music</span></button>
+          <button class="app press" data-app="Apple Music"><div class="tile" style="background:#fa243c"><img src="https://cdn.simpleicons.org/applemusic/ffffff" alt=""></div><span>Apple Music</span></button>
+          <button class="app press" data-app="Prambors"><div class="tile" style="background:#f2711c"><i class="ph-fill ph-radio"></i></div><span>Prambors</span></button>
+          <button class="app press" data-app="CarbitLink"><div class="tile" style="background:#2c6bed"><i class="ph-fill ph-car-profile"></i></div><span>CarbitLink</span></button>
+          <button class="app press" data-app="Chrome"><div class="tile" style="background:#f2f4f7"><img src="https://cdn.simpleicons.org/googlechrome" alt=""></div><span>Chrome</span></button>
+          <button class="app press" data-app="Settings"><div class="tile" style="background:#59606d"><i class="ph-fill ph-gear-six"></i></div><span>Settings</span></button>
+        </section>
+
+        <section class="glass sliders">
+          <div class="vs"><div class="track" data-k="vol" data-v="62"><div class="fill"></div><i class="ph-fill ph-speaker-high"></i></div><div class="val" id="vol">62%</div></div>
+          <div class="vs"><div class="track" data-k="bri" data-v="45"><div class="fill"></div><i class="ph-fill ph-sun"></i></div><div class="val" id="bri">45%</div></div>
+        </section>
+      </div>
+    </div>
+  </main>
+
+  <div class="glass toast" id="toast"></div>
+</div>
+
+<script>
+  const screen = document.getElementById('screen');
+  function fit() {
+    const s = Math.min(innerWidth / 1340, innerHeight / 800);
+    screen.style.transform = `translate(-50%, -50%) scale(${s})`;
+  }
+  addEventListener('resize', fit); fit();
+
+  // Wallpapers to compare (Picsum photos, prototype only).
+  const walls = [
+    'https://picsum.photos/id/1018/1600/1000',
+    'https://picsum.photos/id/1015/1600/1000',
+    'https://picsum.photos/id/1036/1600/1000',
+    'https://picsum.photos/id/1044/1600/1000',
+  ];
+  // Prototype only: tap the clock to try the next wallpaper.
+  const wall = document.getElementById('wall'); let wi = 0;
+  function setWall(i) { wi = i % walls.length; wall.style.backgroundImage = `url(${walls[wi]})`; }
+  document.getElementById('clock').addEventListener('click', () => setWall(wi + 1));
+  setWall(0);
+
+  document.getElementById('tint').style.backgroundImage = `url(${document.getElementById('art').src})`;
+
+  const tiles = document.getElementById('tiles');
+  for (let y = 16949; y <= 16952; y++)
+    for (let x = 26105; x <= 26108; x++) {
+      const img = new Image(); img.src = `https://tile.openstreetmap.org/15/${x}/${y}.png`; img.alt = ''; tiles.appendChild(img);
+    }
+
+  const pad = n => String(n).padStart(2, '0');
+  function tick() {
+    const d = new Date();
+    document.getElementById('clock').textContent = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    document.getElementById('date').textContent = d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
+    const a = new Date(d.getTime() + 17 * 60000);
+    document.getElementById('arrive').textContent = `${pad(a.getHours())}:${pad(a.getMinutes())}`;
+  }
+  tick(); setInterval(tick, 10000);
+
+  let playing = true, pos = 91; const len = 242;
+  const playBtn = document.getElementById('play');
+  playBtn.onclick = () => {
+    playing = !playing;
+    playBtn.innerHTML = `<i class="ph-fill ph-${playing ? 'pause' : 'play'}"></i>`;
+    playBtn.setAttribute('aria-label', playing ? 'Pause' : 'Play');
+  };
+  setInterval(() => {
+    if (!playing) return;
+    pos = (pos + 1) % len;
+    document.getElementById('prog').style.width = (pos / len * 100) + '%';
+    document.getElementById('tNow').textContent = `${Math.floor(pos / 60)}:${pad(pos % 60)}`;
+  }, 1000);
+
+  let v = 48;
+  setInterval(() => { v = Math.max(0, Math.min(72, v + Math.round((Math.random() - 0.5) * 6))); document.getElementById('speed').textContent = v; }, 1500);
+
+  document.querySelectorAll('.track').forEach(t => {
+    const fill = t.querySelector('.fill'), out = document.getElementById(t.dataset.k);
+    const set = val => { val = Math.max(0, Math.min(100, Math.round(val))); t.dataset.v = val; fill.style.height = val + '%'; out.textContent = val + '%'; };
+    set(+t.dataset.v);
+    const move = e => { const r = t.getBoundingClientRect(); set((r.bottom - e.clientY) / r.height * 100); };
+    t.addEventListener('pointerdown', e => { t.setPointerCapture(e.pointerId); move(e); t.onpointermove = move; });
+    t.addEventListener('pointerup', () => { t.onpointermove = null; });
+  });
+
+  const toast = document.getElementById('toast'); let tt;
+  document.querySelectorAll('[data-app]').forEach(el => el.addEventListener('click', () => {
+    toast.textContent = `Opens ${el.dataset.app}`;
+    toast.classList.add('show'); clearTimeout(tt); tt = setTimeout(() => toast.classList.remove('show'), 1400);
+  }));
+</script>
+</body>
+</html>

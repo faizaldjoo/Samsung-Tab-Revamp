@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Car Home Prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/bold/style.css">
+<style>
+  /* Dark-only on purpose: a dashboard screen at night must not glare.
+     Radius system: cards 28px, app tiles 18px, controls full pill. One accent: --accent. */
+  :root {
+    --bg: #0b0d11;
+    --card: rgba(30, 33, 40, 0.74);
+    --card-solid: #1c1f26;
+    --edge: rgba(255, 255, 255, 0.07);
+    --hi: rgba(255, 255, 255, 0.06);
+    --text: #f2f4f7;
+    --muted: #9aa1ad;
+    --faint: #5d6470;
+    --accent: #4c9aff;
+    --r-card: 28px;
+    --r-tile: 18px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; background: #050608; color: var(--text); font-family: "Geist", system-ui, sans-serif; overflow: hidden; -webkit-font-smoothing: antialiased; }
+  body { display: grid; place-items: center; }
+  button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+
+  #screen {
+    width: 1340px; height: 800px; position: absolute; left: 50%; top: 50%; overflow: hidden;
+    background:
+      radial-gradient(900px 600px at 15% 0%, rgba(76, 154, 255, 0.10), transparent 60%),
+      radial-gradient(700px 500px at 100% 100%, rgba(120, 140, 170, 0.08), transparent 60%),
+      var(--bg);
+    transform-origin: center center;
+    display: grid; grid-template-columns: 92px 1fr; gap: 16px; padding: 18px 18px 18px 14px;
+  }
+
+  .card {
+    background: var(--card); border-radius: var(--r-card);
+    box-shadow: inset 0 1px 0 var(--hi), inset 0 0 0 1px var(--edge), 0 12px 32px rgba(0, 0, 0, 0.35);
+    backdrop-filter: blur(24px) saturate(1.2); -webkit-backdrop-filter: blur(24px) saturate(1.2);
+    position: relative; overflow: hidden;
+  }
+  @media (prefers-reduced-transparency: reduce) { .card { background: var(--card-solid); backdrop-filter: none; } }
+
+  .press { transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.18s; }
+  .press:active { transform: scale(0.94); opacity: 0.85; }
+  @media (prefers-reduced-motion: reduce) { .press, .press:active { transition: none; transform: none; } }
+
+  /* Rail */
+  .rail { display: flex; flex-direction: column; align-items: center; padding: 10px 0 6px; }
+  .clock { font-size: 26px; font-weight: 600; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+  .status { display: flex; gap: 6px; align-items: center; color: var(--muted); font-size: 13px; font-weight: 600; margin-top: 6px; }
+  .status i { font-size: 16px; }
+  .dock { margin-top: auto; margin-bottom: auto; display: flex; flex-direction: column; gap: 18px; }
+  .dock .tile { width: 64px; height: 64px; border-radius: var(--r-tile); }
+  .all-apps { width: 64px; height: 64px; border-radius: 999px; display: grid; place-items: center; background: var(--card); box-shadow: inset 0 0 0 1px var(--edge); font-size: 28px; color: var(--muted); }
+
+  /* Main grid */
+  .main { display: grid; grid-template-columns: 1.08fr 2fr; gap: 16px; min-width: 0; }
+  .right { display: grid; grid-template-rows: 300px 1fr; gap: 16px; min-width: 0; }
+  .top { display: grid; grid-template-columns: 1.35fr 1fr; gap: 16px; }
+  .bottom { display: grid; grid-template-columns: 1fr 150px; gap: 16px; }
+
+  /* Map */
+  .map { display: flex; flex-direction: column; }
+  .map-tiles { position: absolute; inset: 0; overflow: hidden; }
+  .map-tiles .grid { position: absolute; display: grid; grid-template-columns: repeat(4, 256px); left: 50%; top: 50%; transform: translate(-46%, -52%) scale(1.15);
+    filter: invert(1) hue-rotate(180deg) brightness(0.78) contrast(0.92) saturate(0.35); }
+  .map-tiles img { width: 256px; height: 256px; display: block; }
+  .map-shade { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(11,13,17,0.55) 0%, rgba(11,13,17,0) 30%, rgba(11,13,17,0) 62%, rgba(11,13,17,0.9) 100%); }
+  .route { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .maneuver { position: relative; margin: 18px; align-self: flex-start; display: flex; gap: 14px; align-items: center; padding: 14px 18px 14px 14px; border-radius: 22px; background: rgba(14, 16, 20, 0.82); box-shadow: inset 0 0 0 1px var(--edge); }
+  .maneuver .arrow { width: 52px; height: 52px; border-radius: 16px; background: var(--accent); display: grid; place-items: center; font-size: 30px; color: #06111f; }
+  .maneuver .dist { font-size: 28px; font-weight: 700; letter-spacing: -0.02em; }
+  .maneuver .street { font-size: 15px; color: var(--muted); margin-top: 2px; }
+  .puck { position: absolute; left: 50%; top: 66%; width: 30px; height: 30px; margin: -15px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 6px rgba(76,154,255,0.25), 0 0 0 3px #fff inset; }
+  .eta { position: relative; margin-top: auto; display: grid; grid-template-columns: repeat(3, 1fr); padding: 0 22px 20px; }
+  .eta b { display: block; font-size: 24px; font-weight: 600; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+  .eta span { font-size: 13px; color: var(--muted); }
+  .waze-badge { position: absolute; right: 18px; top: 18px; width: 44px; height: 44px; border-radius: 14px; background: #33ccff; display: grid; place-items: center; }
+  .waze-badge img { width: 26px; height: 26px; }
+
+  /* Now playing */
+  .np { padding: 22px; display: grid; grid-template-rows: auto 1fr auto; }
+  .np-head { display: flex; gap: 18px; align-items: center; }
+  .art { width: 112px; height: 112px; border-radius: 20px; object-fit: cover; flex: none; box-shadow: 0 10px 24px rgba(0,0,0,0.45); background: #222; }
+  .np-title { font-size: 24px; font-weight: 600; letter-spacing: -0.015em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .np-artist { font-size: 16px; color: var(--muted); margin-top: 4px; }
+  .np-src { display: inline-flex; align-items: center; gap: 6px; margin-top: 12px; font-size: 13px; color: var(--muted); }
+  .np-src img { width: 15px; height: 15px; }
+  .progress { align-self: end; margin-top: 18px; }
+  .bar { height: 5px; border-radius: 999px; background: rgba(255,255,255,0.12); overflow: hidden; }
+  .bar i { display: block; height: 100%; width: 38%; background: var(--text); border-radius: inherit; }
+  .times { display: flex; justify-content: space-between; font-size: 12px; color: var(--faint); margin-top: 6px; font-variant-numeric: tabular-nums; }
+  .controls { display: flex; justify-content: space-between; align-items: center; padding: 6px 18px 0; }
+  .controls button { font-size: 34px; width: 64px; height: 64px; display: grid; place-items: center; border-radius: 999px; }
+  .controls .play { width: 76px; height: 76px; font-size: 38px; background: var(--text); color: #0b0d11; }
+
+  /* Glance card */
+  .glance { padding: 22px 24px; display: flex; flex-direction: column; }
+  .date { font-size: 15px; font-weight: 600; color: var(--accent); }
+  .speed { margin-top: 10px; display: flex; align-items: baseline; gap: 8px; }
+  .speed b { font-size: 92px; line-height: 1; font-weight: 600; letter-spacing: -0.05em; font-variant-numeric: tabular-nums; }
+  .speed span { font-size: 18px; color: var(--muted); font-weight: 500; }
+  .weather { margin-top: auto; display: flex; align-items: center; gap: 12px; padding-top: 16px; border-top: 1px solid var(--edge); }
+  .weather i { font-size: 34px; color: #f5c451; }
+  .weather b { font-size: 22px; font-weight: 600; }
+  .weather span { display: block; font-size: 13px; color: var(--muted); }
+
+  /* App grid */
+  .apps { padding: 26px 28px; display: grid; grid-template-columns: repeat(4, 1fr); grid-template-rows: repeat(2, 1fr); gap: 12px 8px; }
+  .app { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; border-radius: 20px; }
+  .tile { width: 78px; height: 78px; border-radius: var(--r-tile); display: grid; place-items: center; box-shadow: inset 0 1px 0 rgba(255,255,255,0.18), 0 6px 16px rgba(0,0,0,0.35); }
+  .tile img { width: 44%; height: 44%; }
+  .tile i { font-size: 38px; color: #fff; }
+  .app span { font-size: 14px; font-weight: 500; color: #d9dde3; }
+
+  /* Sliders */
+  .sliders { padding: 18px 14px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .vs { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  .vs .val { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .track { flex: 1; width: 52px; border-radius: 999px; background: rgba(255,255,255,0.10); position: relative; overflow: hidden; touch-action: none; cursor: ns-resize; }
+  .track .fill { position: absolute; left: 0; right: 0; bottom: 0; background: var(--text); }
+  .track i { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); font-size: 24px; color: #0b0d11; mix-blend-mode: normal; pointer-events: none; }
+
+  /* Toast */
+  .toast { position: absolute; left: 50%; bottom: 28px; transform: translate(-50%, 20px); opacity: 0; padding: 12px 20px; border-radius: 999px; background: rgba(14,16,20,0.92); box-shadow: inset 0 0 0 1px var(--edge); font-size: 15px; pointer-events: none; transition: opacity 0.2s, transform 0.25s cubic-bezier(0.16,1,0.3,1); }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+</style>
+</head>
+<body>
+<div id="screen">
+
+  <aside class="rail">
+    <div class="clock" id="clock">08:30</div>
+    <div class="status"><i class="ph-fill ph-cell-signal-high"></i>LTE<i class="ph-fill ph-battery-charging-vertical"></i></div>
+    <nav class="dock">
+      <button class="tile press" style="background:#33ccff" data-app="Waze"><img src="https://cdn.simpleicons.org/waze/ffffff" alt="Waze"></button>
+      <button class="tile press" style="background:#1db954" data-app="Spotify"><img src="https://cdn.simpleicons.org/spotify/ffffff" alt="Spotify"></button>
+      <button class="tile press" style="background:#f2711c" data-app="Prambors"><i class="ph-fill ph-radio" style="font-size:30px"></i></button>
+    </nav>
+    <button class="all-apps press" data-app="All apps" aria-label="All apps"><i class="ph-bold ph-dots-nine"></i></button>
+  </aside>
+
+  <main class="main">
+    <section class="card map press" data-app="Waze">
+      <div class="map-tiles"><div class="grid" id="tiles"></div></div>
+      <svg class="route" viewBox="0 0 400 760" preserveAspectRatio="none" aria-hidden="true">
+        <path d="M200 520 L200 420 Q200 380 240 360 L300 330 Q330 315 330 280 L330 120" fill="none" stroke="#4c9aff" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" opacity="0.95"/>
+      </svg>
+      <div class="map-shade"></div>
+      <div class="puck"></div>
+      <div class="maneuver">
+        <div class="arrow"><i class="ph-bold ph-arrow-bend-up-right"></i></div>
+        <div><div class="dist">300 m</div><div class="street">Jl. Jend. Sudirman</div></div>
+      </div>
+      <div class="waze-badge"><img src="https://cdn.simpleicons.org/waze/ffffff" alt=""></div>
+      <div class="eta">
+        <div><b id="arrive">08:47</b><span>arrival</span></div>
+        <div><b>17 min</b><span>left</span></div>
+        <div><b>6.4 km</b><span>to go</span></div>
+      </div>
+    </section>
+
+    <div class="right">
+      <div class="top">
+        <section class="card np">
+          <div class="np-head">
+            <img class="art" src="https://picsum.photos/seed/night-drive-city-lights/240/240" alt="Album art">
+            <div style="min-width:0">
+              <div class="np-title">Secukupnya</div>
+              <div class="np-artist">Hindia</div>
+              <div class="np-src"><img src="https://cdn.simpleicons.org/spotify/1db954" alt="">Spotify</div>
+            </div>
+          </div>
+          <div class="progress">
+            <div class="bar"><i id="prog"></i></div>
+            <div class="times"><span id="tNow">1:31</span><span>4:02</span></div>
+          </div>
+          <div class="controls">
+            <button class="press" aria-label="Previous"><i class="ph-fill ph-skip-back"></i></button>
+            <button class="play press" id="play" aria-label="Pause"><i class="ph-fill ph-pause"></i></button>
+            <button class="press" aria-label="Next"><i class="ph-fill ph-skip-forward"></i></button>
+          </div>
+        </section>
+
+        <section class="card glance">
+          <div class="date" id="date">Sunday, 25 October</div>
+          <div class="speed"><b id="speed">48</b><span>km/h</span></div>
+          <div class="weather">
+            <i class="ph-fill ph-cloud-sun"></i>
+            <div><b>31°</b><span>Partly cloudy, Jakarta</span></div>
+          </div>
+        </section>
+      </div>
+
+      <div class="bottom">
+        <section class="card apps">
+          <button class="app press" data-app="Waze"><div class="tile" style="background:#33ccff"><img src="https://cdn.simpleicons.org/waze/ffffff" alt=""></div><span>Waze</span></button>
+          <button class="app press" data-app="Spotify"><div class="tile" style="background:#1db954"><img src="https://cdn.simpleicons.org/spotify/ffffff" alt=""></div><span>Spotify</span></button>
+          <button class="app press" data-app="YouTube Music"><div class="tile" style="background:#ff0033"><img src="https://cdn.simpleicons.org/youtubemusic/ffffff" alt=""></div><span>YT Music</span></button>
+          <button class="app press" data-app="Apple Music"><div class="tile" style="background:#fa243c"><img src="https://cdn.simpleicons.org/applemusic/ffffff" alt=""></div><span>Apple Music</span></button>
+          <button class="app press" data-app="Prambors"><div class="tile" style="background:#f2711c"><i class="ph-fill ph-radio"></i></div><span>Prambors</span></button>
+          <button class="app press" data-app="CarbitLink"><div class="tile" style="background:#2c6bed"><i class="ph-fill ph-car-profile"></i></div><span>CarbitLink</span></button>
+          <button class="app press" data-app="Chrome"><div class="tile" style="background:#f2f4f7"><img src="https://cdn.simpleicons.org/googlechrome" alt=""></div><span>Chrome</span></button>
+          <button class="app press" data-app="Settings"><div class="tile" style="background:#3a3f4a"><i class="ph-fill ph-gear-six"></i></div><span>Settings</span></button>
+        </section>
+
+        <section class="card sliders">
+          <div class="vs"><div class="track" data-k="vol" data-v="62"><div class="fill"></div><i class="ph-fill ph-speaker-high"></i></div><div class="val" id="vol">62%</div></div>
+          <div class="vs"><div class="track" data-k="bri" data-v="45"><div class="fill"></div><i class="ph-fill ph-sun"></i></div><div class="val" id="bri">45%</div></div>
+        </section>
+      </div>
+    </div>
+  </main>
+
+  <div class="toast" id="toast"></div>
+</div>
+
+<script>
+  // Fit the 1340x800 tablet canvas into whatever window shows it.
+  const screen = document.getElementById('screen');
+  function fit() {
+    const s = Math.min(innerWidth / 1340, innerHeight / 800);
+    screen.style.transform = `translate(-50%, -50%) scale(${s})`;
+  }
+  addEventListener('resize', fit); fit();
+
+  // Map tiles around Jl. Sudirman, Jakarta (OpenStreetMap, zoom 15).
+  const tiles = document.getElementById('tiles');
+  for (let y = 16949; y <= 16952; y++)
+    for (let x = 26105; x <= 26108; x++) {
+      const img = new Image();
+      img.src = `https://tile.openstreetmap.org/15/${x}/${y}.png`;
+      img.alt = '';
+      tiles.appendChild(img);
+    }
+
+  // Clock and date.
+  const pad = n => String(n).padStart(2, '0');
+  function tick() {
+    const d = new Date();
+    document.getElementById('clock').textContent = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    document.getElementById('date').textContent = d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
+    const a = new Date(d.getTime() + 17 * 60000);
+    document.getElementById('arrive').textContent = `${pad(a.getHours())}:${pad(a.getMinutes())}`;
+  }
+  tick(); setInterval(tick, 10000);
+
+  // Playback mock.
+  let playing = true, pos = 91; const len = 242;
+  const playBtn = document.getElementById('play');
+  playBtn.onclick = () => {
+    playing = !playing;
+    playBtn.innerHTML = `<i class="ph-fill ph-${playing ? 'pause' : 'play'}"></i>`;
+    playBtn.setAttribute('aria-label', playing ? 'Pause' : 'Play');
+  };
+  setInterval(() => {
+    if (!playing) return;
+    pos = (pos + 1) % len;
+    document.getElementById('prog').style.width = (pos / len * 100) + '%';
+    document.getElementById('tNow').textContent = `${Math.floor(pos / 60)}:${pad(pos % 60)}`;
+  }, 1000);
+
+  // Speed mock drifting like real traffic.
+  let v = 48;
+  setInterval(() => { v = Math.max(0, Math.min(72, v + Math.round((Math.random() - 0.5) * 6))); document.getElementById('speed').textContent = v; }, 1500);
+
+  // Vertical sliders.
+  document.querySelectorAll('.track').forEach(t => {
+    const fill = t.querySelector('.fill'), out = document.getElementById(t.dataset.k);
+    const set = val => { val = Math.max(0, Math.min(100, Math.round(val))); t.dataset.v = val; fill.style.height = val + '%'; out.textContent = val + '%'; };
+    set(+t.dataset.v);
+    const move = e => { const r = t.getBoundingClientRect(); set((r.bottom - e.clientY) / r.height * 100); };
+    t.addEventListener('pointerdown', e => { t.setPointerCapture(e.pointerId); move(e); t.onpointermove = move; });
+    t.addEventListener('pointerup', () => { t.onpointermove = null; });
+  });
+
+  // Tapping an app shows what the real launcher would open.
+  const toast = document.getElementById('toast'); let tt;
+  document.querySelectorAll('[data-app]').forEach(el => el.addEventListener('click', () => {
+    toast.textContent = `Opens ${el.dataset.app}`;
+    toast.classList.add('show'); clearTimeout(tt); tt = setTimeout(() => toast.classList.remove('show'), 1400);
+  }));
+</script>
+</body>
+</html>

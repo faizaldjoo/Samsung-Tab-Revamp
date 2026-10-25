@@ -1,0 +1,53 @@
+# Ads & tracking
+com.aura.oobe.samsung.gl
+com.samsung.android.app.spage
+com.samsung.android.app.settings.bixby
+com.samsung.android.intellivoiceservice
+com.samsung.android.bbc.bbcagent
+com.samsung.android.rubin.app
+com.samsung.android.dqagent
+com.sec.android.diagmonagent
+com.samsung.android.knox.analytics.uploader
+com.hiya.star
+com.netflix.mediaclient
+com.netflix.partner.activation
+com.microsoft.skydrive
+com.srin.indramayu
+com.android.egg
+# Unused Samsung extras
+com.samsung.android.game.gamehome
+com.samsung.android.game.gos  # disabled, not removed (One UI restores it)
+com.samsung.android.kidsinstaller
+com.sec.android.easyMover
+com.sec.android.easyMover.Agent
+com.samsung.android.smartswitchassistant
+com.samsung.android.stickercenter
+com.samsung.storyservice
+com.samsung.android.app.watchmanagerstub
+com.sec.android.widgetapp.webmanual
+com.sec.android.app.ve.vebgm
+com.samsung.android.mdecservice
+com.samsung.android.mdx.kit
+com.samsung.android.mdx.quickboard
+com.samsung.android.galaxycontinuity
+com.samsung.android.beaconmanager
+com.sec.android.app.billing
+# Car head-unit trim (round 2)
+com.samsung.android.app.routines
+com.samsung.android.app.appsedge
+com.samsung.android.app.taskedge
+com.samsung.android.app.clipboardedge
+com.samsung.android.app.cocktailbarservice
+com.samsung.android.service.peoplestripe
+com.samsung.android.forest
+com.samsung.SMT
+com.samsung.SMT.lang_de_de_f00
+com.samsung.SMT.lang_en_gb_f00
+com.samsung.SMT.lang_en_us_f00
+com.samsung.SMT.lang_es_es_f00
+com.samsung.SMT.lang_fr_fr_f00
+com.samsung.SMT.lang_it_it_f00
+com.samsung.SMT.lang_ru_ru_f00
+com.google.android.apps.messaging
+com.google.android.apps.tachyon
+com.google.android.projection.gearhead

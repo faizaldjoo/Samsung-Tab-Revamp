@@ -1,0 +1,5 @@
+# Mac-only Java download (re-download per computer)
+.tools/
+# Tablet screenshots can show personal tabs and notifications
+launcher-prototype/on-tablet*.png
+.DS_Store
