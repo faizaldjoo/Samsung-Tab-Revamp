@@ -311,8 +311,99 @@
   addEventListener('pointerdown', () => audioCtx && audioCtx.state === 'suspended' && audioCtx.resume());
   if (new URLSearchParams(location.search).has('mic')) startMic();
 
+  // ---- GPS director. Feed fixes with bbot.gps({ speed (m/s), heading (deg), lat, lon, accuracy (m) }), about 1 Hz.
+  //      The Android app feeds LocationManager fixes the same way; ?gps uses the browser's geolocation (secure origin needed,
+  //      like the mic). Events are derived here so the Java side stays a thin pipe. ----
+  const GPS = { limit: 110, hardBrake: 3.0, hardAccel: 2.5, turnRate: 25, idleWait: 25000, highway: 80, longDrive: 60 * 60000, home: null, homeR: 80 };
+  const GS = { last: null, kmh: 0, accel: 0, turn: 0, stoppedAt: 0, movingAt: 0, moving: false, cruiseAt: 0, fired: {}, atHome: null, info: '' };
+  const once = (key, every, t, fn) => { if (!GS.fired[key] || t - GS.fired[key] > every) { GS.fired[key] = t; fn(); } };
+  const dist = (a, b) => { const R = 6371000, dLat = (b.lat - a.lat) * Math.PI / 180, dLon = (b.lon - a.lon) * Math.PI / 180;
+    const x = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * Math.PI / 180) * Math.cos(b.lat * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+    return 2 * R * Math.asin(Math.sqrt(x)); };
+
+  function gpsFix(f) {
+    const t = f.t ?? performance.now();
+    if ((f.accuracy ?? 0) > 50) { GS.info = `gps: weak fix (±${Math.round(f.accuracy)} m)`; return; }
+    const speed = f.speed ?? 0, kmh = speed * 3.6;
+    if (GS.last) {
+      const dt = (t - GS.last.t) / 1000;
+      if (dt <= 0) return;
+      GS.accel = GS.accel * 0.5 + ((speed - (GS.last.speed ?? 0)) / dt) * 0.5;          // m/s², lightly smoothed
+      let dh = (f.heading ?? GS.last.heading ?? 0) - (GS.last.heading ?? 0);
+      dh = ((dh + 540) % 360) - 180;
+      GS.turn = kmh > 10 ? dh / dt : 0;                                                  // deg/s; heading is noise when crawling
+    }
+    GS.kmh = kmh; GS.last = { ...f, speed, t };
+
+    // Moving / stopped, with hysteresis so GPS jitter at a light doesn't flap.
+    if (!GS.moving && kmh > 6) {
+      GS.moving = true; GS.movingAt = GS.movingAt || t;
+      if (GS.stoppedAt && t - GS.stoppedAt > 8000) once('go', 10000, t, () => show('excited', ['bounce'], 2500));
+      GS.stoppedAt = 0;
+    } else if (GS.moving && kmh < 2) {
+      GS.moving = false; GS.stoppedAt = t; GS.cruiseAt = 0;
+    }
+
+    if (GS.moving) {
+      if (GS.accel < -GPS.hardBrake) once('brake', 6000, t, () => bbot.event('hard-brake'));
+      else if (GS.accel > GPS.hardAccel) once('accel', 6000, t, () => show('excited', ['boing'], 2500));
+      if (Math.abs(GS.turn) > GPS.turnRate) {
+        const dir = Math.sign(GS.turn);
+        once('turn', 3000, t, () => { show('focus', [], 2000); face.look(dir, 0, 2000); });
+      } else if (Math.abs(GS.turn) > 6) {
+        face.look(Math.max(-1, Math.min(1, GS.turn / 30)), -0.1, 1200);                // gentle bends: just glance into them
+      }
+      if (kmh > GPS.limit) once('speeding', 20000, t, () => bbot.event('speeding'));
+      if (kmh > GPS.highway) { GS.cruiseAt = GS.cruiseAt || t; if (t - GS.cruiseAt > 20000) once('cruise', 120000, t, () => show('focus', [], 6000)); }
+      else GS.cruiseAt = 0;
+      if (t - GS.movingAt > GPS.longDrive) once('long', 15 * 60000, t, () => show('sleepy', [], 8000));
+    } else if (GS.stoppedAt) {
+      const wait = t - GS.stoppedAt;
+      if (wait > GPS.idleWait) once('wait', 120000, t, () => show('bored', [], 6000));
+      if (wait > 90000) once('nap', 300000, t, () => show('sleepy', [], 10000));
+    }
+
+    if (GPS.home && f.lat != null) {
+      const home = dist(f, GPS.home) < GPS.homeR;
+      if (GS.atHome === false && home) once('home', 60000, t, () => bbot.event('arrived'));
+      if (GS.atHome === true && !home) once('leave', 60000, t, () => show('curious', ['boing'], 3000));
+      GS.atHome = home;
+    }
+    GS.info = `gps: ${kmh.toFixed(0)} km/h · ${GS.accel >= 0 ? '+' : ''}${GS.accel.toFixed(1)} m/s² · turn ${GS.turn.toFixed(0)}°/s · ${GS.moving ? 'moving' : 'stopped'}${GPS.home ? (GS.atHome ? ' · home' : ' · away') : ''}`;
+  }
+  EVENTS['hard-brake'] = () => show('scared', ['jitter'], 2500);
+
+  function startGps() {
+    if (!navigator.geolocation) { GS.info = 'gps: not available here'; return; }
+    navigator.geolocation.watchPosition(
+      pos => gpsFix({ lat: pos.coords.latitude, lon: pos.coords.longitude, speed: pos.coords.speed, heading: pos.coords.heading, accuracy: pos.coords.accuracy }),
+      err => { GS.info = 'gps: ' + err.message; },
+      { enableHighAccuracy: true, maximumAge: 0 });
+  }
+  if (new URLSearchParams(location.search).has('gps')) startGps();
+
+  // Scripted drive at 5x, 1 fix per simulated second. Each leg: [seconds, km/h at end, heading change in degrees].
+  let simTimer;
+  function simulateDrive() {
+    clearInterval(simTimer);
+    const legs = [[10, 0, 0], [6, 50, 0], [15, 50, 0], [3, 50, 90], [10, 50, 0], [3, 0, 0], [30, 0, 0], [8, 60, 0], [6, 60, -80],
+                  [12, 95, 0], [25, 95, 0], [6, 125, 0], [8, 125, 0], [10, 40, 0], [10, 40, 0], [4, 0, 0], [12, 0, 0]];
+    let leg = 0, i = 0, kmh = 0, heading = 0, lat = 3.139, lon = 101.687, t = 1;
+    const from = { kmh: 0, heading: 0 };
+    GPS.home = { lat, lon }; GS.atHome = null; GS.last = null; GS.fired = {}; GS.movingAt = 0; GS.stoppedAt = 0; GS.moving = false;
+    simTimer = setInterval(() => {
+      const [secs, toKmh, dh] = legs[leg], p = (i + 1) / secs;
+      kmh = from.kmh + (toKmh - from.kmh) * p; heading = from.heading + dh * p;
+      const m = kmh / 3.6; lat += m * Math.cos(heading * Math.PI / 180) / 111000; lon += m * Math.sin(heading * Math.PI / 180) / 111000;
+      gpsFix({ lat, lon, speed: m, heading: (heading + 360) % 360, accuracy: 8, t: t * 1000 });
+      t++;
+      if (++i >= secs) { i = 0; from.kmh = kmh; from.heading = heading; if (++leg >= legs.length) clearInterval(simTimer); }
+    }, 200);
+  }
+
   window.bbot = {
-    face, show, startMic, testFile, horn: HS,
+    face, show, startMic, testFile, horn: HS, gps: gpsFix, startGps, simulateDrive, gpsState: GS, gpsConfig: GPS,
+    setHome() { if (GS.last && GS.last.lat != null) GPS.home = { lat: GS.last.lat, lon: GS.last.lon }; },
     event(name) { (EVENTS[name] || (() => {}))(); },
     events: Object.keys(EVENTS),
   };
@@ -351,10 +442,21 @@
     for (const el of [pickLabel, asMusicLabel]) el.addEventListener('pointerdown', e => e.stopPropagation());
     pick.addEventListener('change', () => { if (pick.files[0]) testFile(pick.files[0], asMusic.checked); pick.value = ''; });
     bar.append(pickLabel, asMusicLabel, stop);
+
+    const gpsBtn = document.createElement('button');
+    gpsBtn.textContent = 'start gps'; gpsBtn.style.cssText = btnCss + ';border-color:#ffb547';
+    gpsBtn.addEventListener('pointerdown', e => { e.stopPropagation(); startGps(); });
+    const simBtn = document.createElement('button');
+    simBtn.textContent = 'simulate drive (5x)'; simBtn.style.cssText = btnCss + ';border-color:#ffb547';
+    simBtn.addEventListener('pointerdown', e => { e.stopPropagation(); simulateDrive(); });
+    const homeBtn = document.createElement('button');
+    homeBtn.textContent = 'set home here'; homeBtn.style.cssText = btnCss;
+    homeBtn.addEventListener('pointerdown', e => { e.stopPropagation(); bbot.setHome(); });
+    bar.append(gpsBtn, simBtn, homeBtn);
     const meter = document.createElement('div');
     meter.style.cssText = 'flex-basis:100%;font:500 14px Geist,system-ui;color:#9aa0a6;padding:4px 2px;font-variant-numeric:tabular-nums';
     bar.appendChild(meter);
-    setInterval(() => { meter.textContent = HS.on || HS.info ? HS.info : ''; }, 200);
+    setInterval(() => { meter.textContent = [HS.on || HS.info ? HS.info : '', GS.info].filter(Boolean).join('   |   '); }, 200);
     screenEl.appendChild(bar);
   }
 </script>
