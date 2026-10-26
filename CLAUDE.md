@@ -23,8 +23,9 @@ Driven over ADB from a computer on the same Wi-Fi (Wireless debugging; pair once
 - Preview: `python3 -m http.server 8765 --bind 0.0.0.0 --directory launcher-prototype`, open `http://<computer-ip>:8765/glass.html` on the tablet.
 
 ## Screensaver prototype
-- `launcher-prototype/screensaver.html`: lite robot-eyes screensaver (Canvas 2D, no WebGL, 30 fps cap), inspired by bbot.bwnd.app
-  (that site could not be opened from the cloud session, so the look is a guess). Plan: Android DreamService drawing the same on a Canvas.
+- `launcher-prototype/screensaver.html`: bbot face screensaver. bbot (github.com/bwndapp/bbot, MIT) is SVG + springs, no WebGL;
+  its bundle is vendored in `launcher-prototype/vendor/bbot/` (from commit 93b2080). The page adds mood cycling, night mode
+  (sleepy/sleep 22:00-06:00), burn-in drift, clock and colour swatches. Plan: Android DreamService with a WebView on the same files.
 
 ## Not decided / parked
 - Combined replacement for Easy Slider + Muviz Edge (2-finger volume / 3-finger brightness edge zone + screensaver). User paused it.
