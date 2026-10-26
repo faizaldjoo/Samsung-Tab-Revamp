@@ -218,8 +218,75 @@
     'battery-low': () => show('sleepy', [], 6000),
     'speeding':    () => show('scared', ['jitter'], 4000),
   };
+  EVENTS.horn = () => { show('scared', ['jitter', 'jitter'], 1600); setTimeout(() => show('annoyed', ['shake'], 3000), 1600); };
+  // While music plays the bar is higher, and right after it starts the detector holds off (a song's first chord looks like a horn).
+  let musicOn = false, musicAt = -1e9;
+  const playMusic = EVENTS['music-play'], pauseMusic = EVENTS['music-pause'];
+  EVENTS['music-play'] = () => { musicOn = true; musicAt = performance.now(); playMusic(); };
+  EVENTS['music-pause'] = () => { musicOn = false; pauseMusic(); };
+
+  // ---- Horn detector (microphone). A horn is loud, tonal and steady: one strong peak in 300-700 Hz with a harmonic above it,
+  //      well over the cabin's background level, holding the same pitch for 300 ms. Road noise isn't tonal, speech wobbles in pitch.
+  //      Thresholds are tuned on synthetic sounds only; tune them in the car with ?debug, which shows the live numbers.
+  //      getUserMedia needs a secure origin: on the tablet use `adb reverse tcp:8765 tcp:8765` and open http://localhost:8765. ----
+  const HS = { on: false, bg: null, since: 0, last: 0, prevHz: 0, info: '' };
+  const HORN = { tone: 20, loud: 10, loudMusic: 8, hold: 300, cooldown: 4000, musicGrace: 4000 };
+  let audioCtx;
+  async function startMic() {
+    if (HS.on) return;
+    HS.on = true;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        // Noise suppression would filter out exactly the steady tone we're after.
+        audio: { echoCancellation: true, noiseSuppression: false, autoGainControl: false },
+      });
+      audioCtx = new AudioContext();
+      const an = audioCtx.createAnalyser();
+      an.fftSize = 4096; an.smoothingTimeConstant = 0.3;
+      audioCtx.createMediaStreamSource(stream).connect(an);
+      const bins = new Float32Array(an.frequencyBinCount), hz = audioCtx.sampleRate / an.fftSize;
+      const lo = Math.round(300 / hz), hi = Math.round(700 / hz), top = Math.round(2000 / hz);
+      setInterval(() => { an.getFloatFrequencyData(bins); detectHorn(bins, hz, lo, hi, top); }, 50);
+    } catch (e) {
+      HS.on = false; HS.info = 'mic unavailable: ' + e.message;
+    }
+  }
+
+  function detectHorn(b, hz, lo, hi, top) {
+    const t = performance.now();
+    let pk = lo;
+    for (let i = lo; i <= hi; i++) if (b[i] > b[pk]) pk = i;
+    const band = Array.from(b.subarray(lo, top + 1)).sort((x, y) => x - y);
+    const floor = band[band.length >> 1];
+    let power = 0;
+    for (let i = lo; i <= top; i++) power += 10 ** (b[i] / 10);
+    const level = 10 * Math.log10(power);
+    const harm = Math.max(b[2 * pk - 1], b[2 * pk], b[2 * pk + 1]) - floor;
+    const tone = b[pk] - floor, peakHz = pk * hz;
+    if (HS.bg === null) HS.bg = level;
+    const loud = level - HS.bg;
+
+    const candidate = t - musicAt > HORN.musicGrace && tone > HORN.tone && harm > 10 && loud > (musicOn ? HORN.loudMusic : HORN.loud);
+    const steady = Math.abs(peakHz - HS.prevHz) < 30;
+    HS.prevHz = peakHz;
+    if (candidate && steady) {
+      if (!HS.since) HS.since = t;
+      if (t - HS.since > HORN.hold && t - HS.last > HORN.cooldown) { HS.last = t; bbot.event('horn'); }
+    } else {
+      HS.since = 0;
+    }
+    // Background follows the cabin level with a ~5 s lag (~1.5 s while music plays): a short honk barely moves it,
+    // but music lifts the bar until only something clearly louder than the music counts.
+    const k = musicOn ? 0.03 : 0.01;
+    HS.bg = HS.bg * (1 - k) + level * k;
+    HS.info = `loud +${loud.toFixed(0)} dB · tone ${tone.toFixed(0)} dB · ${peakHz.toFixed(0)} Hz${candidate ? ' · HORN?' : ''}`;
+  }
+  // Browsers start audio suspended until a touch.
+  addEventListener('pointerdown', () => audioCtx && audioCtx.state === 'suspended' && audioCtx.resume());
+  if (new URLSearchParams(location.search).has('mic')) startMic();
+
   window.bbot = {
-    face, show,
+    face, show, startMic, horn: HS,
     event(name) { (EVENTS[name] || (() => {}))(); },
     events: Object.keys(EVENTS),
   };
@@ -234,6 +301,15 @@
       b.addEventListener('pointerdown', e => { e.stopPropagation(); bbot.event(name); });
       bar.appendChild(b);
     }
+    const mic = document.createElement('button');
+    mic.textContent = 'start mic';
+    mic.style.cssText = bar.lastChild.style.cssText + ';border-color:#b6ff3b';
+    mic.addEventListener('pointerdown', e => { e.stopPropagation(); startMic(); });
+    bar.appendChild(mic);
+    const meter = document.createElement('div');
+    meter.style.cssText = 'flex-basis:100%;font:500 14px Geist,system-ui;color:#9aa0a6;padding:4px 2px;font-variant-numeric:tabular-nums';
+    bar.appendChild(meter);
+    setInterval(() => { meter.textContent = HS.on || HS.info ? HS.info : ''; }, 200);
     screenEl.appendChild(bar);
   }
 </script>
