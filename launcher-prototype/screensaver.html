@@ -12,6 +12,7 @@
      (mood cycling, reactions, night mode, burn-in drift) and a clock. Needs http://, not file:// (ES module). */
   :root {
     --text: #f7f8fa;
+    --muted: rgba(247, 248, 250, 0.72);
     --faint: rgba(247, 248, 250, 0.38);
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -20,31 +21,25 @@
   #screen { width: 1340px; height: 800px; position: absolute; left: 50%; top: 50%; overflow: hidden; transform-origin: center center; background: #000; }
 
   /* --face-skin must match what sits behind the head, or the lids seam (see bbot README). */
-  #bot { position: absolute; left: 50%; top: 46%; width: 520px; height: 520px; margin: -260px 0 0 -260px;
+  #bot { position: absolute; left: 50%; top: 38%; width: 520px; height: 520px; margin: -260px 0 0 -260px;
     --face-skin: #000; --face-ink: #e9ebec; --face-ring: #1c1f22; --face-pupil: #000; }
 
   .drift { position: absolute; inset: 0; will-change: transform; }
 
-  .clock { position: absolute; right: 28px; top: 22px; text-align: right; color: var(--faint); pointer-events: none; }
-  .clock .t { font-size: 34px; font-weight: 500; letter-spacing: 0.02em; font-variant-numeric: tabular-nums; }
-  .clock .d { font-size: 15px; margin-top: 1px; letter-spacing: 0.04em; }
+  /* Clock and weather sit under the face; the song scrolls in the bottom-right corner. */
+  .clock { position: absolute; left: 0; right: 0; top: 548px; text-align: center; color: var(--text); pointer-events: none; }
+  .clock .t { font-size: 96px; font-weight: 500; line-height: 1; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
+  .clock .w { font-size: 30px; margin-top: 12px; color: var(--muted); letter-spacing: 0.01em; display: flex; justify-content: center; align-items: center; gap: 14px; }
+  .clock .w .sep { width: 5px; height: 5px; border-radius: 50%; background: var(--faint); }
 
-  /* Now playing: mirrors the active media session (Android) or the local queue (browser). Hidden until a track is set. */
-  .player { position: absolute; left: 50%; bottom: 34px; transform: translateX(-50%); width: 640px; display: flex; align-items: center; gap: 18px;
-    padding: 14px 16px 14px 24px; border-radius: 24px; background: rgba(255,255,255,0.045); border: 1px solid rgba(255,255,255,0.09);
-    opacity: 0; pointer-events: none; transition: opacity 0.5s; }
-  .player.on { opacity: 1; pointer-events: auto; }
-  .player .meta { flex: 1; min-width: 0; }
-  .player .title { font-size: 20px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .player .artist { font-size: 15px; color: var(--faint); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .player .bar { height: 3px; border-radius: 2px; background: rgba(255,255,255,0.12); margin-top: 10px; overflow: hidden; }
-  .player .bar i { display: block; height: 100%; width: 0; background: var(--text); transition: width 0.5s linear; }
-  .player .ctl { display: flex; gap: 4px; flex: none; }
-  .player .ctl button { width: 54px; height: 54px; border-radius: 50%; display: grid; place-items: center; -webkit-tap-highlight-color: transparent; }
-  .player .ctl button:active { transform: scale(0.94); }
-  .player .ctl svg { width: 24px; height: 24px; fill: currentColor; }
-  .player .ctl .play { background: var(--text); color: #000; }
-  .player .ctl .play svg { width: 26px; height: 26px; }
+  .song { position: absolute; right: 28px; bottom: 28px; width: 420px; overflow: hidden; white-space: nowrap; font-size: 20px; color: var(--muted);
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+    opacity: 0; transition: opacity 0.5s; pointer-events: none; }
+  .song.on { opacity: 1; }
+  .song .track { display: inline-block; padding-right: 64px; animation: marquee 14s linear infinite; }
+  .song .track b { font-weight: 600; color: var(--text); }
+  @keyframes marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+  @media (prefers-reduced-motion: reduce) { .song .track { animation: none; } }
 
   .swatches { position: absolute; bottom: 44px; right: 28px; display: flex; gap: 10px; opacity: 0; pointer-events: none; transition: opacity 0.4s; }
   #screen.ui .swatches { opacity: 1; pointer-events: auto; }
@@ -56,15 +51,8 @@
 <div id="screen">
   <div class="drift" id="drift">
     <div id="bot"></div>
-    <div class="clock"><div class="t" id="time">--:--</div><div class="d" id="date"></div></div>
-    <div class="player" id="player">
-      <div class="meta"><div class="title" id="p-title"></div><div class="artist" id="p-artist"></div><div class="bar"><i id="p-bar"></i></div></div>
-      <div class="ctl">
-        <button data-cmd="prev" aria-label="Previous"><svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg></button>
-        <button data-cmd="toggle" class="play" aria-label="Play" id="p-play"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></button>
-        <button data-cmd="next" aria-label="Next"><svg viewBox="0 0 24 24"><path d="M16 6h2v12h-2zM6 18l8.5-6L6 6z"/></svg></button>
-      </div>
-    </div>
+    <div class="clock"><div class="t" id="time">--:--</div><div class="w"><span id="date"></span><span class="sep"></span><span id="weather">--&deg;</span></div></div>
+    <div class="song" id="song"><span class="track" id="song-text"></span></div>
   </div>
   <div class="swatches" id="swatches" aria-label="Face colour"></div>
 </div>
@@ -158,7 +146,7 @@
   function tick() {
     const d = new Date();
     timeEl.textContent = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    dateEl.textContent = d.toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long' });
+    dateEl.textContent = d.toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' });
   }
   setInterval(tick, 5000); tick();
 
@@ -298,28 +286,22 @@
     if (onset && musicOn && mood !== 'sleep') { BT.last = t; face.react('nod'); }
   }
 
-  // ---- Now playing panel. The host (Android) pushes state with bbot.player.set({...}) and takes commands through
-  //      bbot.player.control = cmd => ...  (cmd: 'play' | 'pause' | 'toggle' | 'next' | 'prev'). ----
-  const PL = { title: '', artist: '', duration: 0, position: 0, playing: false };
-  const playerEl = document.getElementById('player'), pTitle = document.getElementById('p-title'), pArtist = document.getElementById('p-artist'),
-        pBar = document.getElementById('p-bar'), pPlay = document.getElementById('p-play');
-  const ICON_PLAY = '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>', ICON_PAUSE = '<svg viewBox="0 0 24 24"><path d="M6 5h4v14H6zm8 0h4v14h-4z"/></svg>';
+  // ---- Now playing. The host (Android) pushes bbot.player.set({ title, artist, playing }) from the active media session;
+  //      the screensaver only shows it as a marquee, no controls. ----
+  const PL = { title: '', artist: '', playing: false };
+  const songEl = document.getElementById('song'), songText = document.getElementById('song-text');
+  const esc = x => String(x).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
   function renderPlayer() {
-    pTitle.textContent = PL.title; pArtist.textContent = PL.artist;
-    pBar.style.width = PL.duration ? `${Math.min(100, PL.position / PL.duration * 100)}%` : '0%';
-    pPlay.innerHTML = PL.playing ? ICON_PAUSE : ICON_PLAY; pPlay.setAttribute('aria-label', PL.playing ? 'Pause' : 'Play');
-    playerEl.classList.toggle('on', !!PL.title);
+    const line = PL.title ? `<b>${esc(PL.title)}</b>${PL.artist ? ' \u00b7 ' + esc(PL.artist) : ''}` : '';
+    // Two copies so the loop is seamless.
+    songText.innerHTML = line ? line + '<span style="display:inline-block;width:64px"></span>' + line : '';
+    songEl.classList.toggle('on', !!PL.title && PL.playing);
   }
   const player = {
     state: PL,
     control: null,
     set(s) { Object.assign(PL, s); renderPlayer(); },
-    position(sec) { PL.position = sec; pBar.style.width = PL.duration ? `${Math.min(100, sec / PL.duration * 100)}%` : '0%'; },
   };
-  // The panel's own touches must not count as face gestures.
-  playerEl.addEventListener('pointerdown', e => e.stopPropagation());
-  playerEl.addEventListener('pointerup', e => e.stopPropagation());
-  playerEl.querySelectorAll('[data-cmd]').forEach(b => b.addEventListener('click', () => player.control && player.control(b.dataset.cmd)));
 
   // ---- Browser-side player: a queue of local files, routed through the analyser so horn/beat detection hear it. ----
   const Q = { files: [], i: -1, audio: null, src: null, notify: true };
@@ -359,14 +341,12 @@
       Q.src.connect(audioCtx.destination); listenTo(Q.src);
       Q.audio.addEventListener('play', () => { player.set({ playing: true }); if (Q.notify) bbot.event('music-play'); });
       Q.audio.addEventListener('pause', () => { player.set({ playing: false }); if (Q.notify && !Q.audio.ended) bbot.event('music-pause'); });
-      Q.audio.addEventListener('timeupdate', () => player.position(Q.audio.currentTime));
-      Q.audio.addEventListener('durationchange', () => player.set({ duration: Q.audio.duration || 0 }));
       Q.audio.addEventListener('ended', () => playIndex(Q.i + 1));
     }
     if (Q.audio.src) URL.revokeObjectURL(Q.audio.src);
     Q.audio.src = URL.createObjectURL(file);
     const tags = await tagsOf(file);
-    player.set({ title: tags.title || file.name.replace(/\.[^.]+$/, ''), artist: tags.artist || 'Local file', position: 0, duration: 0 });
+    player.set({ title: tags.title || file.name.replace(/\.[^.]+$/, ''), artist: tags.artist || 'Local file' });
     Q.audio.play();
   }
   player.control = cmd => {
@@ -501,8 +481,26 @@
     }, 200);
   }
 
+  // ---- Weather. Open-Meteo at the last GPS fix (fallback: Kuala Lumpur), refreshed every 20 min. The Android app may push
+  //      bbot.weather.set({ temp, text }) instead; the published test page cannot fetch, so it keeps the placeholder. ----
+  const WX = { 0: 'Clear', 1: 'Mostly clear', 2: 'Partly cloudy', 3: 'Cloudy', 45: 'Fog', 48: 'Fog', 51: 'Drizzle', 53: 'Drizzle', 55: 'Drizzle',
+               61: 'Rain', 63: 'Rain', 65: 'Heavy rain', 80: 'Showers', 81: 'Showers', 82: 'Heavy showers', 95: 'Thunderstorm', 96: 'Thunderstorm', 99: 'Thunderstorm' };
+  const weatherEl = document.getElementById('weather');
+  const weather = {
+    set({ temp, text }) { weatherEl.textContent = `${Math.round(temp)}\u00b0${text ? ' ' + text : ''}`; },
+    async refresh() {
+      const lat = GS.last?.lat ?? 3.139, lon = GS.last?.lon ?? 101.687;
+      try {
+        const r = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code`);
+        const j = await r.json();
+        weather.set({ temp: j.current.temperature_2m, text: WX[j.current.weather_code] || '' });
+      } catch (e) { /* offline or blocked: keep what is shown */ }
+    },
+  };
+  weather.refresh(); setInterval(weather.refresh, 20 * 60000);
+
   window.bbot = {
-    face, show, startMic, player, queueFiles, horn: HS, gps: gpsFix, startGps, simulateDrive, gpsState: GS, gpsConfig: GPS,
+    face, show, startMic, player, weather, queueFiles, horn: HS, gps: gpsFix, startGps, simulateDrive, gpsState: GS, gpsConfig: GPS,
     setHome() { if (GS.last && GS.last.lat != null) GPS.home = { lat: GS.last.lat, lon: GS.last.lon }; },
     event(name) { (EVENTS[name] || (() => {}))(); },
     events: Object.keys(EVENTS),
