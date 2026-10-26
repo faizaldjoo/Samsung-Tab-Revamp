@@ -35,6 +35,10 @@ Driven over ADB from a computer on the same Wi-Fi (Wireless debugging; pair once
 - GPS director (`?gps` or `bbot.gps({speed,heading,lat,lon,accuracy})`): pull-away, hard brake/accel, sharp turn (look into it),
   waiting at a light -> bored/sleepy, highway cruise, speeding (>110), long drive, home geofence (`bbot.setHome()`). Thresholds in `GPS`;
   `?debug` has "simulate drive (5x)". Android side: LocationManager fixes piped to `bbot.gps(...)` at 1 Hz.
+- Now playing panel (bottom): `bbot.player.set({title, artist, art, duration, position, playing})`, `bbot.player.position(sec)`,
+  commands via `bbot.player.control = cmd => ...` ('play'|'pause'|'toggle'|'next'|'prev'). Browser build has a local-file queue
+  ("add songs", reads ID3 title/artist/art) routed through the analyser; face nods on bass onsets while music-play is on.
+  Android side: MediaSessionManager -> active MediaController metadata/playback state -> set(); control -> transportControls.
 - Published test page (debug bar on, mouth off, no head ring; user wants that look, repo not yet changed): https://claude.ai/artifact/9XmBNmuNQU7BJHVGpu4E5T
 
 ## Not decided / parked
