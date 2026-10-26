@@ -229,27 +229,52 @@
   //      well over the cabin's background level, holding the same pitch for 300 ms. Road noise isn't tonal, speech wobbles in pitch.
   //      Thresholds are tuned on synthetic sounds only; tune them in the car with ?debug, which shows the live numbers.
   //      getUserMedia needs a secure origin: on the tablet use `adb reverse tcp:8765 tcp:8765` and open http://localhost:8765. ----
-  const HS = { on: false, bg: null, since: 0, last: 0, prevHz: 0, info: '' };
+  const HS = { on: false, bg: null, since: 0, last: 0, prevHz: 0, info: '', count: 0 };
   const HORN = { tone: 20, loud: 10, loudMusic: 8, hold: 300, cooldown: 4000, musicGrace: 4000 };
   let audioCtx;
-  async function startMic() {
-    if (HS.on) return;
+  // One analyser, fed by the microphone and/or a test audio file.
+  let analyser;
+  function listenTo(source) {
+    if (!analyser) {
+      analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 4096; analyser.smoothingTimeConstant = 0.3;
+      const bins = new Float32Array(analyser.frequencyBinCount), hz = audioCtx.sampleRate / analyser.fftSize;
+      const lo = Math.round(300 / hz), hi = Math.round(700 / hz), top = Math.round(2000 / hz);
+      setInterval(() => { analyser.getFloatFrequencyData(bins); detectHorn(bins, hz, lo, hi, top); }, 50);
+    }
+    source.connect(analyser);
     HS.on = true;
+  }
+
+  async function startMic() {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         // Noise suppression would filter out exactly the steady tone we're after.
         audio: { echoCancellation: true, noiseSuppression: false, autoGainControl: false },
       });
-      audioCtx = new AudioContext();
-      const an = audioCtx.createAnalyser();
-      an.fftSize = 4096; an.smoothingTimeConstant = 0.3;
-      audioCtx.createMediaStreamSource(stream).connect(an);
-      const bins = new Float32Array(an.frequencyBinCount), hz = audioCtx.sampleRate / an.fftSize;
-      const lo = Math.round(300 / hz), hi = Math.round(700 / hz), top = Math.round(2000 / hz);
-      setInterval(() => { an.getFloatFrequencyData(bins); detectHorn(bins, hz, lo, hi, top); }, 50);
+      audioCtx = audioCtx || new AudioContext();
+      listenTo(audioCtx.createMediaStreamSource(stream));
     } catch (e) {
-      HS.on = false; HS.info = 'mic unavailable: ' + e.message;
+      HS.info = 'Microphone not available here (' + e.name + '). Use "test audio file" instead.';
     }
+  }
+
+  // Plays a chosen file through the speakers and the detector at the same time. With asMusic the app "knows" it is
+  // music (like it will know its own player), so the 4 s grace and the higher bar apply.
+  let testAudio;
+  function testFile(file, asMusic) {
+    audioCtx = audioCtx || new AudioContext();
+    audioCtx.resume();
+    if (testAudio) { testAudio.pause(); URL.revokeObjectURL(testAudio.src); }
+    testAudio = new Audio(URL.createObjectURL(file));
+    const src = audioCtx.createMediaElementSource(testAudio);
+    src.connect(audioCtx.destination);
+    listenTo(src);
+    if (asMusic) {
+      testAudio.addEventListener('play', () => bbot.event('music-play'));
+      testAudio.addEventListener('pause', () => bbot.event('music-pause'));
+    }
+    testAudio.play();
   }
 
   function detectHorn(b, hz, lo, hi, top) {
@@ -271,22 +296,23 @@
     HS.prevHz = peakHz;
     if (candidate && steady) {
       if (!HS.since) HS.since = t;
-      if (t - HS.since > HORN.hold && t - HS.last > HORN.cooldown) { HS.last = t; bbot.event('horn'); }
+      if (t - HS.since > HORN.hold && t - HS.last > HORN.cooldown) { HS.last = t; HS.count++; bbot.event('horn'); }
     } else {
       HS.since = 0;
     }
     // Background follows the cabin level with a ~5 s lag (~1.5 s while music plays): a short honk barely moves it,
     // but music lifts the bar until only something clearly louder than the music counts.
     const k = musicOn ? 0.03 : 0.01;
-    HS.bg = HS.bg * (1 - k) + level * k;
-    HS.info = `loud +${loud.toFixed(0)} dB · tone ${tone.toFixed(0)} dB · ${peakHz.toFixed(0)} Hz${candidate ? ' · HORN?' : ''}`;
+    // Digital silence (a test file ended, mic muted) would drag the background to nothing; ignore it.
+    if (level > -110) HS.bg = HS.bg * (1 - k) + level * k;
+    HS.info = `horns ${HS.count} · ${musicOn ? 'music on · ' : ''}loud +${loud.toFixed(0)} dB · tone ${tone.toFixed(0)} dB · ${peakHz.toFixed(0)} Hz${candidate ? ' · HORN?' : ''}`;
   }
   // Browsers start audio suspended until a touch.
   addEventListener('pointerdown', () => audioCtx && audioCtx.state === 'suspended' && audioCtx.resume());
   if (new URLSearchParams(location.search).has('mic')) startMic();
 
   window.bbot = {
-    face, show, startMic, horn: HS,
+    face, show, startMic, testFile, horn: HS,
     event(name) { (EVENTS[name] || (() => {}))(); },
     events: Object.keys(EVENTS),
   };
@@ -301,11 +327,30 @@
       b.addEventListener('pointerdown', e => { e.stopPropagation(); bbot.event(name); });
       bar.appendChild(b);
     }
+    const btnCss = bar.lastChild.style.cssText;
     const mic = document.createElement('button');
     mic.textContent = 'start mic';
-    mic.style.cssText = bar.lastChild.style.cssText + ';border-color:#b6ff3b';
+    mic.style.cssText = btnCss + ';border-color:#b6ff3b';
     mic.addEventListener('pointerdown', e => { e.stopPropagation(); startMic(); });
     bar.appendChild(mic);
+
+    const pickLabel = document.createElement('label');
+    pickLabel.textContent = 'test audio file';
+    pickLabel.style.cssText = btnCss + ';border-color:#5ec8ff';
+    const pick = document.createElement('input');
+    pick.type = 'file'; pick.accept = 'audio/*'; pick.id = 'test-file'; pick.hidden = true;
+    pickLabel.appendChild(pick);
+    const asMusicLabel = document.createElement('label');
+    asMusicLabel.style.cssText = 'font:500 14px Geist,system-ui;color:#c9cdd1;display:flex;align-items:center;gap:6px;padding:0 6px;cursor:pointer';
+    const asMusic = document.createElement('input');
+    asMusic.type = 'checkbox'; asMusic.id = 'as-music'; asMusic.checked = true;
+    asMusicLabel.append(asMusic, 'treat as car music');
+    const stop = document.createElement('button');
+    stop.textContent = 'stop'; stop.style.cssText = btnCss;
+    stop.addEventListener('pointerdown', e => { e.stopPropagation(); testAudio && testAudio.pause(); });
+    for (const el of [pickLabel, asMusicLabel]) el.addEventListener('pointerdown', e => e.stopPropagation());
+    pick.addEventListener('change', () => { if (pick.files[0]) testFile(pick.files[0], asMusic.checked); pick.value = ''; });
+    bar.append(pickLabel, asMusicLabel, stop);
     const meter = document.createElement('div');
     meter.style.cssText = 'flex-basis:100%;font:500 14px Geist,system-ui;color:#9aa0a6;padding:4px 2px;font-variant-numeric:tabular-nums';
     bar.appendChild(meter);
