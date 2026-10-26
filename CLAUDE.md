@@ -22,5 +22,9 @@ Driven over ADB from a computer on the same Wi-Fi (Wireless debugging; pair once
   Blur the wallpaper once at set time instead of live blur (weak GPU).
 - Preview: `python3 -m http.server 8765 --bind 0.0.0.0 --directory launcher-prototype`, open `http://<computer-ip>:8765/glass.html` on the tablet.
 
+## Screensaver prototype
+- `launcher-prototype/screensaver.html`: lite robot-eyes screensaver (Canvas 2D, no WebGL, 30 fps cap), inspired by bbot.bwnd.app
+  (that site could not be opened from the cloud session, so the look is a guess). Plan: Android DreamService drawing the same on a Canvas.
+
 ## Not decided / parked
 - Combined replacement for Easy Slider + Muviz Edge (2-finger volume / 3-finger brightness edge zone + screensaver). User paused it.

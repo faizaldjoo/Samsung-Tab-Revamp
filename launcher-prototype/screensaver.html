@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Robot Screensaver</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  /* Lite robot-face screensaver: plain Canvas 2D, no WebGL, no blur filters, capped at 30 fps.
+     Eyes are drawn on an offscreen canvas and the eyelids are cut out with destination-out,
+     so the whole frame is a handful of fills. Maps 1:1 to a Canvas in an Android DreamService later. */
+  :root {
+    --text: #f7f8fa;
+    --faint: rgba(247, 248, 250, 0.38);
+    --eye: #5ef0ff;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; background: #000; color: var(--text); font-family: "Geist", system-ui, sans-serif; overflow: hidden; -webkit-font-smoothing: antialiased; }
+
+  #screen { width: 1340px; height: 800px; position: absolute; left: 50%; top: 50%; overflow: hidden; transform-origin: center center;
+    background: radial-gradient(ellipse 70% 60% at 50% 45%, #0b1518 0%, #030506 70%, #000 100%); }
+  canvas { position: absolute; inset: 0; width: 1340px; height: 800px; }
+
+  .clock { position: absolute; left: 0; right: 0; bottom: 44px; text-align: center; color: var(--faint); pointer-events: none; transition: transform 4s ease; }
+  .clock .t { font-size: 44px; font-weight: 500; letter-spacing: 0.02em; font-variant-numeric: tabular-nums; }
+  .clock .d { font-size: 17px; margin-top: 2px; letter-spacing: 0.04em; }
+
+  .swatches { position: absolute; top: 22px; right: 24px; display: flex; gap: 10px; opacity: 0; transition: opacity 0.4s; }
+  #screen.ui .swatches { opacity: 1; }
+  .swatches button { width: 30px; height: 30px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.25); cursor: pointer; -webkit-tap-highlight-color: transparent; }
+  .swatches button[aria-pressed="true"] { border-color: #fff; }
+</style>
+</head>
+<body>
+<div id="screen">
+  <canvas id="c" width="1340" height="800"></canvas>
+  <div class="clock" id="clock"><div class="t" id="time">--:--</div><div class="d" id="date"></div></div>
+  <div class="swatches" id="swatches" aria-label="Eye colour"></div>
+</div>
+
+<script>
+  const W = 1340, H = 800, FPS = 30;
+  const screenEl = document.getElementById('screen');
+  const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+  const off = document.createElement('canvas'); off.width = W; off.height = H;
+  const oc = off.getContext('2d');
+
+  // Fit the 1340x800 design canvas to any window, same as glass.html.
+  function fit() {
+    const s = Math.min(innerWidth / W, innerHeight / H);
+    screenEl.style.transform = `translate(-50%, -50%) scale(${s})`;
+  }
+  addEventListener('resize', fit); fit();
+
+  // ---- Eye colour (tap the screen to show the swatches) ----
+  const COLORS = ['#5ef0ff', '#7dff9b', '#ffb547', '#ff6b9a', '#f7f8fa'];
+  let eyeColor = COLORS[0];
+  try { eyeColor = localStorage.getItem('bbot-color') || eyeColor; } catch (e) {}
+  const sw = document.getElementById('swatches');
+  COLORS.forEach(c => {
+    const b = document.createElement('button');
+    b.style.background = c; b.setAttribute('aria-label', c);
+    b.setAttribute('aria-pressed', c === eyeColor);
+    b.onclick = e => {
+      e.stopPropagation(); eyeColor = c;
+      sw.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', x === b));
+      try { localStorage.setItem('bbot-color', c); } catch (err) {}
+    };
+    sw.appendChild(b);
+  });
+
+  // ---- Moods: target shape for each eye. lidT = top lid cover (0..1), tilt = lid slant (px, + = inner corner down),
+  //      lidB = happy bottom arch (0..1), w/h = eye size. ----
+  const MOODS = {
+    neutral:   { w: 180, h: 230, lidT: 0,    tilt: 0,   lidB: 0 },
+    happy:     { w: 190, h: 220, lidT: 0,    tilt: 0,   lidB: 0.5 },
+    sleepy:    { w: 190, h: 210, lidT: 0.55, tilt: -6,  lidB: 0.08 },
+    curious:   { w: 180, h: 230, lidT: 0,    tilt: 0,   lidB: 0, skew: 0.18 },
+    focused:   { w: 190, h: 200, lidT: 0.28, tilt: 26,  lidB: 0.1 },
+    sad:       { w: 175, h: 215, lidT: 0.22, tilt: -28, lidB: 0 },
+    surprised: { w: 165, h: 270, lidT: 0,    tilt: 0,   lidB: 0 },
+  };
+  // Weighted so the face is mostly calm; sleepy shows more at night.
+  function pickMood() {
+    const hr = new Date().getHours(), night = hr >= 22 || hr < 6;
+    const bag = ['neutral','neutral','neutral','happy','happy','curious','curious','focused','sad','surprised',
+                 'sleepy', ...(night ? ['sleepy','sleepy','sleepy'] : [])];
+    let m; do { m = bag[Math.floor(Math.random() * bag.length)]; } while (m === state.mood);
+    return m;
+  }
+
+  // Current (animated) values per eye; eased toward the target every frame.
+  const mk = () => ({ w: 180, h: 230, lidT: 0, tilt: 0, lidB: 0 });
+  const eyes = [mk(), mk()];
+  const state = { mood: 'neutral', gx: 0, gy: 0, tgx: 0, tgy: 0, blink: 0, blinkT: -1,
+                  nextBlink: 0, nextLook: 0, nextMood: 0, driftX: 0, driftY: 0, react: 0 };
+
+  function targetFor(i) {
+    const m = MOODS[state.mood];
+    const t = { w: m.w, h: m.h, lidT: m.lidT, tilt: m.tilt, lidB: m.lidB };
+    if (m.skew) { const k = i === 0 ? 1 + m.skew : 1 - m.skew; t.h *= k; t.lidT = i === 0 ? 0 : 0.15; }
+    // Perspective: the eye on the side we look toward grows a little, the far one shrinks.
+    const side = (i === 0 ? -1 : 1) * state.gx / 140;
+    t.w *= 1 + side * 0.08; t.h *= 1 + side * 0.08;
+    return t;
+  }
+
+  // ---- Drawing ----
+  function roundRect(c, x, y, w, h, r) {
+    r = Math.min(r, w / 2, h / 2);
+    c.beginPath();
+    c.moveTo(x + r, y); c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r);
+    c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath();
+  }
+
+  function drawEye(c, e, cx, cy, i) {
+    const h = Math.max(e.h * (1 - state.blink), 10), w = e.w;
+    const x = cx - w / 2, y = cy - h / 2;
+    c.globalCompositeOperation = 'source-over';
+    c.fillStyle = eyeColor;
+    roundRect(c, x, y, w, h, 48); c.fill();
+
+    c.globalCompositeOperation = 'destination-out';
+    c.fillStyle = '#000';
+    // Top lid: a slanted band; inner corner is the side facing the other eye.
+    if (e.lidT > 0.01) {
+      const ly = y + e.lidT * h, s = i === 0 ? 1 : -1;
+      c.beginPath();
+      c.moveTo(x - 20, y - 20); c.lineTo(x + w + 20, y - 20);
+      c.lineTo(x + w + 20, ly - e.tilt * s); c.lineTo(x - 20, ly + e.tilt * s);
+      c.closePath(); c.fill();
+    }
+    // Bottom arch: a big circle rising from below turns the eye into a smiling ^ shape.
+    if (e.lidB > 0.01) {
+      const R = w * 0.9, top = y + h - e.lidB * h;
+      c.beginPath(); c.arc(cx, top + R, R, 0, Math.PI * 2); c.fill();
+    }
+  }
+
+  // Cheap glow instead of a blur filter: shrink the eye layer in halving steps to 1/16 size, then stretch it back up.
+  // Halving each step averages pixels (one big jump would just skip them), and bilinear stretching makes the halo soft.
+  const mips = [2, 4, 8, 16].map(d => {
+    const c = document.createElement('canvas'); c.width = W / d; c.height = H / d;
+    return c.getContext('2d');
+  });
+  function composite() {
+    let src = off;
+    for (const m of mips) {
+      m.clearRect(0, 0, m.canvas.width, m.canvas.height);
+      m.drawImage(src, 0, 0, m.canvas.width, m.canvas.height);
+      src = m.canvas;
+    }
+    ctx.clearRect(0, 0, W, H);
+    ctx.imageSmoothingEnabled = true;
+    ctx.globalAlpha = 0.9;
+    ctx.drawImage(mips[3].canvas, 0, 0, W, H);
+    ctx.globalAlpha = 0.6;
+    ctx.drawImage(mips[1].canvas, 0, 0, W, H);
+    ctx.globalAlpha = 1;
+    ctx.drawImage(off, 0, 0);
+  }
+
+  let zzz = [];
+  function drawZ(t) {
+    if (state.mood !== 'sleepy') { zzz = []; return; }
+    if (!zzz.length || t - zzz[zzz.length - 1].t0 > 1400) zzz.push({ t0: t });
+    ctx.fillStyle = eyeColor; ctx.textAlign = 'center';
+    zzz = zzz.filter(z => t - z.t0 < 4200);
+    for (const z of zzz) {
+      const p = (t - z.t0) / 4200;
+      ctx.globalAlpha = Math.sin(p * Math.PI) * 0.6;
+      ctx.font = `600 ${22 + p * 26}px Geist, system-ui, sans-serif`;
+      ctx.fillText('z', state.cx + 230 + p * 90, state.cy - 150 - p * 140);
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  // ---- Behaviour loop ----
+  const rand = (a, b) => a + Math.random() * (b - a);
+  const ease = (cur, tgt, k) => cur + (tgt - cur) * k;
+
+  function step(t) {
+    if (t > state.nextMood) {
+      state.mood = pickMood();
+      state.nextMood = t + rand(8000, 16000);
+      if (state.mood === 'surprised') state.nextMood = t + 2500;
+    }
+    if (t > state.nextLook) {
+      const sleepy = state.mood === 'sleepy';
+      state.tgx = Math.random() < 0.35 ? 0 : rand(-140, 140);
+      state.tgy = sleepy ? rand(20, 50) : (state.mood === 'sad' ? rand(30, 60) : rand(-55, 45));
+      state.nextLook = t + (sleepy ? rand(3000, 6000) : rand(900, 3200));
+    }
+    if (state.blinkT < 0 && t > state.nextBlink) {
+      state.blinkT = t;
+      const dbl = Math.random() < 0.2;
+      state.nextBlink = t + (dbl ? 260 : rand(2500, 6000)) * (state.mood === 'sleepy' ? 1.6 : 1);
+    }
+    if (state.blinkT >= 0) {
+      const d = state.mood === 'sleepy' ? 420 : 180, p = (t - state.blinkT) / d;
+      state.blink = p >= 1 ? 0 : Math.sin(p * Math.PI) * 0.92;
+      if (p >= 1) state.blinkT = -1;
+    }
+
+    // Saccades are quick, sleepy looks are slow.
+    const gk = state.mood === 'sleepy' ? 0.05 : 0.28;
+    state.gx = ease(state.gx, state.tgx, gk); state.gy = ease(state.gy, state.tgy, gk);
+
+    // Slow drift of the whole face (and clock) to avoid LCD image retention on a screen left on for hours.
+    state.driftX = Math.sin(t / 47000) * 40; state.driftY = Math.cos(t / 61000) * 20;
+    state.cx = W / 2 + state.driftX + state.gx;
+    state.cy = H / 2 - 30 + state.driftY + state.gy + (state.mood === 'sleepy' ? 12 : 0);
+
+    eyes.forEach((e, i) => {
+      const tg = targetFor(i);
+      for (const k of ['w', 'h', 'lidT', 'tilt', 'lidB']) e[k] = ease(e[k], tg[k], 0.16);
+    });
+
+    oc.clearRect(0, 0, W, H);
+    const gap = 150;
+    drawEye(oc, eyes[0], state.cx - gap - eyes[0].w / 2 + 90, state.cy, 0);
+    drawEye(oc, eyes[1], state.cx + gap + eyes[1].w / 2 - 90, state.cy, 1);
+    oc.globalCompositeOperation = 'source-over';
+    composite();
+    drawZ(t);
+  }
+
+  // 30 fps cap; pause entirely when the page is hidden.
+  let last = 0;
+  function loop(t) {
+    requestAnimationFrame(loop);
+    if (t - last < 1000 / FPS - 2) return;
+    last = t; step(t);
+  }
+  requestAnimationFrame(loop);
+
+  // ---- Clock ----
+  const timeEl = document.getElementById('time'), dateEl = document.getElementById('date'), clockEl = document.getElementById('clock');
+  function tick() {
+    const d = new Date();
+    timeEl.textContent = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    dateEl.textContent = d.toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long' });
+    clockEl.style.transform = `translate(${state.driftX.toFixed(1)}px, ${state.driftY.toFixed(1)}px)`;
+  }
+  setInterval(tick, 5000); tick();
+
+  // ---- Touch: the robot reacts and the colour swatches appear for a few seconds.
+  //      (In the real Android screensaver a tap would close it instead.) ----
+  let uiTimer;
+  screenEl.addEventListener('pointerdown', () => {
+    state.mood = Math.random() < 0.5 ? 'surprised' : 'happy';
+    state.nextMood = performance.now() + 2500;
+    state.tgx = 0; state.tgy = -20;
+    screenEl.classList.add('ui');
+    clearTimeout(uiTimer); uiTimer = setTimeout(() => screenEl.classList.remove('ui'), 4000);
+  });
+</script>
+</body>
+</html>
