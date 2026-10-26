@@ -31,11 +31,9 @@
 
   /* Now playing: mirrors the active media session (Android) or the local queue (browser). Hidden until a track is set. */
   .player { position: absolute; left: 50%; bottom: 34px; transform: translateX(-50%); width: 640px; display: flex; align-items: center; gap: 18px;
-    padding: 14px 16px 14px 14px; border-radius: 24px; background: rgba(255,255,255,0.045); border: 1px solid rgba(255,255,255,0.09);
+    padding: 14px 16px 14px 24px; border-radius: 24px; background: rgba(255,255,255,0.045); border: 1px solid rgba(255,255,255,0.09);
     opacity: 0; pointer-events: none; transition: opacity 0.5s; }
   .player.on { opacity: 1; pointer-events: auto; }
-  .player .art { width: 68px; height: 68px; border-radius: 14px; flex: none; background: #15181b center / cover no-repeat; display: grid; place-items: center; color: var(--faint); }
-  .player .art svg { width: 28px; height: 28px; }
   .player .meta { flex: 1; min-width: 0; }
   .player .title { font-size: 20px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .player .artist { font-size: 15px; color: var(--faint); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -60,7 +58,6 @@
     <div id="bot"></div>
     <div class="clock"><div class="t" id="time">--:--</div><div class="d" id="date"></div></div>
     <div class="player" id="player">
-      <div class="art" id="p-art"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z"/></svg></div>
       <div class="meta"><div class="title" id="p-title"></div><div class="artist" id="p-artist"></div><div class="bar"><i id="p-bar"></i></div></div>
       <div class="ctl">
         <button data-cmd="prev" aria-label="Previous"><svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg></button>
@@ -303,13 +300,12 @@
 
   // ---- Now playing panel. The host (Android) pushes state with bbot.player.set({...}) and takes commands through
   //      bbot.player.control = cmd => ...  (cmd: 'play' | 'pause' | 'toggle' | 'next' | 'prev'). ----
-  const PL = { title: '', artist: '', art: '', duration: 0, position: 0, playing: false };
+  const PL = { title: '', artist: '', duration: 0, position: 0, playing: false };
   const playerEl = document.getElementById('player'), pTitle = document.getElementById('p-title'), pArtist = document.getElementById('p-artist'),
-        pArt = document.getElementById('p-art'), pBar = document.getElementById('p-bar'), pPlay = document.getElementById('p-play');
+        pBar = document.getElementById('p-bar'), pPlay = document.getElementById('p-play');
   const ICON_PLAY = '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>', ICON_PAUSE = '<svg viewBox="0 0 24 24"><path d="M6 5h4v14H6zm8 0h4v14h-4z"/></svg>';
   function renderPlayer() {
     pTitle.textContent = PL.title; pArtist.textContent = PL.artist;
-    pArt.style.backgroundImage = PL.art ? `url("${PL.art}")` : ''; pArt.firstElementChild.style.visibility = PL.art ? 'hidden' : '';
     pBar.style.width = PL.duration ? `${Math.min(100, PL.position / PL.duration * 100)}%` : '0%';
     pPlay.innerHTML = PL.playing ? ICON_PAUSE : ICON_PLAY; pPlay.setAttribute('aria-label', PL.playing ? 'Pause' : 'Play');
     playerEl.classList.toggle('on', !!PL.title);
@@ -328,7 +324,7 @@
   // ---- Browser-side player: a queue of local files, routed through the analyser so horn/beat detection hear it. ----
   const Q = { files: [], i: -1, audio: null, src: null, notify: true };
   function tagsOf(file) {
-    // Minimal ID3v2 reader: title, artist, album art. Anything else falls back to the file name.
+    // Minimal ID3v2 reader: title and artist. Anything else falls back to the file name.
     return file.slice(0, 512 * 1024).arrayBuffer().then(buf => {
       const d = new DataView(buf), out = {};
       if (buf.byteLength < 10 || String.fromCharCode(d.getUint8(0), d.getUint8(1), d.getUint8(2)) !== 'ID3') return out;
@@ -347,11 +343,6 @@
         const off = p + 10;
         if (id === 'TIT2') out.title = text(off, len);
         else if (id === 'TPE1') out.artist = text(off, len);
-        else if (id === 'APIC') {
-          let q = off + 1; while (d.getUint8(q)) q++; const mime = new TextDecoder('latin1').decode(new Uint8Array(buf, off + 1, q - off - 1)); q += 2;
-          while (d.getUint8(q)) q++; q++;
-          out.art = URL.createObjectURL(new Blob([new Uint8Array(buf, q, off + len - q)], { type: mime || 'image/jpeg' }));
-        }
         p = off + len;
       }
       return out;
@@ -375,7 +366,7 @@
     if (Q.audio.src) URL.revokeObjectURL(Q.audio.src);
     Q.audio.src = URL.createObjectURL(file);
     const tags = await tagsOf(file);
-    player.set({ title: tags.title || file.name.replace(/\.[^.]+$/, ''), artist: tags.artist || 'Local file', art: tags.art || '', position: 0, duration: 0 });
+    player.set({ title: tags.title || file.name.replace(/\.[^.]+$/, ''), artist: tags.artist || 'Local file', position: 0, duration: 0 });
     Q.audio.play();
   }
   player.control = cmd => {
