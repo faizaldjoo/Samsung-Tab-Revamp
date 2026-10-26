@@ -26,6 +26,9 @@ Driven over ADB from a computer on the same Wi-Fi (Wireless debugging; pair once
 - `launcher-prototype/screensaver.html`: bbot face screensaver. bbot (github.com/bwndapp/bbot, MIT) is SVG + springs, no WebGL;
   its bundle is vendored in `launcher-prototype/vendor/bbot/` (from commit 93b2080). The page adds mood cycling, night mode
   (sleepy/sleep 22:00-06:00), burn-in drift, clock and colour swatches. Plan: Android DreamService with a WebView on the same files.
+- Triggers: touch gestures (tap, double/triple tap, long press, rub, swipe) and car events via `bbot.event(name)`
+  (music-play/pause, turn-left/right, arrived, call, message, charging, battery-low, speeding); `?debug` shows event buttons.
+  Android side: DreamService.setInteractive(true), listeners call `evaluateJavascript("bbot.event('...')")`.
 
 ## Not decided / parked
 - Combined replacement for Easy Slider + Muviz Edge (2-finger volume / 3-finger brightness edge zone + screensaver). User paused it.

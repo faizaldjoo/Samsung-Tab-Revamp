@@ -137,19 +137,105 @@
   }
   setInterval(tick, 5000); tick();
 
-  // ---- Touch: bbot's eyes already follow the finger (pointerdown). A tap wakes it up happy and shows the swatches.
-  //      (In the real Android screensaver a tap would close it instead.) ----
-  let uiTimer, wakeTimer;
-  screenEl.addEventListener('pointerdown', () => {
+  // ---- show(): hold a mood for a while (pausing the cycle), fire reactions, then hand back to the director. ----
+  let wakeTimer;
+  function show(expr, reactions = [], ms = 3500) {
     pinned = true;
     face.set({ track: true });
-    face.setExpression(mood === 'sleep' || mood === 'sleepy' ? 'surprised' : 'happy');
-    face.react('bounce');
+    face.setExpression(expr);
+    [].concat(reactions).forEach((r, i) => setTimeout(() => face.react(r), i * 220));
     clearTimeout(wakeTimer);
-    wakeTimer = setTimeout(() => { pinned = false; nextMood(); }, 3500);
+    wakeTimer = setTimeout(() => { pinned = false; nextMood(); }, ms);
+  }
+  const asleep = () => mood === 'sleep' || mood === 'sleepy';
+
+  // ---- Touch gestures. bbot's eyes already follow the finger on their own.
+  //      tap: happy (startled awake if asleep) · double tap: surprised → joy · 3+ quick taps: annoyed
+  //      long press: love · rub back and forth: content, then relieved · fast swipe: spin → dizzy
+  //      (Android DreamService needs setInteractive(true) for this, otherwise a touch closes the screensaver.) ----
+  let down = null, taps = 0, tapTimer, pressTimer, uiTimer;
+  const HOLD = 600, MOVE = 14;
+
+  screenEl.addEventListener('pointerdown', e => {
+    down = { x: e.clientX, y: e.clientY, t: performance.now(), lastX: e.clientX, dir: 0, flips: 0, path: 0, long: false };
+    clearTimeout(pressTimer);
+    pressTimer = setTimeout(() => {
+      if (down && down.path < MOVE) { down.long = true; show('love', ['pop'], 4000); }
+    }, HOLD);
     screenEl.classList.add('ui');
     clearTimeout(uiTimer); uiTimer = setTimeout(() => screenEl.classList.remove('ui'), 4000);
   });
+
+  screenEl.addEventListener('pointermove', e => {
+    if (!down) return;
+    const dx = e.clientX - down.lastX;
+    down.path += Math.abs(dx);
+    // Count direction reversals: three or more while pressed is a rub (petting).
+    if (Math.abs(dx) > 6) {
+      const dir = Math.sign(dx);
+      if (down.dir && dir !== down.dir) {
+        down.flips++;
+        if (down.flips === 3) show('content', ['nod'], 3000);
+        if (down.flips === 8) show('relieved', ['nod'], 4000);
+      }
+      down.dir = dir; down.lastX = e.clientX;
+    }
+  });
+
+  addEventListener('pointerup', e => {
+    if (!down) return;
+    clearTimeout(pressTimer);
+    const d = down; down = null;
+    const dt = performance.now() - d.t, dx = e.clientX - d.x, dy = e.clientY - d.y;
+    if (d.long || d.flips >= 3) return;
+    // Swipe: a quick, mostly straight drag.
+    if (dt < 350 && Math.hypot(dx, dy) > 160) { show('dizzy', ['spin'], 3500); return; }
+    if (d.path > MOVE) return;
+    // Taps: wait a beat to see whether more follow, then act on the count.
+    taps++;
+    clearTimeout(tapTimer);
+    tapTimer = setTimeout(() => {
+      if (taps >= 3) show('annoyed', ['shake'], 3500);
+      else if (taps === 2) { show('surprised', ['pop'], 4000); setTimeout(() => face.setExpression('joy'), 900); }
+      else show(asleep() ? 'surprised' : 'happy', ['bounce'], 3500);
+      taps = 0;
+    }, 280);
+  });
+
+  // ---- Car events. The Android app calls these from its listeners via WebView.evaluateJavascript("bbot.event('turn-left')").
+  //      Open screensaver.html?debug to get buttons for them. ----
+  let groove;
+  const EVENTS = {
+    'music-play':  () => { show('happy', ['nod'], 8000); clearInterval(groove);
+                           let n = 0; groove = setInterval(() => { face.react('nod'); if (++n > 10) clearInterval(groove); }, 650); },
+    'music-pause': () => { clearInterval(groove); show('bored', [], 4000); },
+    'turn-left':   () => { show('focus', [], 3000); face.look(-1, 0, 2500); },
+    'turn-right':  () => { show('focus', [], 3000); face.look(1, 0, 2500); },
+    'arrived':     () => show('joy', ['bounce', 'pop'], 5000),
+    'call':        () => show('surprised', ['jitter', 'jitter'], 5000),
+    'message':     () => { show('curious', ['boing'], 3500); face.look(0.6, -0.6, 1500); },
+    'charging':    () => show('relieved', ['nod'], 4000),
+    'battery-low': () => show('sleepy', [], 6000),
+    'speeding':    () => show('scared', ['jitter'], 4000),
+  };
+  window.bbot = {
+    face, show,
+    event(name) { (EVENTS[name] || (() => {}))(); },
+    events: Object.keys(EVENTS),
+  };
+
+  if (new URLSearchParams(location.search).has('debug')) {
+    const bar = document.createElement('div');
+    bar.style.cssText = 'position:absolute;left:16px;top:16px;display:flex;flex-wrap:wrap;gap:6px;max-width:760px;z-index:2';
+    for (const name of Object.keys(EVENTS)) {
+      const b = document.createElement('button');
+      b.textContent = name;
+      b.style.cssText = 'font:500 14px Geist,system-ui;color:#f7f8fa;background:#15181b;border:1px solid #2f3336;border-radius:999px;padding:8px 14px;cursor:pointer';
+      b.addEventListener('pointerdown', e => { e.stopPropagation(); bbot.event(name); });
+      bar.appendChild(b);
+    }
+    screenEl.appendChild(bar);
+  }
 </script>
 </body>
 </html>
