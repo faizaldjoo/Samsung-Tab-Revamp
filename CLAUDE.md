@@ -16,7 +16,8 @@ Driven over ADB from a computer on the same Wi-Fi (Wireless debugging; pair once
 - `launcher-prototype/glass.html` is the chosen design (option B, Liquid Glass over a photo wallpaper). `index.html` is option A (dark).
   `wireframe.html` is the flat mid-fidelity mockup of the same layout, used to settle changes cheaply before they go into glass.html.
 - Canvas is 1340x800 landscape. Sections: Rail, Map, Today (HTC Sense style flip clock + current weather, see today.html), Car (speedometer + 4 stats),
-  Now playing (cassette: playing app's icon + title/artist on the label, album art or station logo spins as the right reel, tape moves
+  Now playing (cassette: title/artist centred on the label, the playing app as a pill (white logo + name) under the progress bar;
+  tapping the pill or the tape window opens the app; the title still and centred when it fits, when longer it scrolls the YouTube Music way (rests 2.5 s at the start, slides at ~45 px/s, repeats; stops while paused), album art or station logo spins as the right reel, tape moves
   left to right with progress, controls on the bottom bridge; live radio = LIVE badge, tape still, skip hidden if unsupported; panel stays
   neutral glass), Sliders. `cassette.html` is the standalone cassette prototype shown in the home layout.
   `weather.html` is the standalone weather card (current conditions only: temp, condition - place, H/L, a soft 3D cloud/sun/rain drawn
@@ -34,18 +35,32 @@ Driven over ADB from a computer on the same Wi-Fi (Wireless debugging; pair once
   "district, regency" (locality + subAdminArea) with an ellipsis; a long slab name shrinks 17 -> 15 px, then wraps to 2 lines.
   Tap clock = flip forward a minute, tap place = next sample location, tap panel = next weather (prototype only).
   Published preview: https://claude.ai/artifact/Uy8NJRbmhcygbKFidviNQT
-- Rail is CarPlay-style, on the right by default (setting: left/right): status pill on top (tap = Controls; signal, Bluetooth, battery %,
-  warning icons only when not charging or too hot), the 4 most recently opened apps (open app marked), all-apps / Home button at the bottom.
+- Rail is CarPlay-style, on the right by default (setting: left/right): status pill on top (tap = Controls; battery % (number only, first), signal, Bluetooth,
+  warning icons only when not charging or too hot), settings gear (opens Controls), screensaver button (eyes icon: fades to black and
+  opens the screensaver; in the prototype screensaver.html?from=home, where a single tap goes back home), then 4 app slots:
+  pinned apps first (pin badge, order pinned, `S.pins`, default Waze + Spotify), a hairline, then the most recent other apps
+  (open app marked). Hold an app in the rail or on the all-apps page to pin/unpin it. All-apps / Home button at the bottom.
   One `APPS` list in the JS drives the rail, the all-apps page and the navigation setting. Settings persist in localStorage (`carhome`).
-- Prototype-only taps: clock = next wallpaper, Today panel = next weather, Today place name = next location, Car source chip = OBD/GPS, music source chip = next app (Spotify / YT Music / radio),
+- Prototype-only taps: clock = next wallpaper, Today panel = next weather, Today place name = next location, Car source chip = OBD/GPS, music source: hold the app pill for the next app, or glass.html?src=ytmusic|spotify|prambors (default YT Music),
   battery and temperature cards = preview warning states.
 - Next step: user is drawing a wireframe to revamp some sections; edit only the sections they change.
 - Build plan once the design is final: plain Java Android app, no Gradle (javac + d8 + aapt2 + apksigner from the Android SDK),
   HOME intent filter. Map = own OSM raster tile view + Waze/Google Maps turn info from a NotificationListenerService.
   The blue route line in glass.html is a hand-drawn placeholder kept for looks; nav apps do not share the route, so the app shows
   live position + turn card + ETA only (tap opens the nav app for the full route).
-  Now playing via MediaSessionManager, weather from Open-Meteo, sliders via AudioManager / Settings.System.
+  Now playing via MediaSessionManager, weather from Open-Meteo (glass.html fetches it live for Sumedang Utara, -6.842, 107.921, the preview location; the app uses the last GPS fix), sliders via AudioManager / Settings.System.
   Blur the wallpaper once at set time instead of live blur (weak GPU).
+  Glance-legible text: secondary labels at least 14px and weight 500, --muted 84% / --faint 68% white, text-shadow 0 1px 2px
+  rgba(0,0,0,0.35); the glass carries a faint dark wash under its white sheen so labels hold up over a pale sky.
+  Glass is styled after iOS 26 Liquid Glass (approximation): clear rather than frosted (blur 7px, saturate 1.9, brightness 0.8), lens edges
+  from a per-panel two-pass SVG displacement map (lensEdges(): x then y pass, each neutral in the middle; one combined map
+  shears in Chromium), rim lit top-left and bottom-right (`--rim` for round controls). Toggles: off = clear disc; on =
+  Wi-Fi/Bluetooth blue fill, data/hotspot green fill, others white disc with coloured glyph. Sliders: clear pill, white fill,
+  blue speaker / yellow sun.
+  Lens edges are off by default (glass.html?lens to preview): live they measured 28 fps vs 60 without (frames up to 118 ms),
+  since every animation re-runs the filter chain. Android plan, baked glass: when the wallpaper is set, render each panel's
+  plate once (wallpaper crop, blur, saturate, lens displacement, rim) into one screen-sized ARGB bitmap (~4 MB) and draw it
+  as a plain image; zero per-frame cost. Only the Controls drawer blurs live, once, as it opens.
   Flip clock (Today panel): one custom View, digits drawn to Canvas, a single minute-aligned callback (ACTION_TIME_TICK),
   flip = short rotationX ValueAnimator on the changed digits only; nothing runs between minutes.
 - Car panel: OBD (ELM327 over Bluetooth) shows car speed, RPM, coolant, fuel, battery V; without OBD it shows GPS speed,
@@ -62,7 +77,7 @@ Driven over ADB from a computer on the same Wi-Fi (Wireless debugging; pair once
 ## Screensaver prototype
 - `launcher-prototype/screensaver.html`: bbot face screensaver. bbot (github.com/bwndapp/bbot, MIT) is SVG + springs, no WebGL;
   its bundle is vendored in `launcher-prototype/vendor/bbot/` (from commit 93b2080). The page adds mood cycling, night mode
-  (sleepy/sleep 22:00-06:00), burn-in drift, clock and colour swatches. Plan: Android DreamService with a WebView on the same files.
+  (sleepy/sleep 22:00-06:00), burn-in drift and the clock (face colour fixed, no colour picker). Plan: Android DreamService with a WebView on the same files.
 - Triggers: touch gestures (tap, double/triple tap, long press, rub, swipe) and car events via `bbot.event(name)`
   (music-play/pause, turn-left/right, arrived, call, message, charging, battery-low, speeding); `?debug` shows event buttons.
   Android side: DreamService.setInteractive(true), listeners call `evaluateJavascript("bbot.event('...')")`.
@@ -72,8 +87,12 @@ Driven over ADB from a computer on the same Wi-Fi (Wireless debugging; pair once
 - GPS director (`?gps` or `bbot.gps({speed,heading,lat,lon,accuracy})`): pull-away, hard brake/accel, sharp turn (look into it),
   waiting at a light -> bored/sleepy, highway cruise, speeding (>110), long drive, home geofence (`bbot.setHome()`). Thresholds in `GPS`;
   `?debug` has "simulate drive (5x)". Android side: LocationManager fixes piped to `bbot.gps(...)` at 1 Hz.
-- Now playing: `bbot.player.set({title, artist, playing})` shows a marquee bottom-right, no controls. Clock (light 60px, small AM/PM) + date + weather
-  centred under the face; weather from Open-Meteo at the last GPS fix (fallback KL) or pushed via `bbot.weather.set({temp, text})`.
+- Now playing: `bbot.player.set({title, artist, playing})` shows a 640px marquee bottom-centre with prev / play-pause / next above it (64/80/64px round glass buttons; presses call
+  `bbot.player.onControl(cmd)` with 'prev' | 'toggle' | 'next', which Android maps to MediaController transport controls;
+  paused = line stays, dimmed, not scrolling), scrolling at ~45 px/s for any title length (prototype loads a long sample song; ?nosong hides it). Top-left: 24-hour clock (Sofia Sans Extra Condensed Bold 112px, stand-in for the iOS compressed SF clock) with the date
+  under it, a hairline, then the weather to the right (static Weatherglass icon + temp/condition, place under it) (face centred on screen); weather from Open-Meteo
+  at the last GPS fix (fallback Sumedang Utara) or pushed via `bbot.weather.set({temp, text, code, place})` (code = WMO weather code; place from
+  the Android Geocoder, district + city; the browser has no geocoder, so after a GPS fix it hides the place instead of showing the fallback).
   Browser build keeps a local-file queue ("add songs", ID3 title/artist) through the analyser; face nods on bass onsets while music-play is on.
   Android side: MediaSessionManager -> active MediaController metadata/playback state -> player.set().
 - Look: eyes only (mouth off, no head ring), off-black background. Published test page (same file, debug bar always on): https://claude.ai/artifact/9XmBNmuNQU7BJHVGpu4E5T

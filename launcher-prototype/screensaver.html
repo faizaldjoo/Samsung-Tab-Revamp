@@ -5,7 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>bbot Screensaver</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&family=Sofia+Sans+Extra+Condensed:wght@700&display=swap" rel="stylesheet">
 <style>
   /* Lite bbot screensaver. bbot (github.com/bwndapp/bbot, MIT) is already WebGL-free: one SVG driven by springs.
      The bundle is vendored in vendor/bbot so it runs offline. This page only adds the screensaver director
@@ -17,47 +18,72 @@
     --faint: rgba(247, 248, 250, 0.38);
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body { height: 100%; background: var(--bg); color: var(--text); font-family: "Geist", system-ui, sans-serif; overflow: hidden; -webkit-font-smoothing: antialiased; }
+  /* The page around the tablet is grey so the black screen's edges show in the preview; on the tablet the screen fills it. */
+  html, body { height: 100%; background: #33363c; color: var(--text); font-family: "Geist", system-ui, sans-serif; overflow: hidden; -webkit-font-smoothing: antialiased; }
 
-  #screen { width: 1340px; height: 800px; position: absolute; left: 50%; top: 50%; overflow: hidden; transform-origin: center center; background: var(--bg); }
+  #screen { width: 1340px; height: 800px; position: absolute; left: 50%; top: 50%; overflow: hidden; transform-origin: center center; background: var(--bg); box-shadow: 0 0 0 1px rgba(255,255,255,0.08), 0 24px 60px rgba(0,0,0,0.45); }
 
   /* --face-skin must match what sits behind the head, or the lids seam (see bbot README). */
-  #bot { position: absolute; left: 50%; top: 38%; width: 520px; height: 520px; margin: -260px 0 0 -260px;
+  #bot { position: absolute; left: 50%; top: 50%; width: 660px; height: 660px; margin: -330px 0 0 -330px;
     --face-skin: var(--bg); --face-ink: #e9ebec; --face-ring: transparent; --face-pupil: var(--bg); }
 
   .drift { position: absolute; inset: 0; will-change: transform; }
 
-  /* Clock and weather sit under the face; the song scrolls in the bottom-right corner. */
-  /* Hierarchy from weight and colour, not size: a light 60px time, AM/PM and the info line in muted tones. */
-  .clock { position: absolute; left: 0; right: 0; top: 488px; text-align: center; color: var(--text); pointer-events: none; }
-  .clock .t { font-size: 60px; font-weight: 300; line-height: 1; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
-  .clock .t .ap { font-size: 20px; font-weight: 500; letter-spacing: 0.04em; color: var(--faint); margin-left: 8px; vertical-align: 0.15em; }
-  .clock .w { font-size: 19px; margin-top: 14px; color: var(--muted); display: flex; justify-content: center; align-items: center; gap: 16px; font-variant-numeric: tabular-nums; }
-  .clock .w .sep { width: 1px; height: 16px; background: var(--faint); }
+  /* Clock and weather sit in the top-left corner (inset clears the ±40/±20px drift); the song scrolls bottom-centre. */
+  /* The 24-hour time is tall and narrow (Sofia Sans Extra Condensed Bold, a free stand-in for iOS's compressed SF clock);
+     the date and place stay small and muted in Geist.
+     Time + date on the left, a hairline, then the weather to their right. */
+  .clock { position: absolute; left: 56px; top: 48px; display: flex; align-items: center; gap: 28px; color: var(--text); pointer-events: none; }
+  .clock .t { font: 700 112px/0.82 "Sofia Sans Extra Condensed", "Geist", sans-serif; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
+  .clock .d { font-size: 19px; margin-top: 12px; color: var(--muted); }
+  .clock .rule { width: 1px; align-self: stretch; margin: 6px 0; background: var(--faint); }
+  /* Weather: static glass icon (no animation, so the screensaver stays idle), temperature + condition, place underneath. */
+  .clock .wx { display: flex; align-items: center; gap: 12px; }
+  .clock .wx img { width: 52px; height: 52px; object-fit: contain; flex: none; }
+  .clock .wx .now { font-size: 19px; color: var(--text); font-variant-numeric: tabular-nums; }
+  .clock .wx .loc { font-size: 15px; color: var(--muted); margin-top: 3px; max-width: 360px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-  .song { position: absolute; right: 28px; bottom: 28px; width: 420px; overflow: hidden; white-space: nowrap; font-size: 17px; color: var(--muted);
+  .song { position: absolute; left: 50%; bottom: 72px; width: 640px; margin-left: -320px; overflow: hidden; white-space: nowrap; font-size: 17px; color: var(--muted);
     -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
     opacity: 0; transition: opacity 0.5s; pointer-events: none; }
   .song.on { opacity: 1; }
+  /* Paused: the line stays (so the controls make sense) but stops scrolling and steps back. */
+  .song.on.paused { opacity: 0.55; }
+  .song.paused .track { animation-play-state: paused; }
+
+  /* Music controls above the song: three big round glass buttons, sized for a thumb at arm's length (64 / 80 / 64 px,
+     32px apart). Same lit rim as the launcher's glass controls. They drift with the rest of the screen (burn-in) and only
+     show while there is a song. Presses never reach the face gestures or tap-to-home. */
+  .media { position: absolute; left: 50%; bottom: 136px; transform: translateX(-50%); display: flex; align-items: center; gap: 32px;
+    opacity: 0; pointer-events: none; transition: opacity 0.5s; }
+  .media.on { opacity: 1; pointer-events: auto; }
+  .media button { width: 64px; height: 64px; border-radius: 999px; display: grid; place-items: center; border: 0; cursor: pointer;
+    font-size: 28px; color: var(--text); background: rgba(255,255,255,0.07); -webkit-tap-highlight-color: transparent;
+    box-shadow: inset 1.5px 1.5px 0 -0.5px rgba(255,255,255,0.45), inset -1.5px -1.5px 0 -0.5px rgba(255,255,255,0.22), inset 0 0 0 1px rgba(255,255,255,0.10);
+    transition: transform 0.15s ease, background 0.15s ease; }
+  .media button.play { width: 80px; height: 80px; font-size: 34px; background: rgba(255,255,255,0.13); }
+  .media button:active { transform: scale(0.94); background: rgba(255,255,255,0.2); }
+  @media (prefers-reduced-motion: reduce) { .media button { transition: none; } }
   .song .track { display: inline-block; padding-right: 64px; animation: marquee 14s linear infinite; }
   .song .track b { font-weight: 600; color: var(--text); }
   @keyframes marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
   @media (prefers-reduced-motion: reduce) { .song .track { animation: none; } }
 
-  .swatches { position: absolute; bottom: 44px; right: 28px; display: flex; gap: 10px; opacity: 0; pointer-events: none; transition: opacity 0.4s; }
-  #screen.ui .swatches { opacity: 1; pointer-events: auto; }
-  .swatches button { width: 34px; height: 34px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.25); cursor: pointer; -webkit-tap-highlight-color: transparent; }
-  .swatches button[aria-pressed="true"] { border-color: #fff; }
 </style>
 </head>
 <body>
 <div id="screen">
   <div class="drift" id="drift">
     <div id="bot"></div>
-    <div class="clock"><div class="t" id="time">--:--</div><div class="w"><span id="date"></span><span class="sep"></span><span id="weather">--&deg;</span></div></div>
+    <div class="clock"><div><div class="t" id="time">--:--</div><div class="d" id="date"></div></div><div class="rule"></div>
+      <div class="wx"><img id="wxIcon" alt="" src="vendor/weatherglass/partly_cloudy_day.png"><div><div class="now" id="weather">--&deg;</div><div class="loc" id="place">Sumedang Utara, Sumedang</div></div></div></div>
+    <div class="media" id="media" aria-label="Music controls">
+      <button data-cmd="prev" aria-label="Previous"><i class="ph-fill ph-skip-back"></i></button>
+      <button class="play" data-cmd="toggle" id="playBtn" aria-label="Pause"><i class="ph-fill ph-pause"></i></button>
+      <button data-cmd="next" aria-label="Next"><i class="ph-fill ph-skip-forward"></i></button>
+    </div>
     <div class="song" id="song"><span class="track" id="song-text"></span></div>
   </div>
-  <div class="swatches" id="swatches" aria-label="Face colour"></div>
 </div>
 
 <script type="module">
@@ -65,6 +91,8 @@
 
   const W = 1340, H = 800;
   const screenEl = document.getElementById('screen');
+  // Opened from the launcher's screensaver button: a single tap goes back home (the other gestures still play with the face).
+  const fromHome = new URLSearchParams(location.search).get('from') === 'home';
   const botEl = document.getElementById('bot');
 
   // Fit the 1340x800 design canvas to any window, same as glass.html.
@@ -76,25 +104,6 @@
 
   const face = createFace(botEl, { expression: 'idle', mouth: false });
   window.face = face; // handy for poking at it from devtools
-
-  // ---- Colour (bbot's own theme colours; tap the screen to show the swatches) ----
-  const INKS = ['#e9ebec', '#b6ff3b', '#5ec8ff', '#ffb547', '#ff7aa8'];
-  let ink = INKS[0];
-  try { ink = localStorage.getItem('bbot-ink') || ink; } catch (e) {}
-  const sw = document.getElementById('swatches');
-  const applyInk = c => botEl.style.setProperty('--face-ink', c);
-  applyInk(ink);
-  INKS.forEach(c => {
-    const b = document.createElement('button');
-    b.style.background = c; b.setAttribute('aria-label', c);
-    b.setAttribute('aria-pressed', c === ink);
-    b.addEventListener('pointerdown', e => {
-      e.stopPropagation(); ink = c; applyInk(c);
-      sw.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', x === b));
-      try { localStorage.setItem('bbot-ink', c); } catch (err) {}
-    });
-    sw.appendChild(b);
-  });
 
   // ---- Director: weighted mood cycling, mostly calm. Each entry is [mood, weight]. ----
   const DAY = [['idle', 6], ['content', 4], ['happy', 3], ['curious', 3], ['thinking', 2], ['relieved', 2],
@@ -148,11 +157,8 @@
   const timeEl = document.getElementById('time'), dateEl = document.getElementById('date');
   function tick() {
     const d = new Date();
-    // Time in light figures, the day period (AM/PM) set small and muted; 24-hour locales simply have no period.
-    const parts = new Intl.DateTimeFormat([], { hour: 'numeric', minute: '2-digit' }).formatToParts(d);
-    const hm = parts.filter(x => x.type !== 'dayPeriod').map(x => x.value).join('').trim();
-    const ap = parts.find(x => x.type === 'dayPeriod');
-    timeEl.innerHTML = hm + (ap ? `<span class="ap">${ap.value}</span>` : '');
+    // 24-hour time, always two-digit hours (09:05, 13:15).
+    timeEl.textContent = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
     dateEl.textContent = d.toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' });
   }
   setInterval(tick, 5000); tick();
@@ -170,10 +176,10 @@
   const asleep = () => mood === 'sleep' || mood === 'sleepy';
 
   // ---- Touch gestures. bbot's eyes already follow the finger on their own.
-  //      tap: happy (startled awake if asleep) · double tap: surprised → joy · 3+ quick taps: annoyed
+  //      tap: happy (startled awake if asleep), or back home when opened from the launcher · double tap: surprised → joy · 3+ quick taps: annoyed
   //      long press: love · rub back and forth: content, then relieved · fast swipe: spin → dizzy
   //      (Android DreamService needs setInteractive(true) for this, otherwise a touch closes the screensaver.) ----
-  let down = null, taps = 0, tapTimer, pressTimer, uiTimer;
+  let down = null, taps = 0, tapTimer, pressTimer;
   const HOLD = 600, MOVE = 14;
 
   screenEl.addEventListener('pointerdown', e => {
@@ -182,8 +188,6 @@
     pressTimer = setTimeout(() => {
       if (down && down.path < MOVE) { down.long = true; show('love', ['pop'], 4000); }
     }, HOLD);
-    screenEl.classList.add('ui');
-    clearTimeout(uiTimer); uiTimer = setTimeout(() => screenEl.classList.remove('ui'), 4000);
   });
 
   screenEl.addEventListener('pointermove', e => {
@@ -217,6 +221,7 @@
     tapTimer = setTimeout(() => {
       if (taps >= 3) show('annoyed', ['shake'], 3500);
       else if (taps === 2) { show('surprised', ['pop'], 4000); setTimeout(() => face.setExpression('joy'), 900); }
+      else if (fromHome) location.href = 'glass.html';
       else show(asleep() ? 'surprised' : 'happy', ['bounce'], 3500);
       taps = 0;
     }, 280);
@@ -294,21 +299,33 @@
   }
 
   // ---- Now playing. The host (Android) pushes bbot.player.set({ title, artist, playing }) from the active media session;
-  //      the screensaver only shows it as a marquee, no controls. ----
+  //      the screensaver shows it as a marquee with prev / play-pause / next above it. Presses go to bbot.player.onControl(cmd)
+  //      ('prev' | 'toggle' | 'next'), which the host maps to MediaController.getTransportControls(). ----
   const PL = { title: '', artist: '', playing: false };
   const songEl = document.getElementById('song'), songText = document.getElementById('song-text');
+  const mediaEl = document.getElementById('media'), playBtn = document.getElementById('playBtn');
   const esc = x => String(x).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
   function renderPlayer() {
     const line = PL.title ? `<b>${esc(PL.title)}</b>${PL.artist ? ' \u00b7 ' + esc(PL.artist) : ''}` : '';
     // Two copies so the loop is seamless.
     songText.innerHTML = line ? line + '<span style="display:inline-block;width:64px"></span>' + line : '';
-    songEl.classList.toggle('on', !!PL.title && PL.playing);
+    songEl.classList.toggle('on', !!PL.title);
+    songEl.classList.toggle('paused', !PL.playing);
+    mediaEl.classList.toggle('on', !!PL.title);
+    playBtn.innerHTML = `<i class="ph-fill ph-${PL.playing ? 'pause' : 'play'}"></i>`;
+    playBtn.setAttribute('aria-label', PL.playing ? 'Pause' : 'Play');
+    // Same reading speed for any title length: about 45 px/s over one copy of the line.
+    if (line) songText.style.animationDuration = Math.max(8, songText.scrollWidth / 2 / 45).toFixed(1) + 's';
   }
   const player = {
     state: PL,
     control: null,
     set(s) { Object.assign(PL, s); renderPlayer(); },
   };
+  // Prototype only: a sample song with a long title so the marquee shows in the preview (?nosong hides it).
+  // On the tablet the app pushes the real one instead.
+  if (!new URLSearchParams(location.search).has('nosong'))
+    player.set({ title: 'Zona Nyaman (OST. Filosofi Kopi 2: Ben & Jody)', artist: 'Fourtwnty', playing: true });
 
   // ---- Browser-side player: a queue of local files, routed through the analyser so horn/beat detection hear it. ----
   const Q = { files: [], i: -1, audio: null, src: null, notify: true };
@@ -362,6 +379,19 @@
     if (cmd === 'play') Q.audio.play(); else if (cmd === 'pause') Q.audio.pause();
     else if (cmd === 'next') playIndex(Q.i + 1); else if (cmd === 'prev') playIndex(Q.audio.currentTime > 3 ? Q.i : Q.i - 1);
   };
+  // Control buttons. Local queue (browser) > host callback (Android) > the prototype's sample song, which just toggles
+  // its own state. Play / pause also gets a face reaction, the same one the host's media events trigger.
+  ['pointerdown', 'pointerup'].forEach(ev => mediaEl.addEventListener(ev, e => e.stopPropagation()));
+  mediaEl.addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    e.stopPropagation();
+    const cmd = b.dataset.cmd;
+    if (Q.audio) return player.control(cmd);
+    if (player.onControl) return player.onControl(cmd);
+    if (cmd === 'toggle') { player.set({ playing: !PL.playing }); bbot.event(PL.playing ? 'music-play' : 'music-pause'); }
+    else face.react('nod');
+  });
+
   function queueFiles(files, notify) { Q.notify = notify; Q.files = Array.from(files); playIndex(0); }
 
   function detectHorn(b, hz, lo, hi, top) {
@@ -475,7 +505,7 @@
     clearInterval(simTimer);
     const legs = [[10, 0, 0], [6, 50, 0], [15, 50, 0], [3, 50, 90], [10, 50, 0], [3, 0, 0], [30, 0, 0], [8, 60, 0], [6, 60, -80],
                   [12, 95, 0], [25, 95, 0], [6, 125, 0], [8, 125, 0], [10, 40, 0], [10, 40, 0], [4, 0, 0], [12, 0, 0]];
-    let leg = 0, i = 0, kmh = 0, heading = 0, lat = 3.139, lon = 101.687, t = 1;
+    let leg = 0, i = 0, kmh = 0, heading = 0, lat = -6.842, lon = 107.921, t = 1;
     const from = { kmh: 0, heading: 0 };
     GPS.home = { lat, lon }; GS.atHome = null; GS.last = null; GS.fired = {}; GS.movingAt = 0; GS.stoppedAt = 0; GS.moving = false;
     simTimer = setInterval(() => {
@@ -488,19 +518,31 @@
     }, 200);
   }
 
-  // ---- Weather. Open-Meteo at the last GPS fix (fallback: Kuala Lumpur), refreshed every 20 min. The Android app may push
-  //      bbot.weather.set({ temp, text }) instead; the published test page cannot fetch, so it keeps the placeholder. ----
+  // ---- Weather. Open-Meteo at the last GPS fix (fallback: Sumedang Utara), refreshed every 20 min. The Android app may push
+  //      bbot.weather.set({ temp, text, code, place }) instead; the published test page cannot fetch, so it keeps the placeholder.
+  //      Icon = Weatherglass TV glass icon for the WMO code (vendor/weatherglass, MIT), night variants 18:00-06:00.
+  //      Place = the Android Geocoder's district + city (as in the launcher's Today panel); the browser has no geocoder,
+  //      so it shows the fallback city until a GPS fix arrives, then hides the place rather than show the wrong one. ----
   const WX = { 0: 'Clear', 1: 'Mostly clear', 2: 'Partly cloudy', 3: 'Cloudy', 45: 'Fog', 48: 'Fog', 51: 'Drizzle', 53: 'Drizzle', 55: 'Drizzle',
                61: 'Rain', 63: 'Rain', 65: 'Heavy rain', 80: 'Showers', 81: 'Showers', 82: 'Heavy showers', 95: 'Thunderstorm', 96: 'Thunderstorm', 99: 'Thunderstorm' };
-  const weatherEl = document.getElementById('weather');
+  const weatherEl = document.getElementById('weather'), iconEl = document.getElementById('wxIcon'), placeEl = document.getElementById('place');
+  const dusk = () => { const h = new Date().getHours(); return h >= 18 || h < 6; };
+  const wxIcon = c => c <= 1 ? (dusk() ? 'clear_night' : 'sunny') : c === 2 ? (dusk() ? 'partly_cloudy_night' : 'partly_cloudy_day')
+    : c === 3 ? 'cloud' : c <= 48 ? 'foggy' : (c >= 71 && c <= 77) || c === 85 || c === 86 ? 'snowflake' : c >= 95 ? 'thunderstorm' : 'rainy';
+  let placePushed = false;
   const weather = {
-    set({ temp, text }) { weatherEl.textContent = `${Math.round(temp)}\u00b0${text ? ' ' + text : ''}`; },
+    set({ temp, text, code, place }) {
+      weatherEl.textContent = `${Math.round(temp)}\u00b0${text ? ' ' + text : ''}`;
+      if (code != null) iconEl.src = `vendor/weatherglass/${wxIcon(code)}.png`;
+      if (place != null) { placePushed = true; placeEl.textContent = place; }
+      else if (!placePushed && GS.last) placeEl.textContent = '';
+    },
     async refresh() {
-      const lat = GS.last?.lat ?? 3.139, lon = GS.last?.lon ?? 101.687;
+      const lat = GS.last?.lat ?? -6.842, lon = GS.last?.lon ?? 107.921;
       try {
         const r = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code`);
         const j = await r.json();
-        weather.set({ temp: j.current.temperature_2m, text: WX[j.current.weather_code] || '' });
+        weather.set({ temp: j.current.temperature_2m, text: WX[j.current.weather_code] || '', code: j.current.weather_code });
       } catch (e) { /* offline or blocked: keep what is shown */ }
     },
   };
@@ -515,7 +557,7 @@
 
   if (new URLSearchParams(location.search).has('debug')) {
     const bar = document.createElement('div');
-    bar.style.cssText = 'position:absolute;left:16px;top:16px;display:flex;flex-wrap:wrap;gap:6px;max-width:760px;z-index:2';
+    bar.style.cssText = 'position:absolute;right:16px;top:16px;display:flex;flex-wrap:wrap;justify-content:flex-end;gap:6px;max-width:600px;z-index:2';
     for (const name of Object.keys(EVENTS)) {
       const b = document.createElement('button');
       b.textContent = name;

@@ -15,8 +15,10 @@
      Performance rule for the Tab A7 Lite: animate transform/opacity only, no per-frame timers, nothing runs while idle. */
   :root {
     --text: #f7f8fa;
-    --muted: rgba(247, 248, 250, 0.72);
-    --faint: rgba(247, 248, 250, 0.5);
+    /* Secondary text is read at a glance from the driver's seat over clear glass: kept bright (84% / 68%) and set at
+       500 weight, 14px minimum, rather than thin and grey. */
+    --muted: rgba(247, 248, 250, 0.84);
+    --faint: rgba(247, 248, 250, 0.68);
     --accent: #5aa7ff;
     --sun: #ffd36b;
     --warn: #ff7a6b;
@@ -31,7 +33,7 @@
   .muted { color: var(--muted); }
 
   /* Sidebar on the right by default (driver's side in a right-hand-drive car). .side-left mirrors it. */
-  #screen { text-shadow: 0 1px 2px rgba(0,0,0,0.25);
+  #screen { text-shadow: 0 1px 2px rgba(0,0,0,0.35);
     width: 1340px; height: 800px; position: absolute; left: 50%; top: 50%; overflow: hidden;
     display: grid; grid-template-columns: 1fr 96px; grid-template-rows: minmax(0, 1fr); gap: 18px; padding: 20px 16px 20px 20px;
     transform-origin: center center;
@@ -47,46 +49,64 @@
   /* Darken the photo toward the bottom so white text always clears contrast. */
   .wall::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(5,7,10,0.15), rgba(5,7,10,0.45)); }
 
+  /* Closer to iOS 26 Liquid Glass: clear rather than frosted (light blur, strong colour, little dimming), a lens at the edges
+     (lensEdges(), preview only with ?lens: it bends the backdrop near the rim; the middle passes straight through), and a rim lit on the top-left and the
+     bottom-right. Still an approximation: no motion-driven highlights or colour fringing. On the tablet the wallpaper is
+     blurred once when it is set, not live. */
   .glass {
     position: relative; isolation: isolate; border-radius: var(--r-glass); overflow: hidden;
-    background: linear-gradient(160deg, rgba(255,255,255,0.13), rgba(255,255,255,0.03) 45%, rgba(10,14,22,0.34));
-    backdrop-filter: url(#refract) blur(16px) saturate(1.6) brightness(0.74);
-    -webkit-backdrop-filter: blur(16px) saturate(1.6) brightness(0.74);
+    /* Light sheen over a faint dark wash: the white alone made the top-left corner too bright for labels over a pale sky. */
+    background: linear-gradient(160deg, rgba(255,255,255,0.10), rgba(255,255,255,0.03) 48%, rgba(255,255,255,0.07)), rgba(8, 12, 18, 0.14);
+    backdrop-filter: blur(7px) saturate(1.9) brightness(0.8);
+    -webkit-backdrop-filter: blur(7px) saturate(1.9) brightness(0.8);
     box-shadow:
-      inset 0 1.5px 0 rgba(255,255,255,0.55),
-      inset 0 -1px 0 rgba(255,255,255,0.12),
-      inset 0 0 0 1px rgba(255,255,255,0.14),
-      inset 0 0 24px rgba(255,255,255,0.06),
-      0 18px 40px rgba(4, 8, 16, 0.35);
+      inset 0 0 0 1px rgba(255,255,255,0.16),
+      inset 0 0 28px rgba(255,255,255,0.10),
+      0 18px 40px rgba(4, 8, 16, 0.30);
   }
-  /* Specular rim: bright on the top-left edge, fading around the panel. */
+  /* Specular rim: bright on the top-left and, softer, on the bottom-right, the way iOS lights its glass. */
   .glass::before {
-    content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1.5px; pointer-events: none; z-index: 2;
-    background: linear-gradient(135deg, rgba(255,255,255,0.75), rgba(255,255,255,0.08) 30%, rgba(255,255,255,0) 60%, rgba(255,255,255,0.35));
+    content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 2px; pointer-events: none; z-index: 2;
+    background: linear-gradient(135deg, rgba(255,255,255,0.9), rgba(255,255,255,0.14) 26%, rgba(255,255,255,0) 50%, rgba(255,255,255,0.14) 74%, rgba(255,255,255,0.6));
     -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude;
   }
-  @supports not (backdrop-filter: url(#refract)) { .glass { backdrop-filter: blur(16px) saturate(1.6) brightness(0.74); } }
+  /* The same lit rim for small round glass controls (rail buttons, sliders, off toggles), as box-shadows: no extra layers. */
+  :root { --rim: inset 1.5px 1.5px 0 -0.5px rgba(255,255,255,0.6), inset -1.5px -1.5px 0 -0.5px rgba(255,255,255,0.32),
+                 inset 0 0 0 1px rgba(255,255,255,0.12), inset 0 0 14px rgba(255,255,255,0.08); }
   @media (prefers-reduced-transparency: reduce) { .glass, .cc { background: rgba(28, 32, 40, 0.94); backdrop-filter: none; -webkit-backdrop-filter: none; } }
 
   .press { transition: transform 0.22s var(--ease), filter 0.22s; }
   .press:active { transform: scale(0.95); filter: brightness(1.15); }
 
-  /* Rail: status (tap for Controls), recent apps newest first, all-apps / home at the bottom. */
+  /* Rail: status (tap for Controls), settings, screensaver, pinned apps then recent apps (4 slots), all-apps / home at the bottom. */
   .rail { display: flex; flex-direction: column; align-items: center; padding: 22px 0 16px; }
   .status { width: 62px; padding: 16px 0 12px; border-radius: 999px; display: flex; flex-direction: column; gap: 14px; align-items: center;
-    color: var(--text); background: rgba(255,255,255,0.08); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.1); }
+    color: var(--text); background: rgba(255,255,255,0.10); box-shadow: var(--rim); }
   .status .row { display: flex; flex-direction: column; gap: 3px; align-items: center; }
   .status .row:empty { display: none; }
   .status i { font-size: 22px; }
   .status .off { color: var(--faint); }
   .status small { font-size: 12px; font-weight: 600; color: var(--muted); font-variant-numeric: tabular-nums; }
+  /* Battery: percentage only, first in the pill. */
+  .status .bat { font-size: 15px; font-weight: 600; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
   .status .warn { color: var(--warn); animation: pulse 1.6s ease-in-out infinite; }
   /* Settings button under the status pill: the obvious way into the Controls drawer (the status pill opens it too). */
-  .gear { margin-top: 14px; width: 62px; height: 62px; border-radius: 999px; display: grid; place-items: center; font-size: 28px;
-    background: rgba(255,255,255,0.08); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.1); }
+  .gear, .saver { margin-top: 14px; width: 62px; height: 62px; border-radius: 999px; display: grid; place-items: center; font-size: 28px;
+    background: rgba(255,255,255,0.10); box-shadow: var(--rim); }
+  .saver { margin-top: 12px; }
   #screen.show-cc .gear { background: var(--accent); box-shadow: none; }
+  /* Screensaver button: the home screen fades to black, then the screensaver opens. */
+  #screen::after { content: ""; position: absolute; inset: 0; z-index: 20; background: #07080a; opacity: 0; pointer-events: none; transition: opacity 0.4s var(--ease); }
+  #screen.to-saver::after { opacity: 1; }
   @keyframes pulse { 50% { opacity: 0.45; } }
-  .dock { margin: auto 0; display: flex; flex-direction: column; gap: 16px; }
+  .dock { margin: auto 0; display: flex; flex-direction: column; align-items: center; gap: 16px; }
+  /* Hairline between pinned apps (fixed order) and recent apps (newest first). */
+  .dock .split { width: 28px; height: 1px; margin: -6px 0; background: rgba(255,255,255,0.32); }
+  /* Pin badge on a pinned app's tile, in the rail and on the all-apps page. Hold an app to pin or unpin it. */
+  .pin { position: absolute; z-index: 1; top: -5px; right: -5px; width: 22px; height: 22px; border-radius: 999px; display: none; place-items: center;
+    background: var(--text); color: #14171c; font-size: 12px; box-shadow: 0 2px 6px rgba(0,0,0,0.35); }
+  .dock .tile .pin i, .tile .pin i { font-size: 12px; color: #14171c; }
+  .pinned .pin { display: grid; }
   .dock .tile { width: 62px; height: 62px; }
   .dock .tile img { width: 46%; height: 46%; }
   .dock .tile i { font-size: 30px; }
@@ -126,7 +146,7 @@
   .maneuver .street { font-size: 15px; color: var(--muted); margin-top: 2px; }
   .eta { position: relative; margin-top: auto; display: grid; grid-template-columns: repeat(3, 1fr); padding: 0 20px 18px; }
   .eta b { display: block; font-size: 24px; font-weight: 600; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
-  .eta span { font-size: 13px; color: var(--muted); }
+  .eta span { font-size: 14px; font-weight: 500; color: var(--muted); }
 
   /* Today: an HTC Sense style flip clock (two white flip cards, hours and minutes) standing on a dark weather slab, the animated
      Weatherglass icon overlapping both, place + temperature left, day + high/low right, condition + location + update time below.
@@ -174,7 +194,7 @@
   @media (prefers-reduced-motion: reduce) { .card.go .flapT, .card.go .flapB, .card.go .flapT::after { animation-duration: 0.01s; animation-delay: 0s; } }
 
   /* Weather icon, centred over the cards' feet and the slab. Animated exactly as in weather.html. */
-  .today .iconwrap { position: absolute; left: 50%; top: 168px; width: 170px; height: 128px; margin-left: -69px; z-index: 2; transform: scale(1.14); transform-origin: 50% 40%;
+  .today .iconwrap { position: absolute; left: 50%; top: 168px; width: 170px; height: 128px; margin-left: -85px; z-index: 2; transform: scale(1.14); transform-origin: 50% 40%;
     pointer-events: none; }
   .ibox { position: absolute; inset: 0; filter: drop-shadow(0 10px 18px rgba(4, 8, 16, 0.45)); animation: bob 4.5s ease-in-out infinite alternate; }
   .ibox img { position: absolute; inset: 0; width: 100%; height: 100%; }
@@ -200,8 +220,8 @@
   .today .foot { position: absolute; left: 30px; right: 30px; bottom: 24px; display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; }
   .today .foot .cond { font-size: 21px; font-weight: 500; }
   .today .foot > div:first-child { min-width: 0; }
-  .today .foot .place { font-size: 15px; color: var(--muted); margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .today .foot .upd { font-size: 13px; color: var(--faint); white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .today .foot .place { font-size: 15px; font-weight: 500; color: var(--muted); margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .today .foot .upd { font-size: 14px; font-weight: 500; color: var(--faint); white-space: nowrap; font-variant-numeric: tabular-nums; }
 
   .today.swap .slab .l, .swap .slab .r, .swap .foot .cond, .swap .iconwrap { opacity: 0; }
   .today .slab .l, .slab .r, .foot .cond, .iconwrap { transition: opacity 0.3s var(--ease); }
@@ -219,7 +239,7 @@
   .gauge .tk { stroke: rgba(255,255,255,0.22); stroke-width: 2; stroke-linecap: round; }
   .gauge .tk.on { stroke: var(--text); }
   .gauge .tk.major { stroke-width: 3; }
-  .gauge text { fill: var(--muted); font: 500 11px Geist, system-ui, sans-serif; text-anchor: middle; dominant-baseline: middle; }
+  .gauge text { fill: var(--muted); font: 600 12px Geist, system-ui, sans-serif; text-anchor: middle; dominant-baseline: middle; }
   .gauge .num { fill: var(--text); font-size: 40px; font-weight: 600; letter-spacing: -0.04em; font-variant-numeric: tabular-nums; }
   .gauge .unit { font-size: 12px; }
   /* Only the needle moves: a CSS transform around the hub, eased, so the GPU composites it. */
@@ -228,7 +248,7 @@
   .car-sub { font-size: 13px; color: var(--muted); text-align: center; margin: 2px 0 10px; min-height: 16px; }
   .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .stat { background: var(--card); border-radius: var(--r-tile); padding: 12px 14px; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08); }
-  .stat span { display: flex; gap: 6px; align-items: center; font-size: 13px; color: var(--muted); }
+  .stat span { display: flex; gap: 6px; align-items: center; font-size: 14px; font-weight: 500; color: var(--muted); }
   .stat span i { font-size: 16px; }
   .stat b { display: block; font-size: 22px; font-weight: 600; margin-top: 4px; font-variant-numeric: tabular-nums; }
   .stat b small { font-size: 14px; color: var(--muted); font-weight: 500; }
@@ -243,17 +263,26 @@
   .screw::before, .screw::after { content: ""; position: absolute; left: 50%; top: 50%; width: 6px; height: 1.5px; margin: -0.75px 0 0 -3px; background: rgba(0,0,0,0.35); transform: rotate(45deg); }
   .screw::after { transform: rotate(-45deg); }
 
-  /* Label: song details on top. */
-  .label { display: flex; align-items: center; gap: 14px; padding: 0 6px; }
-  .side { width: 40px; cursor: pointer; height: 40px; border-radius: 12px; display: grid; place-items: center; flex: none;
-    box-shadow: inset 0 1.5px 0 rgba(255,255,255,0.4), 0 4px 10px rgba(0,0,0,0.25); }
-  .side img { width: 22px; height: 22px; } .side i { font-size: 22px; color: #fff; }
-  .meta { min-width: 0; flex: 1; }
-  .np-title { font-size: 22px; font-weight: 600; letter-spacing: -0.015em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.15; }
-  .np-artist { font-size: 15px; color: var(--muted); margin-top: 2px; }
-  /* Source chip: the app the media session belongs to. Prototype only: tap it to switch to the next app. */
-  .np-src { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 500; flex: none; padding: 6px 12px; border-radius: 999px;
-    background: rgba(255,255,255,0.1); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.14); }
+  /* Label: song and artist centred on top, like a cassette's label strip. */
+  .label { padding: 0 34px; text-align: center; }
+  .meta { min-width: 0; }
+  /* The playing app as a small pill under the progress bar: white logo + name; tap it to open that app (data-app). */
+  .src-row { display: flex; justify-content: center; margin-top: 10px; }
+  .app-pill { display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px 6px 11px; border-radius: 999px; font-size: 14px; font-weight: 600;
+    background: rgba(255,255,255,0.10); box-shadow: var(--rim); }
+  .app-pill img { width: 16px; height: 16px; } .app-pill i { font-size: 17px; color: #fff; }
+  /* A title too long for the label scrolls the YouTube Music way: it rests at the start, slides left at ~45 px/s until the
+     second copy lines up, rests again, repeat (fitTitle(), Web Animations; transform only). Stops while paused and under
+     reduced motion. Edges faded only while it runs. */
+  /* contain: inline-size keeps the (double-length) running line from widening the label, and with it the whole cassette. */
+  .np-title { font-size: 22px; font-weight: 600; letter-spacing: -0.015em; white-space: nowrap; overflow: hidden; line-height: 1.15; contain: inline-size;
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 4%, #000 92%, transparent); mask-image: linear-gradient(90deg, transparent, #000 4%, #000 92%, transparent); }
+  .np-title .run { display: inline-block; }
+  /* Fits the label: one centred copy, still, no fade. Only a title too long for the label runs. */
+  .np-title.still { -webkit-mask-image: none; mask-image: none; }
+  .np-title.still .run > i, .np-title.still .run > span { display: none; }
+  .np-title .run i { display: inline-block; width: 56px; }
+  .np-artist { font-size: 16px; font-weight: 500; color: var(--muted); margin-top: 2px; }
   /* Live radio: no song length, so the progress bar becomes a LIVE badge and the tape stays put while the reels spin. */
   .live-badge { display: none; justify-self: center; align-items: center; gap: 8px; padding: 7px 14px; border-radius: 999px;
     font-size: 13px; font-weight: 700; letter-spacing: 0.06em; color: #ffd0c9; background: rgba(255,122,107,0.18); box-shadow: inset 0 0 0 1px rgba(255,122,107,0.4); }
@@ -269,7 +298,7 @@
   @keyframes swap-in { from { opacity: 0; transform: translateY(4px); } }
 
   /* Tape window: light smoky plastic so the dark tape reads clearly. */
-  .window { position: relative; border-radius: 999px; overflow: hidden; display: grid; grid-template-columns: 128px 1fr 128px; align-items: center; padding: 0 6px;
+  .window { cursor: pointer; position: relative; border-radius: 999px; overflow: hidden; display: grid; grid-template-columns: 128px 1fr 128px; align-items: center; padding: 0 6px;
     background: rgba(225,232,240,0.16); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.3), inset 0 2px 10px rgba(0,0,0,0.25); }
   .reel { position: relative; width: 128px; height: 128px; display: grid; place-items: center; }
   .tape { position: absolute; inset: 0; border-radius: 50%; background: repeating-radial-gradient(circle, #1d1f23 0 2px, #26292e 2px 3px);
@@ -285,7 +314,7 @@
   .mid { padding: 0 14px; }
   .bar { height: 4px; border-radius: 999px; background: rgba(255,255,255,0.22); overflow: hidden; }
   .bar i { display: block; height: 100%; width: 38%; background: var(--text); border-radius: inherit; }
-  .times { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); margin-top: 6px; font-variant-numeric: tabular-nums; }
+  .times { display: flex; justify-content: space-between; font-size: 14px; font-weight: 500; color: var(--muted); margin-top: 6px; font-variant-numeric: tabular-nums; }
 
   /* Bridge: the trapezoid at the bottom of the shell carries the controls. */
   .bridge { justify-self: center; width: 330px; height: 82px; display: flex; justify-content: space-between; align-items: center; padding: 6px 44px 0;
@@ -305,6 +334,7 @@
   /* All apps page */
   .apps-page { padding: 34px 40px; display: flex; flex-direction: column; }
   .apps-page h1 { font-size: 34px; font-weight: 600; letter-spacing: -0.02em; }
+  .apps-sub { font-size: 16px; color: var(--muted); margin-top: 6px; }
   .apps-grid { flex: 1; display: grid; grid-template-columns: repeat(6, 1fr); align-content: center; row-gap: 40px; }
   .app { display: flex; flex-direction: column; align-items: center; gap: 12px; }
   .app span { font-size: 16px; font-weight: 500; text-shadow: 0 1px 2px rgba(0,0,0,0.35); }
@@ -314,10 +344,13 @@
   .sliders { padding: 18px 14px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .vs { display: flex; flex-direction: column; align-items: center; gap: 10px; }
   .vs .val { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
-  .track { flex: 1; width: 52px; border-radius: 999px; position: relative; overflow: hidden; touch-action: none; cursor: ns-resize;
-    background: rgba(0,0,0,0.18); box-shadow: inset 0 2px 6px rgba(0,0,0,0.25), inset 0 0 0 1px rgba(255,255,255,0.12); }
-  .track .fill { position: absolute; left: 0; right: 0; bottom: 0; background: linear-gradient(180deg, rgba(255,255,255,0.96), rgba(255,255,255,0.82)); box-shadow: inset 0 2px 0 #fff; }
-  .track i { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); font-size: 24px; color: #1a1d22; pointer-events: none; }
+  /* Sliders the iOS way: a tall clear-glass pill (lit rim, no dark well), white fill rising from the bottom with a flat top,
+     and a coloured glyph sitting in the fill (blue speaker, yellow sun). */
+  .track { flex: 1; width: 100%; max-width: 74px; border-radius: 999px; position: relative; overflow: hidden; touch-action: none; cursor: ns-resize;
+    background: rgba(255,255,255,0.10); box-shadow: var(--rim); }
+  .track .fill { position: absolute; left: 0; right: 0; bottom: 0; background: #f5f6f7; box-shadow: inset 0 1px 0 #fff; }
+  .track i { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); font-size: 28px; color: var(--accent); text-shadow: none; pointer-events: none; }
+  .track[data-k="bri"] i { color: #ffb800; }
 
   /* Controls: slides out from the rail over a dimmed home screen. Tap outside or X to close. */
   /* A dark scrim covers the home screen (the rail stays on top) and the panel is near-opaque,
@@ -338,7 +371,7 @@
   #screen.show-cc .cc { opacity: 1; transform: none; pointer-events: auto; }
   .cc-head { display: flex; justify-content: space-between; align-items: center; }
   .cc-head h2 { font-size: 28px; font-weight: 600; letter-spacing: -0.02em; }
-  .round { width: 48px; height: 48px; border-radius: 999px; display: grid; place-items: center; font-size: 22px; background: rgba(255,255,255,0.14); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.12); }
+  .round { width: 48px; height: 48px; border-radius: 999px; display: grid; place-items: center; font-size: 22px; background: rgba(255,255,255,0.12); box-shadow: var(--rim); }
   .cc-grid { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(4, 1fr); grid-template-rows: minmax(0, 1fr) auto auto minmax(0, 1fr); gap: 14px; }
   .card { border-radius: var(--r-tile); background: var(--card); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.1); padding: 16px; min-width: 0; }
   .s2 { grid-column: span 2; }
@@ -346,8 +379,18 @@
   .hint { display: block; font-size: 13px; color: var(--muted); margin-top: 10px; }
   /* Toggle card: the icon disc fills with the accent when on. */
   .tog { display: flex; flex-direction: column; justify-content: space-between; }
-  .tog .disc { width: 52px; height: 52px; border-radius: 999px; display: grid; place-items: center; font-size: 26px; background: rgba(255,255,255,0.16); transition: background 0.2s, color 0.2s; flex: none; }
-  .tog.on .disc { background: var(--accent); color: #fff; }
+  /* Toggles the iOS way. Off: clear glass disc with a white glyph. On: connectivity fills with its colour and a white glyph
+     (Wi-Fi and Bluetooth blue, mobile data and hotspot green); everything else turns a white disc with a coloured glyph. */
+  .tog .disc { width: 52px; height: 52px; border-radius: 999px; display: grid; place-items: center; font-size: 26px; flex: none;
+    background: rgba(255,255,255,0.12); box-shadow: var(--rim); transition: background 0.2s, color 0.2s, box-shadow 0.2s; }
+  .tog.on .disc { background: #f5f6f7; color: var(--on, var(--accent)); text-shadow: none;
+    box-shadow: inset 0 1.5px 0 #fff, inset 0 -2px 4px rgba(0,0,0,0.08), 0 4px 12px rgba(0,0,0,0.22); }
+  .tog[data-t="wifi"], .tog[data-t="bt"] { --fill: var(--accent); }
+  .tog[data-t="data"], .tog[data-t="hotspot"] { --fill: #34c759; }
+  .tog[data-t="dnd"] { --on: #7d7aff; }
+  .tog[data-t="autoBri"] { --on: #ff9f0a; }
+  .tog.on[data-t="wifi"] .disc, .tog.on[data-t="bt"] .disc, .tog.on[data-t="data"] .disc, .tog.on[data-t="hotspot"] .disc {
+    background: var(--fill); color: #fff; box-shadow: inset 0 1.5px 0 rgba(255,255,255,0.45), 0 4px 12px rgba(0,0,0,0.22); }
   .tog b { display: block; font-size: 17px; font-weight: 600; margin-top: 12px; }
   .tog small { display: block; font-size: 13px; color: var(--muted); margin-top: 3px; }
   .tog.wide { flex-direction: row; align-items: center; gap: 14px; }
@@ -393,26 +436,23 @@
 </style>
 </head>
 <body>
-<!-- Edge refraction for the glass (Chromium honours SVG filters in backdrop-filter). -->
-<svg width="0" height="0" style="position:absolute" aria-hidden="true">
-  <filter id="refract" x="0" y="0" width="100%" height="100%">
-    <feTurbulence type="fractalNoise" baseFrequency="0.008 0.012" numOctaves="2" seed="7" result="n"/>
-    <feDisplacementMap in="SourceGraphic" in2="n" scale="18" xChannelSelector="R" yChannelSelector="G"/>
-  </filter>
-</svg>
+<!-- Lens edges for the glass: lensEdges() fills this with one displacement filter per panel (Chromium honours SVG filters
+     in backdrop-filter). -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" id="lensDefs"></svg>
 
 <div id="screen">
   <div class="wall" id="wall"></div>
 
   <aside class="glass rail">
     <button class="status press" id="statusBtn" aria-label="Open controls">
+      <div class="row bat" id="stBat"></div>
       <div class="row" id="stNet"></div>
       <div class="row" id="stBt"></div>
-      <div class="row" id="stBat"></div>
       <div class="row warn" id="stWarn"></div>
     </button>
     <button class="gear press" id="gearBtn" aria-label="Settings"><i class="ph-fill ph-gear-six"></i></button>
-    <nav class="dock" id="dock" aria-label="Recent apps"></nav>
+    <button class="saver press" id="saverBtn" aria-label="Start screensaver"><i class="ph-fill ph-eyes"></i></button>
+    <nav class="dock" id="dock" aria-label="Pinned and recent apps"></nav>
     <button class="home-btn press" id="homeBtn" aria-label="All apps"><i class="ph-bold ph-dots-nine"></i></button>
   </aside>
 
@@ -441,7 +481,7 @@
       <div class="top">
         <section class="glass today" id="today" aria-label="Time and weather">
           <div class="slab">
-            <div class="l"><div class="k" id="place">Jakarta</div><div class="big" id="temp">31°C</div></div>
+            <div class="l"><div class="k" id="place">Sumedang</div><div class="big" id="temp">31°C</div></div>
             <div class="r"><div class="k" id="day">Tue 27</div><div class="hl" id="hl">33° / 25°</div></div>
           </div>
 
@@ -460,7 +500,7 @@
           </div>
 
           <div class="foot">
-            <div><div class="cond" id="cond">Partly cloudy</div><div class="place" id="loc">Kebayoran Baru, Jakarta Selatan</div></div>
+            <div><div class="cond" id="cond">Partly cloudy</div><div class="place" id="loc">Sumedang Utara, Sumedang</div></div>
             <div class="upd" id="upd">Updated 13:42</div>
           </div>
         </section>
@@ -485,20 +525,19 @@
         <i class="screw" style="left:14px;bottom:14px"></i><i class="screw" style="right:14px;bottom:14px"></i>
 
         <header class="label">
-          <button class="side press" id="appIcon" aria-label="Open app"></button>
           <div class="meta">
-            <div class="np-title" id="title">Secukupnya</div>
-            <div class="np-artist" id="artist">Hindia</div>
+            <div class="np-title" id="title"></div>
+            <div class="np-artist" id="artist"></div>
           </div>
-          <button class="np-src press" id="src" aria-label="Playing from"></button>
         </header>
 
-        <div class="window">
+        <div class="window" id="tapeWin">   <!-- tap = open the playing app (data-app set in setSource) -->
           <div class="reel"><div class="tape" id="tapeL"></div><div class="hub spokes" id="hubL"></div></div>
           <div class="mid">
             <div class="bar"><i id="prog"></i></div>
             <div class="times"><span id="tNow">1:31</span><span id="tLen">4:02</span></div>
             <div class="live-badge"><i></i>LIVE</div>
+            <div class="src-row"><button class="app-pill press" id="appPill"></button></div>
           </div>
           <div class="reel"><div class="tape" id="tapeR"></div><div class="hub art" id="art" role="img" aria-label="Album art"></div></div>
         </div>
@@ -520,6 +559,7 @@
 
   <section class="glass apps-page" id="appsPage" aria-label="All apps">
     <h1>All apps</h1>
+    <p class="apps-sub">Hold an app to pin it to the rail</p>
     <div class="apps-grid" id="appsGrid"></div>
   </section>
 
@@ -601,7 +641,7 @@
 
   // Settings. Persisted so the prototype remembers them between reloads.
   const S = Object.assign(
-    { side: 'right', night: 'auto', nav: 'waze', autoOpen: true, wifi: true, bt: true, data: true, hotspot: false, dnd: true, autoBri: true, obd: true },
+    { side: 'right', night: 'auto', nav: 'waze', pins: ['waze', 'spotify'], autoOpen: true, wifi: true, bt: true, data: true, hotspot: false, dnd: true, autoBri: true, obd: true },
     JSON.parse(localStorage.getItem('carhome') || '{}'));
   const save = () => localStorage.setItem('carhome', JSON.stringify(S));
 
@@ -624,21 +664,45 @@
   ];
   const byId = Object.fromEntries(APPS.map(a => [a.id, a]));
 
-  // Most recent first. The first entry is the app that is open now.
-  const RECENT_MAX = 4;
-  let recents = ['waze', 'spotify', 'prambors', 'whatsapp'];
+  // Rail slots: pinned apps first (in the order they were pinned, kept in S.pins), then the most recent other apps.
+  // recents is newest first; its first entry is the app that is open now.
+  const RAIL_MAX = 4;
+  let recents = ['waze', 'prambors', 'whatsapp', 'spotify', 'ytmusic'];
+  const PIN = '<span class="pin" aria-hidden="true"><i class="ph-fill ph-push-pin"></i></span>';
   function renderDock() {
-    $('dock').innerHTML = recents.map((id, i) => {
-      const a = byId[id];
-      return `<button class="dock-item press${i === 0 ? ' active' : ''}" data-app="${id}" aria-label="${a.name}">
-        <div class="tile" style="background:${a.bg}">${a.icon}</div></button>`;
-    }).join('');
+    const pins = S.pins.slice(0, RAIL_MAX);
+    const rest = recents.filter(id => !pins.includes(id)).slice(0, RAIL_MAX - pins.length);
+    const item = (id, pinned) => { const a = byId[id];
+      return `<button class="dock-item press${pinned ? ' pinned' : ''}${id === recents[0] ? ' active' : ''}" data-app="${id}" aria-label="${a.name}${pinned ? ' (pinned)' : ''}">
+        <div class="tile" style="background:${a.bg}">${a.icon}${PIN}</div></button>`; };
+    $('dock').innerHTML = pins.map(id => item(id, true)).join('')
+      + (pins.length && rest.length ? '<span class="split" aria-hidden="true"></span>' : '')
+      + rest.map(id => item(id, false)).join('');
+    // Mark pinned apps on the all-apps page without re-rendering it (that would replay its entrance animation).
+    document.querySelectorAll('#appsGrid .app').forEach(el => el.classList.toggle('pinned', S.pins.includes(el.dataset.app)));
   }
-  renderDock();
 
   $('appsGrid').innerHTML = APPS.map((a, i) =>
-    `<button class="app press" data-app="${a.id}" style="--i:${i}"><div class="tile" style="background:${a.bg}">${a.icon}</div><span>${a.name}</span></button>`
+    `<button class="app press" data-app="${a.id}" style="--i:${i}"><div class="tile" style="background:${a.bg}">${a.icon}${PIN}</div><span>${a.name}</span></button>`
   ).join('');
+  renderDock();
+
+  // Hold an app (rail or all-apps page) to pin or unpin it. The click that ends the hold does not open the app.
+  function togglePin(id) {
+    const name = byId[id].name;
+    if (S.pins.includes(id)) { S.pins = S.pins.filter(p => p !== id); say(`Unpinned ${name}`); }
+    else if (S.pins.length >= RAIL_MAX) { say('Rail is full: hold a pinned app to unpin it'); return; }
+    else { S.pins = [...S.pins, id]; say(`Pinned ${name}`); }
+    save(); renderDock();
+  }
+  let pinTimer, held = false;
+  screen.addEventListener('pointerdown', e => {
+    const el = e.target.closest('.dock-item, #appsGrid .app'); if (!el) return;   // not the map or the music app icon
+    held = false; clearTimeout(pinTimer);
+    pinTimer = setTimeout(() => { held = true; togglePin(el.dataset.app); }, 550);
+  });
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach(ev => screen.addEventListener(ev, () => clearTimeout(pinTimer)));
+  screen.addEventListener('contextmenu', e => { if (e.target.closest('[data-app]')) e.preventDefault(); });
 
   // The bottom rail button opens the all-apps page and turns into a Home button while it is open.
   const homeBtn = $('homeBtn');
@@ -650,11 +714,23 @@
   homeBtn.addEventListener('click', () => showApps(!screen.classList.contains('show-apps')));
 
   function openApp(id) {
-    recents = [id, ...recents.filter(r => r !== id)].slice(0, RECENT_MAX);
+    recents = [id, ...recents.filter(r => r !== id)].slice(0, 8);   // more than the rail shows, so recents still fill it after pins
     renderDock(); showApps(false); showCC(false);
     say(`Opens ${byId[id].name}`);
   }
-  screen.addEventListener('click', e => { const el = e.target.closest('[data-app]'); if (el) openApp(el.dataset.app); });
+  screen.addEventListener('click', e => {
+    const el = e.target.closest('[data-app]'); if (!el) return;
+    if (held) { held = false; return; }
+    openApp(el.dataset.app);
+  });
+
+  // Screensaver on demand. Prototype: fade to black, then open screensaver.html (its Home button comes back here).
+  // In the app: the launcher shows the screensaver activity (same WebView files as the DreamService) straight away.
+  $('saverBtn').addEventListener('click', () => {
+    screen.classList.add('to-saver');
+    setTimeout(() => { location.href = 'screensaver.html?from=home'; }, 420);
+  });
+  addEventListener('pageshow', () => screen.classList.remove('to-saver'));
 
   // Controls panel.
   const showCC = on => screen.classList.toggle('show-cc', on);
@@ -699,7 +775,7 @@
     // Signal shows Wi-Fi when it is the active connection, otherwise mobile; dimmed icons mean off.
     $('stNet').innerHTML = S.wifi ? `<i class="ph-bold ph-wifi-high"></i>` : S.data ? `<i class="ph-fill ph-cell-signal-high"></i>` : `<i class="ph-fill ph-cell-signal-slash off"></i>`;
     $('stBt').innerHTML = S.bt ? `<i class="ph-fill ph-bluetooth-connected"></i>` : `<i class="ph-fill ph-bluetooth-slash off"></i>`;
-    $('stBat').innerHTML = `<i class="ph-fill ph-battery-${charging ? 'charging-vertical' : 'high'}"></i><small>${level}%</small>`;
+    $('stBat').textContent = `${level}%`;   // number only; "not charging" and "too hot" show as warning icons below
     $('stWarn').innerHTML = (hot ? `<i class="ph-fill ph-thermometer-hot"></i>` : '') + (charging ? '' : `<i class="ph-fill ph-plugs"></i>`);
     const bat = $('batCard'), tc = $('tempCard');
     bat.classList.toggle('bad', !charging);
@@ -733,7 +809,7 @@
     ticks.forEach(t => t.classList.toggle('on', +t.dataset.v <= speed));
     $('srcChip').innerHTML = S.obd ? `<i class="ph-fill ph-plugs-connected"></i>OBD connected` : `<i class="ph-fill ph-navigation-arrow"></i>Tablet GPS`;
     $('carSub').textContent = S.obd ? '' : 'Plug in an OBD adapter for engine data';
-    $('resetBtn').style.visibility = S.obd ? 'hidden' : 'visible';
+    $('resetBtn').style.display = S.obd ? 'none' : '';
     const stat = (icon, label, val, unit) => `<div class="stat"><span><i class="ph-fill ph-${icon}"></i>${label}</span><b>${val}${unit ? ` <small>${unit}</small>` : ''}</b></div>`;
     const avg = driveS > 0 ? Math.round(tripKm / (driveS / 3600)) : 0;
     $('stats').innerHTML = S.obd
@@ -808,6 +884,18 @@
     const d = new Date(); $('upd').textContent = `Updated ${pad(d.getHours())}:${pad(d.getMinutes())}`;
   }
   show(STATES[0]);
+  // Live weather at the preview location, Sumedang Utara (Open-Meteo, WMO codes). In the app: the last GPS fix, every 20 min.
+  // Offline or blocked: the preview state above stays.
+  const WX_AT = { lat: -6.842, lon: 107.921 };
+  const WX_TEXT = { 0: 'Clear', 1: 'Mostly clear', 2: 'Partly cloudy', 3: 'Cloudy', 45: 'Fog', 48: 'Fog', 51: 'Drizzle', 53: 'Drizzle', 55: 'Drizzle',
+                    61: 'Rain', 63: 'Rain', 65: 'Heavy rain', 80: 'Showers', 81: 'Showers', 82: 'Heavy showers', 95: 'Thunderstorm', 96: 'Thunderstorm', 99: 'Thunderstorm' };
+  const kindOf = c => c <= 1 ? 'clear' : c === 2 ? 'partly' : c <= 48 ? 'cloudy' : c >= 95 ? 'storm' : 'rain';
+  fetch(`https://api.open-meteo.com/v1/forecast?latitude=${WX_AT.lat}&longitude=${WX_AT.lon}&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min&forecast_days=1&timezone=auto`)
+    .then(r => r.json())
+    .then(j => { const c = j.current.weather_code;
+      show({ kind: kindOf(c), temp: Math.round(j.current.temperature_2m), cond: WX_TEXT[c] || 'Cloudy',
+             hi: Math.round(j.daily.temperature_2m_max[0]), lo: Math.round(j.daily.temperature_2m_min[0]) }); })
+    .catch(() => {});
 
   // ---- Location. On Android, Geocoder gives the district (locality, e.g. "Sumedang Utara") and the regency or city
   //      (subAdminArea, e.g. "Kabupaten Sumedang"). The slab shows the regency/city without its prefix; the footer shows both. ----
@@ -833,7 +921,7 @@
     }
   }
   // Prototype only: tap the place on the slab to try other locations, long ones included.
-  const PLACES = [['Kebayoran Baru', 'Kota Jakarta Selatan'], ['Sumedang Utara', 'Kabupaten Sumedang'],
+  const PLACES = [['Sumedang Utara', 'Kabupaten Sumedang'], ['Kebayoran Baru', 'Kota Jakarta Selatan'],
                   ['Ciputat Timur', 'Kota Tangerang Selatan'], ['Padalarang', 'Kabupaten Bandung Barat'], ['Ubud', 'Kabupaten Gianyar']];
   let pi = 0;
   setLocation(...PLACES[0]);
@@ -852,12 +940,12 @@
   apply();
 
   // Media sessions the launcher can follow. In the app these come from MediaSessionManager: whichever session is playing wins,
-  // and the source chip shows that app. Prototype only: tap the chip to move to the next one.
+  // and the label shows that app's logo. Tapping the logo or the tape window opens the app.
   const SOURCES = [
-    { id: 'spotify', app: 'Spotify', bg: '#1db954', icon: si('spotify'), title: 'Secukupnya', artist: 'Hindia', art: 'https://picsum.photos/seed/night-drive-city-lights/240/240', len: 242, pos: 91, skip: true },
-    { id: 'ytmusic', app: 'YT Music', bg: '#ff0033', icon: si('youtubemusic'), title: 'Komang', artist: 'Raim Laode', art: 'https://picsum.photos/seed/komang-sunset-sea/240/240', len: 258, pos: 40, skip: true },
+    { id: 'ytmusic', app: 'YT Music', icon: si('youtubemusic'), title: 'Zona Nyaman (OST. Filosofi Kopi 2: Ben & Jody)', artist: 'Fourtwnty', art: 'https://picsum.photos/seed/night-drive-city-lights/240/240', len: 268, pos: 91, skip: true },
+    { id: 'spotify', app: 'Spotify', icon: si('spotify'), title: 'Secukupnya', artist: 'Hindia', art: 'https://picsum.photos/seed/komang-sunset-sea/240/240', len: 242, pos: 40, skip: true },
     // Live radio: station logo instead of album art, no length, and this station has no skip.
-    { id: 'prambors', app: 'Prambors', bg: '#f2711c', icon: '<i class="ph-fill ph-radio"></i>', title: 'Sial', artist: 'Mahalini on Prambors FM', logo: { bg: '#f2711c', icon: 'radio' }, len: null, skip: false },
+    { id: 'prambors', app: 'Prambors', icon: '<i class="ph-fill ph-radio"></i>', title: 'Sial', artist: 'Mahalini on Prambors FM', logo: { bg: '#f2711c', icon: 'radio' }, len: null, skip: false },
   ];
 
   // Six teeth on the left hub, built once.
@@ -878,14 +966,36 @@
     $('tNow').textContent = fmt(cur.pos);
     setTape(cur.pos / cur.len);
   }
+  // Centre the title when it fits; scroll it only when it is longer than the label (one copy + gap vs the width).
+  // YouTube Music style: rest 2.5 s at the start, slide one copy's length at 45 px/s, land on the second copy (which looks
+  // exactly like the start), repeat.
+  const REST = 2500, SPEED = 45, reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let titleAnim;
+  function fitTitle() {
+    const box = $('title'), run = box.firstChild; if (!run) return;
+    titleAnim && titleAnim.cancel(); titleAnim = null;
+    box.classList.remove('still');
+    const travel = run.scrollWidth / 2;                    // one copy plus its gap
+    if (travel - 56 <= box.clientWidth || reduceMotion) { box.classList.add('still'); return; }
+    const slide = travel / SPEED * 1000, total = REST + slide;
+    titleAnim = run.animate([
+      { transform: 'translateX(0)', offset: 0 },
+      { transform: 'translateX(0)', offset: REST / total },
+      { transform: 'translateX(-50%)', offset: 1 },
+    ], { duration: total, iterations: Infinity, easing: 'linear' });
+    if (!playing) titleAnim.pause();
+  }
+  document.fonts && document.fonts.ready.then(fitTitle);
   function setSource(i) {
     cur = SOURCES[i];
     const np = $('np'), art = $('art');
     np.classList.toggle('live', cur.len == null);
     np.classList.toggle('no-skip', !cur.skip);
-    $('src').textContent = cur.app;
-    $('appIcon').innerHTML = cur.icon; $('appIcon').style.background = cur.bg; $('appIcon').dataset.app = cur.id;
-    $('title').textContent = cur.title;
+    $('appPill').innerHTML = `${cur.icon}<span>${cur.app}</span>`; $('appPill').dataset.app = cur.id; $('tapeWin').dataset.app = cur.id;
+    $('appPill').setAttribute('aria-label', `Open ${cur.app}`);
+    const t = cur.title.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+    $('title').innerHTML = `<span class="run">${t}<i></i><span aria-hidden="true">${t}<i></i></span></span>`;   // second copy: seamless loop
+    fitTitle();
     $('artist').textContent = cur.artist;
     if (cur.logo) { art.classList.add('logo'); art.style.background = cur.logo.bg; art.innerHTML = `<i class="ph-fill ph-${cur.logo.icon}"></i>`; }
     else { art.classList.remove('logo'); art.innerHTML = ''; art.style.background = `#333 url(${cur.art}) center / cover`; }
@@ -893,13 +1003,22 @@
     renderProgress();
     document.querySelectorAll('.label, .mid').forEach(el => { el.classList.remove('swap'); void el.offsetWidth; el.classList.add('swap'); });
   }
-  let si_ = 0;
-  setSource(si_);
-  $('src').addEventListener('click', () => setSource(si_ = (si_ + 1) % SOURCES.length));
+  // Prototype only: glass.html?src=spotify|ytmusic|prambors previews another app (default YT Music),
+  // and holding the app pill moves to the next one (a plain tap still opens the app).
+  let srcI = Math.max(0, SOURCES.findIndex(x => x.id === new URLSearchParams(location.search).get('src')));
+  setSource(srcI);
+  let pillT, pillHeld = false;
+  $('appPill').addEventListener('pointerdown', () => {
+    pillHeld = false; clearTimeout(pillT);
+    pillT = setTimeout(() => { pillHeld = true; setSource(srcI = (srcI + 1) % SOURCES.length); say(`Now playing from ${cur.app}`); }, 550);
+  });
+  ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => $('appPill').addEventListener(ev, () => clearTimeout(pillT)));
+  $('appPill').addEventListener('click', e => { if (pillHeld) { pillHeld = false; e.stopPropagation(); } });
 
   $('play').onclick = () => {
     playing = !playing;
     $('np').classList.toggle('paused', !playing);
+    titleAnim && (playing ? titleAnim.play() : titleAnim.pause());
     $('play').innerHTML = `<i class="ph-fill ph-${playing ? 'pause' : 'play'}"></i>`;
     $('play').setAttribute('aria-label', playing ? 'Pause' : 'Play');
   };
@@ -913,6 +1032,40 @@
     t.addEventListener('pointerdown', e => { t.setPointerCapture(e.pointerId); move(e); t.onpointermove = move; });
     t.addEventListener('pointerup', () => { t.onpointermove = null; });
   });
+
+  // ---- Lens edges. One SVG displacement filter per glass panel, sized in pixels to it (Chromium ignores objectBoundingBox
+  //      units here). Two passes, horizontal then vertical, each map neutral grey in the middle and ramping across the outer
+  //      EDGE px, so the backdrop is pulled in from just outside the rim, like the thick edge of a lens. (One combined
+  //      red/green map shears the middle in Chromium; separate passes with the other channel held at 0x80 do not.)
+  //      Built once: the panels are fixed-size on the 1340x800 canvas. The Controls drawer keeps its own heavier frost.
+  //      Off by default: live, it halves the frame rate (28 fps vs 60 on a Mac) because every animation under or inside a
+  //      panel re-runs the filter chain. Preview with glass.html?lens. Android bakes it instead (see CLAUDE.md). ----
+  (function lensEdges() {
+    if (!new URLSearchParams(location.search).has('lens')) return;
+    if (matchMedia('(prefers-reduced-transparency: reduce)').matches) return;   // solid panels instead (see the CSS)
+    const EDGE = 30, BEND = 40, NS = 'http://www.w3.org/2000/svg', defs = $('lensDefs');
+    // Red ramps left to right (green held neutral) for the x pass; green ramps top to bottom (red held neutral) for the y pass.
+    const ramp = (len, axis) => {
+      const a = (EDGE / len).toFixed(4), b = (1 - EDGE / len).toFixed(4);
+      const c = axis === 'x' ? ['#008000', '#808000', '#ff8000'] : ['#800000', '#808000', '#80ff00'];
+      return 'data:image/svg+xml,' + encodeURIComponent(`<svg xmlns="${NS}" width="100" height="100" preserveAspectRatio="none">`
+        + `<linearGradient id="g"${axis === 'y' ? ' x2="0" y2="1"' : ''}><stop offset="0" stop-color="${c[0]}"/><stop offset="${a}" stop-color="${c[1]}"/>`
+        + `<stop offset="${b}" stop-color="${c[1]}"/><stop offset="1" stop-color="${c[2]}"/></linearGradient><rect width="100" height="100" fill="url(#g)"/></svg>`);
+    };
+    document.querySelectorAll('.glass:not(.cc)').forEach((el, i) => {
+      const w = el.offsetWidth, h = el.offsetHeight; if (!w || !h) return;
+      const f = document.createElementNS(NS, 'filter');
+      f.id = 'lens' + i;
+      ['x', 'y'].forEach(k => f.setAttribute(k, 0));
+      f.setAttribute('width', 1); f.setAttribute('height', 1); f.setAttribute('color-interpolation-filters', 'sRGB');
+      const img = (axis, r) => `<feImage href="${ramp(axis === 'x' ? w : h, axis)}" x="0" y="0" width="${w}" height="${h}" preserveAspectRatio="none" result="${r}"/>`;
+      f.innerHTML = img('x', 'mx') + img('y', 'my')
+        + `<feDisplacementMap in="SourceGraphic" in2="mx" scale="${BEND}" xChannelSelector="R" yChannelSelector="G" result="dx"/>`
+        + `<feDisplacementMap in="dx" in2="my" scale="${BEND}" xChannelSelector="R" yChannelSelector="G"/>`;
+      defs.appendChild(f);
+      el.style.backdropFilter = `url(#lens${i}) blur(7px) saturate(1.9) brightness(0.8)`;
+    });
+  })();
 </script>
 </body>
 </html>
