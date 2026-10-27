@@ -28,7 +28,10 @@ Driven over ADB from a computer on the same Wi-Fi (Wireless debugging; pair once
   `today.html` is the Today panel redone as an HTC Sense style flip clock: two white flip cards (HH, MM; only the changed card flips,
   minute-aligned) on a dark weather slab, animated Weatherglass icon overlapping both, place + temp left, day + H/L right,
   condition + location + updated time below. Merges clock and weather, so the bottom row keeps the full-width player.
-  Tap clock = flip forward a minute, tap panel = next weather (prototype only).
+  Location: slab shows the regency/city (Geocoder subAdminArea, "Kabupaten"/"Kota" prefix stripped), footer shows
+  "district, regency" (locality + subAdminArea) with an ellipsis; a long slab name shrinks 17 -> 15 px, then wraps to 2 lines.
+  Tap clock = flip forward a minute, tap place = next sample location, tap panel = next weather (prototype only).
+  Published preview: https://claude.ai/artifact/Uy8NJRbmhcygbKFidviNQT
 - Rail is CarPlay-style, on the right by default (setting: left/right): status pill on top (tap = Controls; signal, Bluetooth, battery %,
   warning icons only when not charging or too hot), the 4 most recently opened apps (open app marked), all-apps / Home button at the bottom.
   One `APPS` list in the JS drives the rail, the all-apps page and the navigation setting. Settings persist in localStorage (`carhome`).
