@@ -57,11 +57,11 @@ Driven over ADB from a computer on the same Wi-Fi (Wireless debugging; pair once
 - GPS director (`?gps` or `bbot.gps({speed,heading,lat,lon,accuracy})`): pull-away, hard brake/accel, sharp turn (look into it),
   waiting at a light -> bored/sleepy, highway cruise, speeding (>110), long drive, home geofence (`bbot.setHome()`). Thresholds in `GPS`;
   `?debug` has "simulate drive (5x)". Android side: LocationManager fixes piped to `bbot.gps(...)` at 1 Hz.
-- Now playing: `bbot.player.set({title, artist, playing})` shows a marquee bottom-right, no controls. Clock (96px) + date + weather
+- Now playing: `bbot.player.set({title, artist, playing})` shows a marquee bottom-right, no controls. Clock (light 60px, small AM/PM) + date + weather
   centred under the face; weather from Open-Meteo at the last GPS fix (fallback KL) or pushed via `bbot.weather.set({temp, text})`.
   Browser build keeps a local-file queue ("add songs", ID3 title/artist) through the analyser; face nods on bass onsets while music-play is on.
   Android side: MediaSessionManager -> active MediaController metadata/playback state -> player.set().
-- Published test page (debug bar on, mouth off, no head ring; user wants that look, repo not yet changed): https://claude.ai/artifact/9XmBNmuNQU7BJHVGpu4E5T
+- Look: eyes only (mouth off, no head ring), off-black background. Published test page (same file, debug bar always on): https://claude.ai/artifact/9XmBNmuNQU7BJHVGpu4E5T
 
 ## Not decided / parked
 - Combined replacement for Easy Slider + Muviz Edge (2-finger volume / 3-finger brightness edge zone + screensaver). User paused it.

@@ -23,7 +23,7 @@
 
   /* --face-skin must match what sits behind the head, or the lids seam (see bbot README). */
   #bot { position: absolute; left: 50%; top: 38%; width: 520px; height: 520px; margin: -260px 0 0 -260px;
-    --face-skin: var(--bg); --face-ink: #e9ebec; --face-ring: #1c1f22; --face-pupil: var(--bg); }
+    --face-skin: var(--bg); --face-ink: #e9ebec; --face-ring: transparent; --face-pupil: var(--bg); }
 
   .drift { position: absolute; inset: 0; will-change: transform; }
 
@@ -74,7 +74,7 @@
   }
   addEventListener('resize', fit); fit();
 
-  const face = createFace(botEl, { expression: 'idle', mouth: true });
+  const face = createFace(botEl, { expression: 'idle', mouth: false });
   window.face = face; // handy for poking at it from devtools
 
   // ---- Colour (bbot's own theme colours; tap the screen to show the swatches) ----
