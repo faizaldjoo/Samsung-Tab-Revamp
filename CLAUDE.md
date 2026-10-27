@@ -15,12 +15,12 @@ Driven over ADB from a computer on the same Wi-Fi (Wireless debugging; pair once
 ## Custom launcher (in progress)
 - `launcher-prototype/glass.html` is the chosen design (option B, Liquid Glass over a photo wallpaper). `index.html` is option A (dark).
   `wireframe.html` is the flat mid-fidelity mockup of the same layout, used to settle changes cheaply before they go into glass.html.
-- Canvas is 1340x800 landscape. Sections: Rail, Map, Today (flip clock, date, location, weather + next 4 hours), Car (speedometer + 4 stats),
+- Canvas is 1340x800 landscape. Sections: Rail, Map, Today (HTC Sense style flip clock + current weather, see today.html), Car (speedometer + 4 stats),
   Now playing (cassette: playing app's icon + title/artist on the label, album art or station logo spins as the right reel, tape moves
   left to right with progress, controls on the bottom bridge; live radio = LIVE badge, tape still, skip hidden if unsupported; panel stays
   neutral glass), Sliders. `cassette.html` is the standalone cassette prototype shown in the home layout.
   `weather.html` is the standalone weather card (current conditions only: temp, condition - place, H/L, a soft 3D cloud/sun/rain drawn
-  once to a canvas per condition) in the bottom-left slot left of a narrower Now playing; home screen not changed yet (on hold).
+  once to a canvas per condition) in the bottom-left slot left of a narrower Now playing; superseded by the Today panel (weather merged into the clock), kept for reference.
   `weather.html?art=icons` shows the same card with Weatherglass TV's glass icons instead, animated per condition with CSS
   transform/opacity only (sun glow breathes, rain drops fall, lightning flash, gentle bob) (`vendor/weatherglass/`, copied from
   faizaldjoo/weatherglass-tv app/assets/weather at 94a2d9f, MIT); night swaps sun icons for moon ones. Controls panel slides out from the rail; All apps page cross-fades over home.
@@ -28,6 +28,8 @@ Driven over ADB from a computer on the same Wi-Fi (Wireless debugging; pair once
   `today.html` is the Today panel redone as an HTC Sense style flip clock: two white flip cards (HH, MM; only the changed card flips,
   minute-aligned) on a dark weather slab, animated Weatherglass icon overlapping both, place + temp left, day + H/L right,
   condition + location + updated time below. Merges clock and weather, so the bottom row keeps the full-width player.
+  It is the live Today panel in glass.html (same CSS/markup/JS, classes scoped under .today; flip cards are .fcard because
+  .card is the Controls tile class; night mode dims the card paper).
   Location: slab shows the regency/city (Geocoder subAdminArea, "Kabupaten"/"Kota" prefix stripped), footer shows
   "district, regency" (locality + subAdminArea) with an ellipsis; a long slab name shrinks 17 -> 15 px, then wraps to 2 lines.
   Tap clock = flip forward a minute, tap place = next sample location, tap panel = next weather (prototype only).
@@ -35,7 +37,7 @@ Driven over ADB from a computer on the same Wi-Fi (Wireless debugging; pair once
 - Rail is CarPlay-style, on the right by default (setting: left/right): status pill on top (tap = Controls; signal, Bluetooth, battery %,
   warning icons only when not charging or too hot), the 4 most recently opened apps (open app marked), all-apps / Home button at the bottom.
   One `APPS` list in the JS drives the rail, the all-apps page and the navigation setting. Settings persist in localStorage (`carhome`).
-- Prototype-only taps: clock = next wallpaper, Car source chip = OBD/GPS, music source chip = next app (Spotify / YT Music / radio),
+- Prototype-only taps: clock = next wallpaper, Today panel = next weather, Today place name = next location, Car source chip = OBD/GPS, music source chip = next app (Spotify / YT Music / radio),
   battery and temperature cards = preview warning states.
 - Next step: user is drawing a wireframe to revamp some sections; edit only the sections they change.
 - Build plan once the design is final: plain Java Android app, no Gradle (javac + d8 + aapt2 + apksigner from the Android SDK),

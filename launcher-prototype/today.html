@@ -68,7 +68,7 @@
 
   /* Flip cards. Each card is four layers: static top and bottom halves, plus two flaps that turn over on a change. */
   .cards { position: absolute; top: 22px; left: 0; right: 0; display: flex; justify-content: center; gap: 14px; z-index: 1; cursor: pointer; -webkit-tap-highlight-color: transparent; }
-  .card { position: relative; width: 168px; height: 162px; perspective: 600px; filter: drop-shadow(0 10px 14px rgba(0,0,0,0.38)); }
+  .fcard { position: relative; width: 168px; height: 162px; perspective: 600px; filter: drop-shadow(0 10px 14px rgba(0,0,0,0.38)); }
   .half { position: absolute; left: 0; right: 0; height: 50%; overflow: hidden; backface-visibility: hidden; }
   .half span { position: absolute; left: 0; right: 0; height: 162px; line-height: 162px; text-align: center; color: var(--digit); text-shadow: none;
     font-size: 128px; font-weight: 200; letter-spacing: -0.05em; font-variant-numeric: tabular-nums; }
@@ -76,21 +76,21 @@
   .half.b { bottom: 0; border-radius: 0 0 16px 16px; background: linear-gradient(180deg, var(--card-bot), var(--card-bot2)); transform-origin: 50% 0%; }
   .half.b span { top: -81px; }
   /* The hinge: a dark split line with a soft highlight under it, and two small side notches. */
-  .card::after { content: ""; position: absolute; left: 0; right: 0; top: calc(50% - 1px); height: 2px; z-index: 3;
+  .fcard::after { content: ""; position: absolute; left: 0; right: 0; top: calc(50% - 1px); height: 2px; z-index: 3;
     background: linear-gradient(180deg, rgba(0,0,0,0.55), rgba(255,255,255,0.35)); }
-  .card::before { content: ""; position: absolute; left: -3px; right: -3px; top: calc(50% - 6px); height: 12px; z-index: 4;
+  .fcard::before { content: ""; position: absolute; left: -3px; right: -3px; top: calc(50% - 6px); height: 12px; z-index: 4;
     background: linear-gradient(90deg, #4a4e55 0 5px, transparent 5px calc(100% - 5px), #4a4e55 calc(100% - 5px)); border-radius: 3px; }
   .flapT, .flapB { z-index: 2; }
   .flapB { transform: rotateX(90deg); }
-  .card.go .flapT { animation: flipT 0.28s ease-in forwards; }
-  .card.go .flapB { animation: flipB 0.28s 0.28s ease-out forwards; }
+  .fcard.go .flapT { animation: flipT 0.28s ease-in forwards; }
+  .fcard.go .flapB { animation: flipB 0.28s 0.28s ease-out forwards; }
   @keyframes flipT { to { transform: rotateX(-90deg); } }
   @keyframes flipB { from { transform: rotateX(90deg); } to { transform: rotateX(0deg); } }
   /* The top flap darkens as it falls, the way paper turns away from the light. */
   .flapT::after { content: ""; position: absolute; inset: 0; background: rgba(0,0,0,0); }
-  .card.go .flapT::after { animation: shade 0.28s ease-in forwards; }
+  .fcard.go .flapT::after { animation: shade 0.28s ease-in forwards; }
   @keyframes shade { to { background: rgba(0,0,0,0.25); } }
-  @media (prefers-reduced-motion: reduce) { .card.go .flapT, .card.go .flapB, .card.go .flapT::after { animation-duration: 0.01s; animation-delay: 0s; } }
+  @media (prefers-reduced-motion: reduce) { .fcard.go .flapT, .fcard.go .flapB, .fcard.go .flapT::after { animation-duration: 0.01s; animation-delay: 0s; } }
 
   /* Weather icon, centred over the cards' feet and the slab. Animated exactly as in weather.html. */
   .iconwrap { position: absolute; left: 50%; top: 168px; width: 170px; height: 128px; margin-left: -69px; z-index: 2; transform: scale(1.14); transform-origin: 50% 40%;
@@ -144,8 +144,8 @@
     </div>
 
     <div class="cards" id="cards" role="timer" aria-label="Time">
-      <div class="card" id="cH"></div>
-      <div class="card" id="cM"></div>
+      <div class="fcard" id="cH"></div>
+      <div class="fcard" id="cM"></div>
     </div>
 
     <div class="iconwrap" aria-hidden="true">
