@@ -1,0 +1,569 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>bbot Screensaver</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  /* Lite bbot screensaver. bbot (github.com/bwndapp/bbot, MIT) is already WebGL-free: one SVG driven by springs.
+     The bundle is vendored in vendor/bbot so it runs offline. This page only adds the screensaver director
+     (mood cycling, reactions, night mode, burn-in drift) and a clock. Needs http://, not file:// (ES module). */
+  :root {
+    --bg: #07080a;
+    --text: #eef0f2;
+    --muted: rgba(247, 248, 250, 0.72);
+    --faint: rgba(247, 248, 250, 0.38);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; background: var(--bg); color: var(--text); font-family: "Geist", system-ui, sans-serif; overflow: hidden; -webkit-font-smoothing: antialiased; }
+
+  #screen { width: 1340px; height: 800px; position: absolute; left: 50%; top: 50%; overflow: hidden; transform-origin: center center; background: var(--bg); }
+
+  /* --face-skin must match what sits behind the head, or the lids seam (see bbot README). */
+  #bot { position: absolute; left: 50%; top: 38%; width: 520px; height: 520px; margin: -260px 0 0 -260px;
+    --face-skin: var(--bg); --face-ink: #e9ebec; --face-ring: #1c1f22; --face-pupil: var(--bg); }
+
+  .drift { position: absolute; inset: 0; will-change: transform; }
+
+  /* Clock and weather sit under the face; the song scrolls in the bottom-right corner. */
+  /* Hierarchy from weight and colour, not size: a light 60px time, AM/PM and the info line in muted tones. */
+  .clock { position: absolute; left: 0; right: 0; top: 488px; text-align: center; color: var(--text); pointer-events: none; }
+  .clock .t { font-size: 60px; font-weight: 300; line-height: 1; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+  .clock .t .ap { font-size: 20px; font-weight: 500; letter-spacing: 0.04em; color: var(--faint); margin-left: 8px; vertical-align: 0.15em; }
+  .clock .w { font-size: 19px; margin-top: 14px; color: var(--muted); display: flex; justify-content: center; align-items: center; gap: 16px; font-variant-numeric: tabular-nums; }
+  .clock .w .sep { width: 1px; height: 16px; background: var(--faint); }
+
+  .song { position: absolute; right: 28px; bottom: 28px; width: 420px; overflow: hidden; white-space: nowrap; font-size: 17px; color: var(--muted);
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+    opacity: 0; transition: opacity 0.5s; pointer-events: none; }
+  .song.on { opacity: 1; }
+  .song .track { display: inline-block; padding-right: 64px; animation: marquee 14s linear infinite; }
+  .song .track b { font-weight: 600; color: var(--text); }
+  @keyframes marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+  @media (prefers-reduced-motion: reduce) { .song .track { animation: none; } }
+
+  .swatches { position: absolute; bottom: 44px; right: 28px; display: flex; gap: 10px; opacity: 0; pointer-events: none; transition: opacity 0.4s; }
+  #screen.ui .swatches { opacity: 1; pointer-events: auto; }
+  .swatches button { width: 34px; height: 34px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.25); cursor: pointer; -webkit-tap-highlight-color: transparent; }
+  .swatches button[aria-pressed="true"] { border-color: #fff; }
+</style>
+</head>
+<body>
+<div id="screen">
+  <div class="drift" id="drift">
+    <div id="bot"></div>
+    <div class="clock"><div class="t" id="time">--:--</div><div class="w"><span id="date"></span><span class="sep"></span><span id="weather">--&deg;</span></div></div>
+    <div class="song" id="song"><span class="track" id="song-text"></span></div>
+  </div>
+  <div class="swatches" id="swatches" aria-label="Face colour"></div>
+</div>
+
+<script type="module">
+  import { createFace } from './vendor/bbot/face.js';
+
+  const W = 1340, H = 800;
+  const screenEl = document.getElementById('screen');
+  const botEl = document.getElementById('bot');
+
+  // Fit the 1340x800 design canvas to any window, same as glass.html.
+  function fit() {
+    const s = Math.min(innerWidth / W, innerHeight / H);
+    screenEl.style.transform = `translate(-50%, -50%) scale(${s})`;
+  }
+  addEventListener('resize', fit); fit();
+
+  const face = createFace(botEl, { expression: 'idle', mouth: true });
+  window.face = face; // handy for poking at it from devtools
+
+  // ---- Colour (bbot's own theme colours; tap the screen to show the swatches) ----
+  const INKS = ['#e9ebec', '#b6ff3b', '#5ec8ff', '#ffb547', '#ff7aa8'];
+  let ink = INKS[0];
+  try { ink = localStorage.getItem('bbot-ink') || ink; } catch (e) {}
+  const sw = document.getElementById('swatches');
+  const applyInk = c => botEl.style.setProperty('--face-ink', c);
+  applyInk(ink);
+  INKS.forEach(c => {
+    const b = document.createElement('button');
+    b.style.background = c; b.setAttribute('aria-label', c);
+    b.setAttribute('aria-pressed', c === ink);
+    b.addEventListener('pointerdown', e => {
+      e.stopPropagation(); ink = c; applyInk(c);
+      sw.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', x === b));
+      try { localStorage.setItem('bbot-ink', c); } catch (err) {}
+    });
+    sw.appendChild(b);
+  });
+
+  // ---- Director: weighted mood cycling, mostly calm. Each entry is [mood, weight]. ----
+  const DAY = [['idle', 6], ['content', 4], ['happy', 3], ['curious', 3], ['thinking', 2], ['relieved', 2],
+               ['excited', 1], ['love', 1], ['shy', 1], ['confused', 1], ['smug', 1], ['suspicious', 1],
+               ['bored', 1], ['focus', 1], ['sleepy', 1]];
+  const NIGHT = [['sleepy', 5], ['sleep', 4], ['idle', 2], ['content', 2], ['relieved', 1]];
+  // Small reaction that suits a mood when it starts; anything not listed gets none.
+  const ENTRY = { happy: 'nod', excited: 'bounce', love: 'pop', confused: 'shake', curious: 'boing', surprised: 'pop', relieved: 'nod' };
+
+  const rand = (a, b) => a + Math.random() * (b - a);
+  const isNight = () => { const h = new Date().getHours(); return h >= 22 || h < 6; };
+  function pick(list, not) {
+    const pool = list.filter(([m]) => m !== not);
+    let r = Math.random() * pool.reduce((s, [, w]) => s + w, 0);
+    for (const [m, w] of pool) if ((r -= w) <= 0) return m;
+    return pool[0][0];
+  }
+
+  let mood = 'idle', moodTimer, pinned = false;
+  function nextMood() {
+    if (!pinned) {
+      mood = pick(isNight() ? NIGHT : DAY, mood);
+      face.setExpression(mood);
+      if (ENTRY[mood]) setTimeout(() => face.react(ENTRY[mood]), 350);
+      // Eyes shut means nothing to track; turn tracking back on otherwise.
+      face.set({ track: mood !== 'sleep' });
+    }
+    clearTimeout(moodTimer);
+    moodTimer = setTimeout(nextMood, mood === 'sleep' ? rand(20000, 40000) : rand(7000, 15000));
+  }
+  moodTimer = setTimeout(nextMood, 4000);
+
+  // Now and then a wink or a glance while awake, so long holds don't feel frozen.
+  (function fidget() {
+    setTimeout(() => {
+      if (mood !== 'sleep' && mood !== 'sleepy') {
+        Math.random() < 0.35 ? face.react('wink') : face.look(rand(-1, 1), rand(-0.6, 0.4), rand(900, 1800));
+      }
+      fidget();
+    }, rand(6000, 14000));
+  })();
+
+  // ---- Burn-in drift: face and clock wander ±40/±20px over minutes. Moved at 1 Hz; the SVG itself animates. ----
+  const drift = document.getElementById('drift');
+  setInterval(() => {
+    const t = performance.now();
+    drift.style.transform = `translate(${(Math.sin(t / 47000) * 40).toFixed(1)}px, ${(Math.cos(t / 61000) * 20).toFixed(1)}px)`;
+  }, 1000);
+
+  // ---- Clock ----
+  const timeEl = document.getElementById('time'), dateEl = document.getElementById('date');
+  function tick() {
+    const d = new Date();
+    // Time in light figures, the day period (AM/PM) set small and muted; 24-hour locales simply have no period.
+    const parts = new Intl.DateTimeFormat([], { hour: 'numeric', minute: '2-digit' }).formatToParts(d);
+    const hm = parts.filter(x => x.type !== 'dayPeriod').map(x => x.value).join('').trim();
+    const ap = parts.find(x => x.type === 'dayPeriod');
+    timeEl.innerHTML = hm + (ap ? `<span class="ap">${ap.value}</span>` : '');
+    dateEl.textContent = d.toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' });
+  }
+  setInterval(tick, 5000); tick();
+
+  // ---- show(): hold a mood for a while (pausing the cycle), fire reactions, then hand back to the director. ----
+  let wakeTimer;
+  function show(expr, reactions = [], ms = 3500) {
+    pinned = true;
+    face.set({ track: true });
+    face.setExpression(expr);
+    [].concat(reactions).forEach((r, i) => setTimeout(() => face.react(r), i * 220));
+    clearTimeout(wakeTimer);
+    wakeTimer = setTimeout(() => { pinned = false; nextMood(); }, ms);
+  }
+  const asleep = () => mood === 'sleep' || mood === 'sleepy';
+
+  // ---- Touch gestures. bbot's eyes already follow the finger on their own.
+  //      tap: happy (startled awake if asleep) · double tap: surprised → joy · 3+ quick taps: annoyed
+  //      long press: love · rub back and forth: content, then relieved · fast swipe: spin → dizzy
+  //      (Android DreamService needs setInteractive(true) for this, otherwise a touch closes the screensaver.) ----
+  let down = null, taps = 0, tapTimer, pressTimer, uiTimer;
+  const HOLD = 600, MOVE = 14;
+
+  screenEl.addEventListener('pointerdown', e => {
+    down = { x: e.clientX, y: e.clientY, t: performance.now(), lastX: e.clientX, dir: 0, flips: 0, path: 0, long: false };
+    clearTimeout(pressTimer);
+    pressTimer = setTimeout(() => {
+      if (down && down.path < MOVE) { down.long = true; show('love', ['pop'], 4000); }
+    }, HOLD);
+    screenEl.classList.add('ui');
+    clearTimeout(uiTimer); uiTimer = setTimeout(() => screenEl.classList.remove('ui'), 4000);
+  });
+
+  screenEl.addEventListener('pointermove', e => {
+    if (!down) return;
+    const dx = e.clientX - down.lastX;
+    down.path += Math.abs(dx);
+    // Count direction reversals: three or more while pressed is a rub (petting).
+    if (Math.abs(dx) > 6) {
+      const dir = Math.sign(dx);
+      if (down.dir && dir !== down.dir) {
+        down.flips++;
+        if (down.flips === 3) show('content', ['nod'], 3000);
+        if (down.flips === 8) show('relieved', ['nod'], 4000);
+      }
+      down.dir = dir; down.lastX = e.clientX;
+    }
+  });
+
+  addEventListener('pointerup', e => {
+    if (!down) return;
+    clearTimeout(pressTimer);
+    const d = down; down = null;
+    const dt = performance.now() - d.t, dx = e.clientX - d.x, dy = e.clientY - d.y;
+    if (d.long || d.flips >= 3) return;
+    // Swipe: a quick, mostly straight drag.
+    if (dt < 350 && Math.hypot(dx, dy) > 160) { show('dizzy', ['spin'], 3500); return; }
+    if (d.path > MOVE) return;
+    // Taps: wait a beat to see whether more follow, then act on the count.
+    taps++;
+    clearTimeout(tapTimer);
+    tapTimer = setTimeout(() => {
+      if (taps >= 3) show('annoyed', ['shake'], 3500);
+      else if (taps === 2) { show('surprised', ['pop'], 4000); setTimeout(() => face.setExpression('joy'), 900); }
+      else show(asleep() ? 'surprised' : 'happy', ['bounce'], 3500);
+      taps = 0;
+    }, 280);
+  });
+
+  // ---- Car events. The Android app calls these from its listeners via WebView.evaluateJavascript("bbot.event('turn-left')").
+  //      Open screensaver.html?debug to get buttons for them. ----
+  let groove;
+  const EVENTS = {
+    'music-play':  () => { show('happy', ['nod'], 8000); clearInterval(groove);
+                           if (analyser) return;
+                           let n = 0; groove = setInterval(() => { face.react('nod'); if (++n > 10) clearInterval(groove); }, 650); },
+    'music-pause': () => { clearInterval(groove); show('bored', [], 4000); },
+    'turn-left':   () => { show('focus', [], 3000); face.look(-1, 0, 2500); },
+    'turn-right':  () => { show('focus', [], 3000); face.look(1, 0, 2500); },
+    'arrived':     () => show('joy', ['bounce', 'pop'], 5000),
+    'call':        () => show('surprised', ['jitter', 'jitter'], 5000),
+    'message':     () => { show('curious', ['boing'], 3500); face.look(0.6, -0.6, 1500); },
+    'charging':    () => show('relieved', ['nod'], 4000),
+    'battery-low': () => show('sleepy', [], 6000),
+    'speeding':    () => show('scared', ['jitter'], 4000),
+  };
+  EVENTS.horn = () => { show('scared', ['jitter', 'jitter'], 1600); setTimeout(() => show('annoyed', ['shake'], 3000), 1600); };
+  // While music plays the bar is higher, and right after it starts the detector holds off (a song's first chord looks like a horn).
+  let musicOn = false, musicAt = -1e9;
+  const playMusic = EVENTS['music-play'], pauseMusic = EVENTS['music-pause'];
+  EVENTS['music-play'] = () => { musicOn = true; musicAt = performance.now(); playMusic(); };
+  EVENTS['music-pause'] = () => { musicOn = false; pauseMusic(); };
+
+  // ---- Horn detector (microphone). A horn is loud, tonal and steady: one strong peak in 300-700 Hz with a harmonic above it,
+  //      well over the cabin's background level, holding the same pitch for 300 ms. Road noise isn't tonal, speech wobbles in pitch.
+  //      Thresholds are tuned on synthetic sounds only; tune them in the car with ?debug, which shows the live numbers.
+  //      getUserMedia needs a secure origin: on the tablet use `adb reverse tcp:8765 tcp:8765` and open http://localhost:8765. ----
+  const HS = { on: false, bg: null, since: 0, last: 0, prevHz: 0, info: '', count: 0 };
+  const HORN = { tone: 20, loud: 10, loudMusic: 8, hold: 300, cooldown: 4000, musicGrace: 4000 };
+  let audioCtx;
+  // One analyser, fed by the microphone and/or a test audio file.
+  let analyser;
+  function listenTo(source) {
+    if (!analyser) {
+      analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 4096; analyser.smoothingTimeConstant = 0.3;
+      const bins = new Float32Array(analyser.frequencyBinCount), hz = audioCtx.sampleRate / analyser.fftSize;
+      const lo = Math.round(300 / hz), hi = Math.round(700 / hz), top = Math.round(2000 / hz);
+      const b0 = Math.round(40 / hz), b1 = Math.round(150 / hz);
+      setInterval(() => { analyser.getFloatFrequencyData(bins); detectHorn(bins, hz, lo, hi, top); detectBeat(bins, b0, b1); }, 50);
+    }
+    source.connect(analyser);
+    HS.on = true;
+  }
+
+  async function startMic() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        // Noise suppression would filter out exactly the steady tone we're after.
+        audio: { echoCancellation: true, noiseSuppression: false, autoGainControl: false },
+      });
+      audioCtx = audioCtx || new AudioContext();
+      listenTo(audioCtx.createMediaStreamSource(stream));
+    } catch (e) {
+      HS.info = 'Microphone not available here (' + e.name + '). Use "test audio file" instead.';
+    }
+  }
+
+  // Plays a chosen file through the speakers and the detector at the same time. With asMusic the app "knows" it is
+  // music (like it will know its own player), so the 4 s grace and the higher bar apply.
+  // Nods to the music: a jump in bass energy (40-150 Hz) over its running average is a beat. Capped at ~2.5 nods/s.
+  const BT = { avg: -100, last: 0 };
+  function detectBeat(b, b0, b1) {
+    let e = 0; for (let i = b0; i <= b1; i++) e += 10 ** (b[i] / 10);
+    const bass = 10 * Math.log10(e + 1e-12), t = performance.now();
+    const onset = bass > BT.avg + 5 && t - BT.last > 400;
+    BT.avg = BT.avg * 0.92 + bass * 0.08;
+    if (onset && musicOn && mood !== 'sleep') { BT.last = t; face.react('nod'); }
+  }
+
+  // ---- Now playing. The host (Android) pushes bbot.player.set({ title, artist, playing }) from the active media session;
+  //      the screensaver only shows it as a marquee, no controls. ----
+  const PL = { title: '', artist: '', playing: false };
+  const songEl = document.getElementById('song'), songText = document.getElementById('song-text');
+  const esc = x => String(x).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+  function renderPlayer() {
+    const line = PL.title ? `<b>${esc(PL.title)}</b>${PL.artist ? ' \u00b7 ' + esc(PL.artist) : ''}` : '';
+    // Two copies so the loop is seamless.
+    songText.innerHTML = line ? line + '<span style="display:inline-block;width:64px"></span>' + line : '';
+    songEl.classList.toggle('on', !!PL.title && PL.playing);
+  }
+  const player = {
+    state: PL,
+    control: null,
+    set(s) { Object.assign(PL, s); renderPlayer(); },
+  };
+
+  // ---- Browser-side player: a queue of local files, routed through the analyser so horn/beat detection hear it. ----
+  const Q = { files: [], i: -1, audio: null, src: null, notify: true };
+  function tagsOf(file) {
+    // Minimal ID3v2 reader: title and artist. Anything else falls back to the file name.
+    return file.slice(0, 512 * 1024).arrayBuffer().then(buf => {
+      const d = new DataView(buf), out = {};
+      if (buf.byteLength < 10 || String.fromCharCode(d.getUint8(0), d.getUint8(1), d.getUint8(2)) !== 'ID3') return out;
+      const ver = d.getUint8(3), syn = b => ((b >>> 24) & 0x7f) << 21 | ((b >>> 16) & 0x7f) << 14 | ((b >>> 8) & 0x7f) << 7 | (b & 0x7f);
+      const end = Math.min(buf.byteLength, 10 + syn(d.getUint32(6)));
+      let p = 10 + ((d.getUint8(5) & 0x40) ? (ver === 4 ? syn(d.getUint32(10)) : d.getUint32(10) + 4) : 0);
+      const text = (off, len) => {
+        const enc = d.getUint8(off), bytes = new Uint8Array(buf, off + 1, len - 1);
+        const cs = enc === 0 ? 'latin1' : enc === 3 ? 'utf-8' : enc === 2 ? 'utf-16be' : 'utf-16';
+        return new TextDecoder(cs).decode(bytes).replace(/\0+$/, '');
+      };
+      while (p + 10 <= end) {
+        const id = String.fromCharCode(d.getUint8(p), d.getUint8(p + 1), d.getUint8(p + 2), d.getUint8(p + 3));
+        const len = ver === 4 ? syn(d.getUint32(p + 4)) : d.getUint32(p + 4);
+        if (!/^[A-Z0-9]{4}$/.test(id) || len <= 0 || p + 10 + len > end) break;
+        const off = p + 10;
+        if (id === 'TIT2') out.title = text(off, len);
+        else if (id === 'TPE1') out.artist = text(off, len);
+        p = off + len;
+      }
+      return out;
+    }).catch(() => ({}));
+  }
+  async function playIndex(i) {
+    if (!Q.files.length) return;
+    Q.i = (i + Q.files.length) % Q.files.length;
+    const file = Q.files[Q.i];
+    audioCtx = audioCtx || new AudioContext(); audioCtx.resume();
+    if (!Q.audio) {
+      Q.audio = new Audio();
+      Q.src = audioCtx.createMediaElementSource(Q.audio);
+      Q.src.connect(audioCtx.destination); listenTo(Q.src);
+      Q.audio.addEventListener('play', () => { player.set({ playing: true }); if (Q.notify) bbot.event('music-play'); });
+      Q.audio.addEventListener('pause', () => { player.set({ playing: false }); if (Q.notify && !Q.audio.ended) bbot.event('music-pause'); });
+      Q.audio.addEventListener('ended', () => playIndex(Q.i + 1));
+    }
+    if (Q.audio.src) URL.revokeObjectURL(Q.audio.src);
+    Q.audio.src = URL.createObjectURL(file);
+    const tags = await tagsOf(file);
+    player.set({ title: tags.title || file.name.replace(/\.[^.]+$/, ''), artist: tags.artist || 'Local file' });
+    Q.audio.play();
+  }
+  player.control = cmd => {
+    if (!Q.audio) return;
+    if (cmd === 'toggle') cmd = Q.audio.paused ? 'play' : 'pause';
+    if (cmd === 'play') Q.audio.play(); else if (cmd === 'pause') Q.audio.pause();
+    else if (cmd === 'next') playIndex(Q.i + 1); else if (cmd === 'prev') playIndex(Q.audio.currentTime > 3 ? Q.i : Q.i - 1);
+  };
+  function queueFiles(files, notify) { Q.notify = notify; Q.files = Array.from(files); playIndex(0); }
+
+  function detectHorn(b, hz, lo, hi, top) {
+    const t = performance.now();
+    let pk = lo;
+    for (let i = lo; i <= hi; i++) if (b[i] > b[pk]) pk = i;
+    const band = Array.from(b.subarray(lo, top + 1)).sort((x, y) => x - y);
+    const floor = band[band.length >> 1];
+    let power = 0;
+    for (let i = lo; i <= top; i++) power += 10 ** (b[i] / 10);
+    const level = 10 * Math.log10(power);
+    const harm = Math.max(b[2 * pk - 1], b[2 * pk], b[2 * pk + 1]) - floor;
+    const tone = b[pk] - floor, peakHz = pk * hz;
+    if (HS.bg === null) { if (level < -110) return; HS.bg = level; }   // wait for real sound before learning the background
+    const loud = level - HS.bg;
+
+    const candidate = t - musicAt > HORN.musicGrace && tone > HORN.tone && harm > 10 && loud > (musicOn ? HORN.loudMusic : HORN.loud);
+    const steady = Math.abs(peakHz - HS.prevHz) < 30;
+    HS.prevHz = peakHz;
+    if (candidate && steady) {
+      if (!HS.since) HS.since = t;
+      if (t - HS.since > HORN.hold && t - HS.last > HORN.cooldown) { HS.last = t; HS.count++; bbot.event('horn'); }
+    } else {
+      HS.since = 0;
+    }
+    // Background follows the cabin level with a ~5 s lag (~1.5 s while music plays): a short honk barely moves it,
+    // but music lifts the bar until only something clearly louder than the music counts.
+    const k = musicOn ? 0.03 : 0.01;
+    // Digital silence (a test file ended, mic muted) would drag the background to nothing; ignore it.
+    if (level > -110) HS.bg = HS.bg * (1 - k) + level * k;
+    HS.info = `horns ${HS.count} · ${musicOn ? 'music on · ' : ''}loud +${loud.toFixed(0)} dB · tone ${tone.toFixed(0)} dB · ${peakHz.toFixed(0)} Hz${candidate ? ' · HORN?' : ''}`;
+  }
+  // Browsers start audio suspended until a touch.
+  addEventListener('pointerdown', () => audioCtx && audioCtx.state === 'suspended' && audioCtx.resume());
+  if (new URLSearchParams(location.search).has('mic')) startMic();
+
+  // ---- GPS director. Feed fixes with bbot.gps({ speed (m/s), heading (deg), lat, lon, accuracy (m) }), about 1 Hz.
+  //      The Android app feeds LocationManager fixes the same way; ?gps uses the browser's geolocation (secure origin needed,
+  //      like the mic). Events are derived here so the Java side stays a thin pipe. ----
+  const GPS = { limit: 110, hardBrake: 3.0, hardAccel: 2.5, turnRate: 25, idleWait: 25000, highway: 80, longDrive: 60 * 60000, home: null, homeR: 80 };
+  const GS = { last: null, kmh: 0, accel: 0, turn: 0, stoppedAt: 0, movingAt: 0, moving: false, cruiseAt: 0, fired: {}, atHome: null, info: '' };
+  const once = (key, every, t, fn) => { if (!GS.fired[key] || t - GS.fired[key] > every) { GS.fired[key] = t; fn(); } };
+  const dist = (a, b) => { const R = 6371000, dLat = (b.lat - a.lat) * Math.PI / 180, dLon = (b.lon - a.lon) * Math.PI / 180;
+    const x = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * Math.PI / 180) * Math.cos(b.lat * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+    return 2 * R * Math.asin(Math.sqrt(x)); };
+
+  function gpsFix(f) {
+    const t = f.t ?? performance.now();
+    if ((f.accuracy ?? 0) > 50) { GS.info = `gps: weak fix (±${Math.round(f.accuracy)} m)`; return; }
+    const speed = f.speed ?? 0, kmh = speed * 3.6;
+    if (GS.last) {
+      const dt = (t - GS.last.t) / 1000;
+      if (dt <= 0) return;
+      GS.accel = GS.accel * 0.5 + ((speed - (GS.last.speed ?? 0)) / dt) * 0.5;          // m/s², lightly smoothed
+      let dh = (f.heading ?? GS.last.heading ?? 0) - (GS.last.heading ?? 0);
+      dh = ((dh + 540) % 360) - 180;
+      GS.turn = kmh > 10 ? dh / dt : 0;                                                  // deg/s; heading is noise when crawling
+    }
+    GS.kmh = kmh; GS.last = { ...f, speed, t };
+
+    // Moving / stopped, with hysteresis so GPS jitter at a light doesn't flap.
+    if (!GS.moving && kmh > 6) {
+      GS.moving = true; GS.movingAt = GS.movingAt || t;
+      if (GS.stoppedAt && t - GS.stoppedAt > 8000) once('go', 10000, t, () => show('excited', ['bounce'], 2500));
+      GS.stoppedAt = 0;
+    } else if (GS.moving && kmh < 2) {
+      GS.moving = false; GS.stoppedAt = t; GS.cruiseAt = 0;
+    }
+
+    if (GS.moving) {
+      if (GS.accel < -GPS.hardBrake) once('brake', 6000, t, () => bbot.event('hard-brake'));
+      else if (GS.accel > GPS.hardAccel) once('accel', 6000, t, () => show('excited', ['boing'], 2500));
+      if (Math.abs(GS.turn) > GPS.turnRate) {
+        const dir = Math.sign(GS.turn);
+        once('turn', 3000, t, () => { show('focus', [], 2000); face.look(dir, 0, 2000); });
+      } else if (Math.abs(GS.turn) > 6) {
+        face.look(Math.max(-1, Math.min(1, GS.turn / 30)), -0.1, 1200);                // gentle bends: just glance into them
+      }
+      if (kmh > GPS.limit) once('speeding', 20000, t, () => bbot.event('speeding'));
+      if (kmh > GPS.highway) { GS.cruiseAt = GS.cruiseAt || t; if (t - GS.cruiseAt > 20000) once('cruise', 120000, t, () => show('focus', [], 6000)); }
+      else GS.cruiseAt = 0;
+      if (t - GS.movingAt > GPS.longDrive) once('long', 15 * 60000, t, () => show('sleepy', [], 8000));
+    } else if (GS.stoppedAt) {
+      const wait = t - GS.stoppedAt;
+      if (wait > GPS.idleWait) once('wait', 120000, t, () => show('bored', [], 6000));
+      if (wait > 90000) once('nap', 300000, t, () => show('sleepy', [], 10000));
+    }
+
+    if (GPS.home && f.lat != null) {
+      const home = dist(f, GPS.home) < GPS.homeR;
+      if (GS.atHome === false && home) once('home', 60000, t, () => bbot.event('arrived'));
+      if (GS.atHome === true && !home) once('leave', 60000, t, () => show('curious', ['boing'], 3000));
+      GS.atHome = home;
+    }
+    GS.info = `gps: ${kmh.toFixed(0)} km/h · ${GS.accel >= 0 ? '+' : ''}${GS.accel.toFixed(1)} m/s² · turn ${GS.turn.toFixed(0)}°/s · ${GS.moving ? 'moving' : 'stopped'}${GPS.home ? (GS.atHome ? ' · home' : ' · away') : ''}`;
+  }
+  EVENTS['hard-brake'] = () => show('scared', ['jitter'], 2500);
+
+  function startGps() {
+    if (!navigator.geolocation) { GS.info = 'gps: not available here'; return; }
+    navigator.geolocation.watchPosition(
+      pos => gpsFix({ lat: pos.coords.latitude, lon: pos.coords.longitude, speed: pos.coords.speed, heading: pos.coords.heading, accuracy: pos.coords.accuracy }),
+      err => { GS.info = 'gps: ' + err.message; },
+      { enableHighAccuracy: true, maximumAge: 0 });
+  }
+  if (new URLSearchParams(location.search).has('gps')) startGps();
+
+  // Scripted drive at 5x, 1 fix per simulated second. Each leg: [seconds, km/h at end, heading change in degrees].
+  let simTimer;
+  function simulateDrive() {
+    clearInterval(simTimer);
+    const legs = [[10, 0, 0], [6, 50, 0], [15, 50, 0], [3, 50, 90], [10, 50, 0], [3, 0, 0], [30, 0, 0], [8, 60, 0], [6, 60, -80],
+                  [12, 95, 0], [25, 95, 0], [6, 125, 0], [8, 125, 0], [10, 40, 0], [10, 40, 0], [4, 0, 0], [12, 0, 0]];
+    let leg = 0, i = 0, kmh = 0, heading = 0, lat = 3.139, lon = 101.687, t = 1;
+    const from = { kmh: 0, heading: 0 };
+    GPS.home = { lat, lon }; GS.atHome = null; GS.last = null; GS.fired = {}; GS.movingAt = 0; GS.stoppedAt = 0; GS.moving = false;
+    simTimer = setInterval(() => {
+      const [secs, toKmh, dh] = legs[leg], p = (i + 1) / secs;
+      kmh = from.kmh + (toKmh - from.kmh) * p; heading = from.heading + dh * p;
+      const m = kmh / 3.6; lat += m * Math.cos(heading * Math.PI / 180) / 111000; lon += m * Math.sin(heading * Math.PI / 180) / 111000;
+      gpsFix({ lat, lon, speed: m, heading: (heading + 360) % 360, accuracy: 8, t: t * 1000 });
+      t++;
+      if (++i >= secs) { i = 0; from.kmh = kmh; from.heading = heading; if (++leg >= legs.length) clearInterval(simTimer); }
+    }, 200);
+  }
+
+  // ---- Weather. Open-Meteo at the last GPS fix (fallback: Kuala Lumpur), refreshed every 20 min. The Android app may push
+  //      bbot.weather.set({ temp, text }) instead; the published test page cannot fetch, so it keeps the placeholder. ----
+  const WX = { 0: 'Clear', 1: 'Mostly clear', 2: 'Partly cloudy', 3: 'Cloudy', 45: 'Fog', 48: 'Fog', 51: 'Drizzle', 53: 'Drizzle', 55: 'Drizzle',
+               61: 'Rain', 63: 'Rain', 65: 'Heavy rain', 80: 'Showers', 81: 'Showers', 82: 'Heavy showers', 95: 'Thunderstorm', 96: 'Thunderstorm', 99: 'Thunderstorm' };
+  const weatherEl = document.getElementById('weather');
+  const weather = {
+    set({ temp, text }) { weatherEl.textContent = `${Math.round(temp)}\u00b0${text ? ' ' + text : ''}`; },
+    async refresh() {
+      const lat = GS.last?.lat ?? 3.139, lon = GS.last?.lon ?? 101.687;
+      try {
+        const r = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code`);
+        const j = await r.json();
+        weather.set({ temp: j.current.temperature_2m, text: WX[j.current.weather_code] || '' });
+      } catch (e) { /* offline or blocked: keep what is shown */ }
+    },
+  };
+  weather.refresh(); setInterval(weather.refresh, 20 * 60000);
+
+  window.bbot = {
+    face, show, startMic, player, weather, queueFiles, horn: HS, gps: gpsFix, startGps, simulateDrive, gpsState: GS, gpsConfig: GPS,
+    setHome() { if (GS.last && GS.last.lat != null) GPS.home = { lat: GS.last.lat, lon: GS.last.lon }; },
+    event(name) { (EVENTS[name] || (() => {}))(); },
+    events: Object.keys(EVENTS),
+  };
+
+  if (new URLSearchParams(location.search).has('debug')) {
+    const bar = document.createElement('div');
+    bar.style.cssText = 'position:absolute;left:16px;top:16px;display:flex;flex-wrap:wrap;gap:6px;max-width:760px;z-index:2';
+    for (const name of Object.keys(EVENTS)) {
+      const b = document.createElement('button');
+      b.textContent = name;
+      b.style.cssText = 'font:500 14px Geist,system-ui;color:#f7f8fa;background:#15181b;border:1px solid #2f3336;border-radius:999px;padding:8px 14px;cursor:pointer';
+      b.addEventListener('pointerdown', e => { e.stopPropagation(); bbot.event(name); });
+      bar.appendChild(b);
+    }
+    const btnCss = bar.lastChild.style.cssText;
+    const mic = document.createElement('button');
+    mic.textContent = 'start mic';
+    mic.style.cssText = btnCss + ';border-color:#b6ff3b';
+    mic.addEventListener('pointerdown', e => { e.stopPropagation(); startMic(); });
+    bar.appendChild(mic);
+
+    const pickLabel = document.createElement('label');
+    pickLabel.textContent = 'add songs';
+    pickLabel.style.cssText = btnCss + ';border-color:#5ec8ff';
+    const pick = document.createElement('input');
+    pick.type = 'file'; pick.accept = 'audio/*'; pick.multiple = true; pick.id = 'test-file'; pick.hidden = true;
+    pickLabel.appendChild(pick);
+    const asMusicLabel = document.createElement('label');
+    asMusicLabel.style.cssText = 'font:500 14px Geist,system-ui;color:#c9cdd1;display:flex;align-items:center;gap:6px;padding:0 6px;cursor:pointer';
+    const asMusic = document.createElement('input');
+    asMusic.type = 'checkbox'; asMusic.id = 'as-music'; asMusic.checked = true;
+    asMusicLabel.append(asMusic, 'treat as car music');
+    const stop = document.createElement('button');
+    stop.textContent = 'stop'; stop.style.cssText = btnCss;
+    stop.addEventListener('pointerdown', e => { e.stopPropagation(); player.control('pause'); });
+    for (const el of [pickLabel, asMusicLabel]) el.addEventListener('pointerdown', e => e.stopPropagation());
+    pick.addEventListener('change', () => { if (pick.files.length) queueFiles(pick.files, asMusic.checked); pick.value = ''; });
+    bar.append(pickLabel, asMusicLabel, stop);
+
+    const gpsBtn = document.createElement('button');
+    gpsBtn.textContent = 'start gps'; gpsBtn.style.cssText = btnCss + ';border-color:#ffb547';
+    gpsBtn.addEventListener('pointerdown', e => { e.stopPropagation(); startGps(); });
+    const simBtn = document.createElement('button');
+    simBtn.textContent = 'simulate drive (5x)'; simBtn.style.cssText = btnCss + ';border-color:#ffb547';
+    simBtn.addEventListener('pointerdown', e => { e.stopPropagation(); simulateDrive(); });
+    const homeBtn = document.createElement('button');
+    homeBtn.textContent = 'set home here'; homeBtn.style.cssText = btnCss;
+    homeBtn.addEventListener('pointerdown', e => { e.stopPropagation(); bbot.setHome(); });
+    bar.append(gpsBtn, simBtn, homeBtn);
+    const meter = document.createElement('div');
+    meter.style.cssText = 'flex-basis:100%;font:500 14px Geist,system-ui;color:#9aa0a6;padding:4px 2px;font-variant-numeric:tabular-nums';
+    bar.appendChild(meter);
+    setInterval(() => { meter.textContent = [HS.on || HS.info ? HS.info : '', GS.info].filter(Boolean).join('   |   '); }, 200);
+    screenEl.appendChild(bar);
+  }
+</script>
+</body>
+</html>
