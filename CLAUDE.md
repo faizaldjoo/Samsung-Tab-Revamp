@@ -41,7 +41,7 @@ Driven over ADB from a computer on the same Wi-Fi (Wireless debugging; pair once
   pinned apps first (pin badge, order pinned, `S.pins`, default Waze + Spotify), a hairline, then the most recent other apps
   (open app marked). Hold an app in the rail or on the all-apps page to pin/unpin it. All-apps / Home button at the bottom.
   One `APPS` list in the JS drives the rail, the all-apps page and the navigation setting. Settings persist in localStorage (`carhome`).
-- Prototype-only taps: clock = next wallpaper, Today panel = next weather, Today place name = next location, Car source chip = OBD/GPS, music source: hold the app pill for the next app, or glass.html?src=ytmusic|spotify|prambors (default YT Music),
+- Prototype-only taps: Today panel = next weather, Today place name = next location, Car source chip = OBD/GPS, music source: hold the app pill for the next app, or glass.html?src=ytmusic|spotify|prambors (default YT Music),
   battery and temperature cards = preview warning states.
 - Next step: user is drawing a wireframe to revamp some sections; edit only the sections they change.
 - Build plan once the design is final: plain Java Android app, no Gradle (javac + d8 + aapt2 + apksigner from the Android SDK),
@@ -56,7 +56,15 @@ Driven over ADB from a computer on the same Wi-Fi (Wireless debugging; pair once
   from a per-panel two-pass SVG displacement map (lensEdges(): x then y pass, each neutral in the middle; one combined map
   shears in Chromium), rim lit top-left and bottom-right (`--rim` for round controls). Toggles: off = clear disc; on =
   Wi-Fi/Bluetooth blue fill, data/hotspot green fill, others white disc with coloured glyph. Sliders: clear pill, white fill,
-  blue speaker / yellow sun.
+  dark grey speaker / sun glyphs.
+  Wallpaper (Controls header > Wallpaper): picker page in the home cell; "From gallery" (an <input type=file>: the browser's
+  file chooser here, the Android photo picker via WebChromeClient.onShowFileChooser in the app), the user's photo, then
+  8 built-in photos (Picsum ids here; bundled screen-sized in the app), then 6 CSS gradients (Midnight, Ember, Deep forest,
+  Ocean, Dusk rose, Graphite: dark layered glows + a faint grain against banding; no files, no shade added). Tap = preview on the real home screen with a
+  Set / Cancel bar. Gallery photos are centre-cropped to 1340x800 JPEG once (~200 KB; localStorage 'carhome-wall', app
+  files on Android). Each wallpaper's brightness is measured once; brighter photos get extra shade (--dim on .wall::after).
+  Glass effect toggle (Controls, under Hotspot; saved as S.glass, default on). Off = clear panels: the tinted see-through
+  look without backdrop-filter, the main GPU cost on the tablet. The Controls drawer turns solid dark when it is off.
   Lens edges are off by default (glass.html?lens to preview): live they measured 28 fps vs 60 without (frames up to 118 ms),
   since every animation re-runs the filter chain. Android plan, baked glass: when the wallpaper is set, render each panel's
   plate once (wallpaper crop, blur, saturate, lens displacement, rim) into one screen-sized ARGB bitmap (~4 MB) and draw it
@@ -68,8 +76,15 @@ Driven over ADB from a computer on the same Wi-Fi (Wireless debugging; pair once
   while speed > 3 km/h, average = trip / drive time. Trip auto-resets after 20 min stationary; manual reset = long-press the
   reset button next to the source chip. Persist counters once a minute.
 - Navigation: Controls has "Navigation app: Waze / Google Maps" (default Waze). The map panel tap and the turn-card
-  notification parser follow it. "Open <nav app> when the car starts" (default on): on ACTION_POWER_CONNECTED / wake with
-  the launcher in front, start the nav app full screen; if the user leaves it within 10 s, don't reopen it that trip.
+  notification parser follow it. "Show <nav app> in the map panel" (default on), decided 2026-10-27:
+  1. Preferred: on ACTION_POWER_CONNECTED / wake with the launcher in front, start the nav app as a Samsung pop-up
+     (freeform) window with launch bounds = the map panel's screen rect, so the rest of home stays visible. An expand
+     control makes it full screen; Home returns to the panel. Android cannot embed another app's UI, this is the closest.
+     Needs freeform enabled once over ADB (settings global enable_freeform_support 1, force_resizable_activities 1);
+     test first with `am start --windowingMode 5` + `am task resize <task> l t r b` before building it.
+  2. Fallback (freeform refused, or the nav app looks wrong at that size): the panel keeps the OSM map with live position,
+     turn card and ETA parsed from the nav app's notification; tap opens the nav app full screen.
+  If the user leaves the nav app within 10 s, don't reopen it that trip.
 - Performance goal: the launcher must feel faster than stock One UI on this tablet. Animate only transform/opacity,
   no per-frame timers, no live blur, keep idle CPU at zero between events.
 - Preview: `python3 -m http.server 8765 --bind 0.0.0.0 --directory launcher-prototype`, open `http://<computer-ip>:8765/glass.html` on the tablet.

@@ -27,6 +27,8 @@
     --r-tile: 20px;
     --ease: cubic-bezier(0.16, 1, 0.3, 1);
   }
+  /* Faint grain laid over the gradient wallpapers so they do not band on the tablet's 8-bit panel. Rendered once. */
+  :root { --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.05 0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E"); }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body { height: 100%; background: #07080a; color: var(--text); font-family: "Geist", system-ui, sans-serif; overflow: hidden; -webkit-font-smoothing: antialiased; }
   button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; -webkit-tap-highlight-color: transparent; text-align: left; }
@@ -40,14 +42,15 @@
   }
   .main { min-height: 0; }
   .rail { grid-column: 2; grid-row: 1; }
-  .main, .apps-page { grid-column: 1; grid-row: 1; }
+  .main, .apps-page, .wp-page { grid-column: 1; grid-row: 1; }
   #screen.side-left { grid-template-columns: 96px 1fr; padding: 20px 20px 20px 16px; }
   #screen.side-left .rail { grid-column: 1; }
-  #screen.side-left .main, #screen.side-left .apps-page { grid-column: 2; }
+  #screen.side-left .main, #screen.side-left .apps-page, #screen.side-left .wp-page { grid-column: 2; }
 
   .wall { position: absolute; inset: -20px; background: #1a1d22 center / cover no-repeat; transition: opacity 0.6s ease, filter 0.6s ease; }
   /* Darken the photo toward the bottom so white text always clears contrast. */
-  .wall::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(5,7,10,0.15), rgba(5,7,10,0.45)); }
+  /* --dim is added for bright photos (measured when a wallpaper is shown), so white text holds up on any picture. */
+  .wall::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(5,7,10,calc(0.15 + var(--dim, 0))), rgba(5,7,10,calc(0.45 + var(--dim, 0)))); transition: background 0.4s; }
 
   /* Closer to iOS 26 Liquid Glass: clear rather than frosted (light blur, strong colour, little dimming), a lens at the edges
      (lensEdges(), preview only with ?lens: it bends the backdrop near the rim; the middle passes straight through), and a rim lit on the top-left and the
@@ -118,10 +121,13 @@
   .home-btn { width: 62px; height: 62px; border-radius: 999px; display: grid; place-items: center; font-size: 28px; background: rgba(255,255,255,0.14); box-shadow: inset 0 1px 0 rgba(255,255,255,0.4), inset 0 0 0 1px rgba(255,255,255,0.12); }
 
   /* Home and the all-apps page share the same grid cell and cross-fade. */
-  .main, .apps-page { transition: opacity 0.32s var(--ease), transform 0.32s var(--ease); }
+  .main, .apps-page, .wp-page { transition: opacity 0.32s var(--ease), transform 0.32s var(--ease); }
   .apps-page { opacity: 0; transform: scale(1.03); pointer-events: none; }
   #screen.show-apps .main { opacity: 0; transform: scale(0.97); pointer-events: none; }
   #screen.show-apps .apps-page { opacity: 1; transform: none; pointer-events: auto; }
+  .wp-page { opacity: 0; transform: scale(1.03); pointer-events: none; }
+  #screen.show-wp .main { opacity: 0; transform: scale(0.97); pointer-events: none; }
+  #screen.show-wp .wp-page { opacity: 1; transform: none; pointer-events: auto; }
 
   .main { display: grid; grid-template-columns: 1.08fr 2fr; gap: 18px; min-width: 0; }
   /* minmax(0, 1fr): the top row must shrink to what is left above the 312px row, never push the page past the screen. */
@@ -232,7 +238,7 @@
   .car-head { display: flex; justify-content: space-between; align-items: center; font-size: 15px; font-weight: 600; color: var(--muted); }
   .car-head .end { display: flex; gap: 8px; align-items: center; }
   .chip { display: inline-flex; gap: 6px; align-items: center; padding: 6px 12px; border-radius: 999px; background: var(--card); font-size: 13px; color: var(--text); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.1); }
-  .chip i { font-size: 16px; color: var(--accent); }
+  .chip i { font-size: 16px; color: #fff; }
   .reset { width: 34px; height: 34px; border-radius: 999px; background: var(--card); display: grid; place-items: center; font-size: 17px; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.1); }
   .gauge { flex: 1; min-height: 0; position: relative; }
   .gauge svg { position: absolute; inset: 0; width: 100%; height: 100%; }
@@ -345,12 +351,11 @@
   .vs { display: flex; flex-direction: column; align-items: center; gap: 10px; }
   .vs .val { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
   /* Sliders the iOS way: a tall clear-glass pill (lit rim, no dark well), white fill rising from the bottom with a flat top,
-     and a coloured glyph sitting in the fill (blue speaker, yellow sun). */
+     and a dark grey glyph sitting in the fill. */
   .track { flex: 1; width: 100%; max-width: 74px; border-radius: 999px; position: relative; overflow: hidden; touch-action: none; cursor: ns-resize;
     background: rgba(255,255,255,0.10); box-shadow: var(--rim); }
   .track .fill { position: absolute; left: 0; right: 0; bottom: 0; background: #f5f6f7; box-shadow: inset 0 1px 0 #fff; }
-  .track i { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); font-size: 28px; color: var(--accent); text-shadow: none; pointer-events: none; }
-  .track[data-k="bri"] i { color: #ffb800; }
+  .track i { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); font-size: 28px; color: #2a2e35; text-shadow: none; pointer-events: none; }
 
   /* Controls: slides out from the rail over a dimmed home screen. Tap outside or X to close. */
   /* A dark scrim covers the home screen (the rail stays on top) and the panel is near-opaque,
@@ -371,10 +376,45 @@
   #screen.show-cc .cc { opacity: 1; transform: none; pointer-events: auto; }
   .cc-head { display: flex; justify-content: space-between; align-items: center; }
   .cc-head h2 { font-size: 28px; font-weight: 600; letter-spacing: -0.02em; }
+  .cc-head-r { display: flex; gap: 10px; align-items: center; }
+  .pill-btn { height: 48px; padding: 0 20px 0 16px; border-radius: 999px; display: inline-flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 600;
+    background: rgba(255,255,255,0.12); box-shadow: var(--rim); }
+  .pill-btn i { font-size: 20px; }
+
+  /* Wallpaper picker: a page in the same cell as home and all apps. "From gallery" first, then the user's photo (if any),
+     then the built-in set; the current one is outlined and ticked. Tapping a tile previews it on the real home screen. */
+  .wp-page { padding: 30px 36px 32px; display: flex; flex-direction: column; gap: 22px; }
+  .wp-head { display: flex; align-items: center; justify-content: space-between; }
+  .wp-head h1 { font-size: 34px; font-weight: 600; letter-spacing: -0.02em; }
+  .wp-grid { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(5, 1fr); grid-template-rows: repeat(var(--rows, 3), minmax(0, 1fr)); gap: 14px; }
+  .wp-tile { position: relative; border-radius: var(--r-tile); overflow: hidden; background-color: #22262d; background-position: center; background-size: cover; background-repeat: no-repeat;
+    box-shadow: var(--rim), 0 8px 18px rgba(0,0,0,0.25); }
+  .wp-tile.cur { box-shadow: inset 0 0 0 3px #fff, 0 8px 18px rgba(0,0,0,0.25); }
+  .wp-tile .tick { position: absolute; top: 10px; right: 10px; font-size: 28px; color: #fff; display: none; filter: drop-shadow(0 1px 3px rgba(0,0,0,0.5)); }
+  .wp-tile.cur .tick { display: block; }
+  /* Bottom fade under the name, so it reads on bright photos too. */
+  .wp-tile:not(.wp-gallery)::before { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 50%; background: linear-gradient(180deg, transparent, rgba(5,7,10,0.6)); }
+  .wp-tile span { position: absolute; left: 14px; bottom: 11px; font-size: 14px; font-weight: 600; }
+  .wp-gallery { display: grid; place-content: center; justify-items: center; gap: 10px; cursor: pointer; background: rgba(255,255,255,0.08); font-size: 16px; font-weight: 600; }
+  .wp-gallery i { font-size: 36px; }
+  .wp-gallery span { position: static; font-size: 16px; }
+
+  /* Preview bar: floats over the home screen while a wallpaper is being tried. */
+  .wp-bar { position: absolute; left: 50%; bottom: 26px; z-index: 6; display: flex; gap: 10px; padding: 10px; border-radius: 999px;
+    background: rgba(16, 20, 26, 0.6); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); box-shadow: var(--rim), 0 12px 30px rgba(0,0,0,0.35);
+    transform: translate(-50%, 24px); opacity: 0; pointer-events: none; transition: opacity 0.25s var(--ease), transform 0.25s var(--ease); }
+  #screen.wp-preview .wp-bar { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
+  .wp-bar button { height: 56px; padding: 0 28px; border-radius: 999px; font-size: 17px; font-weight: 600; text-align: center; }
+  .wp-bar .wp-set { background: #f5f6f7; color: #14171c; text-shadow: none; }
+  .wp-bar .wp-cancel { background: rgba(255,255,255,0.12); box-shadow: var(--rim); }
   .round { width: 48px; height: 48px; border-radius: 999px; display: grid; place-items: center; font-size: 22px; background: rgba(255,255,255,0.12); box-shadow: var(--rim); }
-  .cc-grid { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(4, 1fr); grid-template-rows: minmax(0, 1fr) auto auto minmax(0, 1fr); gap: 14px; }
+  .cc-grid { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(12, 1fr); grid-template-rows: minmax(0, 1fr) auto auto minmax(0, 1fr); gap: 14px; }
+  /* 12 columns: toggles and health cards a quarter each (Glass effect lines up under Hotspot), navigation and auto-open in halves. */
+  .cc-grid > * { grid-column: span 3; }
   .card { border-radius: var(--r-tile); background: var(--card); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.1); padding: 16px; min-width: 0; }
-  .s2 { grid-column: span 2; }
+  .cc-grid > .s2 { grid-column: span 6; }
+  .cc-grid > .s4 { grid-column: span 4; }
+  .cc-grid > .s5 { grid-column: span 5; }
   .lbl { font-size: 13px; font-weight: 600; color: var(--muted); margin-bottom: 12px; }
   .hint { display: block; font-size: 13px; color: var(--muted); margin-top: 10px; }
   /* Toggle card: the icon disc fills with the accent when on. */
@@ -389,6 +429,7 @@
   .tog[data-t="data"], .tog[data-t="hotspot"] { --fill: #34c759; }
   .tog[data-t="dnd"] { --on: #7d7aff; }
   .tog[data-t="autoBri"] { --on: #ff9f0a; }
+  .tog[data-t="glass"] { --on: var(--accent); }
   .tog.on[data-t="wifi"] .disc, .tog.on[data-t="bt"] .disc, .tog.on[data-t="data"] .disc, .tog.on[data-t="hotspot"] .disc {
     background: var(--fill); color: #fff; box-shadow: inset 0 1.5px 0 rgba(255,255,255,0.45), 0 4px 12px rgba(0,0,0,0.22); }
   .tog b { display: block; font-size: 17px; font-weight: 600; margin-top: 12px; }
@@ -423,6 +464,15 @@
   #screen.night .track .fill { opacity: 0.7; }
   #screen.night .today { --card-top: #d6d7d8; --card-top2: #c9cacb; --card-bot: #c3c4c6; --card-bot2: #aeb0b3; --digit: #1f2125; }
   #screen.night .map-tiles .grid { filter: invert(1) hue-rotate(180deg) brightness(0.6) contrast(0.9) saturate(0.3); }
+
+  /* Glass effect toggle (Controls). On (default): every panel blurs what is behind it, the heaviest thing on the tablet.
+     Off: clear panels, the see-through tint without the blur. Rims, layout and text stay the same.
+     Placed after the night rules so they win at equal specificity; !important also beats the ?lens inline filter. */
+  #screen.fx-transparent .glass { backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+    background: linear-gradient(160deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02) 48%), rgba(10, 14, 20, 0.5); }
+  #screen.fx-transparent .cc { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; background: #171b22; }
+  #screen.night.fx-transparent .glass { background: rgba(6, 8, 12, 0.62); }
+  #screen.night.fx-transparent .cc { background: #101318; }
 
   .toast { position: absolute; left: 50%; bottom: 30px; transform: translate(-50%, 20px); opacity: 0; padding: 12px 22px; border-radius: 999px; font-size: 15px; pointer-events: none; transition: opacity 0.2s, transform 0.25s var(--ease); z-index: 5; }
   .toast.show { opacity: 1; transform: translate(-50%, 0); }
@@ -485,7 +535,7 @@
             <div class="r"><div class="k" id="day">Tue 27</div><div class="hl" id="hl">33° / 25°</div></div>
           </div>
 
-          <button class="cards press" id="time" aria-label="Change wallpaper">
+          <button class="cards press" id="time" aria-label="Time">
             <div class="fcard" id="cH"></div>
             <div class="fcard" id="cM"></div>
           </button>
@@ -563,11 +613,23 @@
     <div class="apps-grid" id="appsGrid"></div>
   </section>
 
+  <section class="glass wp-page" id="wpPage" aria-label="Wallpaper">
+    <div class="wp-head">
+      <h1>Wallpaper</h1>
+      <button class="round press" id="wpClose" aria-label="Close wallpaper"><i class="ph-bold ph-x"></i></button>
+    </div>
+    <div class="wp-grid" id="wpGrid"></div>
+  </section>
+  <div class="wp-bar" id="wpBar"><button class="wp-cancel press" id="wpCancel">Cancel</button><button class="wp-set press" id="wpSet">Set wallpaper</button></div>
+
   <div class="cc-scrim" id="ccScrim"></div>
   <section class="glass cc" id="cc" aria-label="Controls">
     <div class="cc-head">
       <h2>Controls</h2>
-      <button class="round press" id="ccClose" aria-label="Close controls"><i class="ph-bold ph-x"></i></button>
+      <div class="cc-head-r">
+        <button class="pill-btn press" id="wpBtn"><i class="ph-fill ph-image"></i>Wallpaper</button>
+        <button class="round press" id="ccClose" aria-label="Close controls"><i class="ph-bold ph-x"></i></button>
+      </div>
     </div>
     <div class="cc-grid">
       <!-- In the Android app Wi-Fi and Bluetooth open Settings.Panel (apps cannot toggle them since Android 10);
@@ -577,16 +639,17 @@
       <button class="card tog press" data-t="data"><span class="disc"><i class="ph-fill ph-cell-signal-high"></i></span><span><b>Mobile data</b><small></small></span></button>
       <button class="card tog press" data-t="hotspot"><span class="disc"><i class="ph-bold ph-broadcast"></i></span><span><b>Hotspot</b><small></small></span></button>
 
-      <div class="card s2">
+      <div class="card s5">
         <div class="lbl">Night mode</div>
         <div class="seg" data-seg="night"><button data-v="auto">Auto</button><button data-v="day">Day</button><button data-v="night">Night</button></div>
         <small class="hint" id="nightHint"></small>
       </div>
-      <div class="card s2">
+      <div class="card s4">
         <div class="lbl">Sidebar</div>
         <div class="seg" data-seg="side"><button data-v="left">Left</button><button data-v="right">Right</button></div>
         <small class="hint">Right sits closer to the driver</small>
       </div>
+      <button class="card tog press" data-t="glass"><span class="disc"><i class="ph-fill ph-drop"></i></span><span><b>Glass effect</b><small></small></span></button>
 
       <div class="card s2">
         <div class="lbl">Navigation app</div>
@@ -596,7 +659,7 @@
         </div>
         <small class="hint">Map tap and turn info use this app</small>
       </div>
-      <button class="card s2 tog wide press" data-t="autoOpen"><span class="disc"><i class="ph-fill ph-car-simple"></i></span><span><b id="autoOpenTitle">Open Waze when the car starts</b><small>Full screen as soon as the tablet wakes</small></span><span class="sw" aria-hidden="true"></span></button>
+      <button class="card s2 tog wide press" data-t="autoOpen"><span class="disc"><i class="ph-fill ph-car-simple"></i></span><span><b id="autoOpenTitle">Show Waze in the map panel</b><small>When the car starts; expand for full screen</small></span><span class="sw" aria-hidden="true"></span></button>
 
       <button class="card tog press" data-t="dnd"><span class="disc"><i class="ph-fill ph-moon"></i></span><span><b>Do Not Disturb</b><small></small></span></button>
       <button class="card tog press" data-t="autoBri"><span class="disc"><i class="ph-fill ph-sun-dim"></i></span><span><b>Auto brightness</b><small></small></span></button>
@@ -621,17 +684,7 @@
   const toast = $('toast'); let tt;
   function say(msg) { toast.textContent = msg; toast.classList.add('show'); clearTimeout(tt); tt = setTimeout(() => toast.classList.remove('show'), 1400); }
 
-  // Wallpapers to compare (Picsum photos, prototype only). Tap the clock to try the next one.
-  const walls = [
-    'https://picsum.photos/id/1018/1600/1000',
-    'https://picsum.photos/id/1015/1600/1000',
-    'https://picsum.photos/id/1036/1600/1000',
-    'https://picsum.photos/id/1044/1600/1000',
-  ];
-  const wall = $('wall'); let wi = 0;
-  function setWall(i) { wi = i % walls.length; wall.style.backgroundImage = `url(${walls[wi]})`; }
-  $('time').addEventListener('click', () => setWall(wi + 1));
-  setWall(0);
+  const wall = $('wall');   // wallpaper: see "Wallpaper" below, once the settings are loaded
 
   const tiles = $('tiles');
   for (let y = 16949; y <= 16952; y++)
@@ -641,7 +694,7 @@
 
   // Settings. Persisted so the prototype remembers them between reloads.
   const S = Object.assign(
-    { side: 'right', night: 'auto', nav: 'waze', pins: ['waze', 'spotify'], autoOpen: true, wifi: true, bt: true, data: true, hotspot: false, dnd: true, autoBri: true, obd: true },
+    { side: 'right', night: 'auto', glass: true, wall: 'hills', nav: 'waze', pins: ['waze', 'spotify'], autoOpen: true, wifi: true, bt: true, data: true, hotspot: false, dnd: true, autoBri: true, obd: true },
     JSON.parse(localStorage.getItem('carhome') || '{}'));
   const save = () => localStorage.setItem('carhome', JSON.stringify(S));
 
@@ -707,6 +760,7 @@
   // The bottom rail button opens the all-apps page and turns into a Home button while it is open.
   const homeBtn = $('homeBtn');
   function showApps(on) {
+    if (on) screen.classList.remove('show-wp');
     screen.classList.toggle('show-apps', on);
     homeBtn.innerHTML = `<i class="ph-bold ph-${on ? 'house' : 'dots-nine'}"></i>`;
     homeBtn.setAttribute('aria-label', on ? 'Home' : 'All apps');
@@ -738,9 +792,126 @@
   $('ccClose').addEventListener('click', () => showCC(false));
   $('ccScrim').addEventListener('click', () => showCC(false));
 
+  // ---- Wallpaper. A built-in set of photos (Picsum here; bundled in the app, screen-sized, so they work offline), six CSS
+  //      gradients, and one photo from
+  //      the gallery. A gallery photo is cropped to the screen's 1340x800 and shrunk once, on pick, then kept (localStorage
+  //      here, the app's files on Android, where the same <input type=file> opens the system photo picker).
+  //      Every wallpaper is measured once: brighter photos get a darker shade (--dim) so white text stays readable. ----
+  const W = 1340, H = 800;
+  const WALLS = [
+    { id: 'hills', name: 'Misty hills', pic: 1018 }, { id: 'aurora', name: 'Aurora', pic: 1022 },
+    { id: 'storm', name: 'Stormy sea', pic: 1019 }, { id: 'river', name: 'Misty river', pic: 1044 },
+    { id: 'fjord', name: 'Fjord', pic: 1015 }, { id: 'canyon', name: 'Canyon', pic: 1016 },
+    { id: 'city', name: 'City at sunset', pic: 1067 }, { id: 'forest', name: 'Forest at sunset', pic: 1037 },
+  ];
+  // Gradient wallpapers: drawn in CSS, so no file, no download, crisp at any size. Deep and dark on purpose (white text
+  // reads on all of them); layered soft glows for depth, the grain on top against banding. Grain repeats, glows cover.
+  const GRADS = [
+    { id: 'g-midnight', name: 'Midnight', css: 'radial-gradient(120% 100% at 10% 0%, #2f66a8 0%, transparent 58%), radial-gradient(100% 90% at 100% 100%, #13788a 0%, transparent 58%), linear-gradient(160deg, #0b1424, #0a1020)' },
+    { id: 'g-ember', name: 'Ember', css: 'radial-gradient(95% 85% at 90% 100%, #e2622a 0%, transparent 60%), radial-gradient(80% 70% at 5% 5%, #6b2a1c 0%, transparent 62%), linear-gradient(160deg, #1a100c, #140c09)' },
+    { id: 'g-forest', name: 'Deep forest', css: 'radial-gradient(100% 90% at 5% 100%, #2f8a55 0%, transparent 60%), radial-gradient(90% 80% at 100% 0%, #1b6b66 0%, transparent 60%), linear-gradient(160deg, #0a1912, #08130e)' },
+    { id: 'g-ocean', name: 'Ocean', css: 'radial-gradient(120% 80% at 50% 115%, #1aa3b8 0%, transparent 60%), radial-gradient(80% 60% at 0% 0%, #1d4f8a 0%, transparent 60%), linear-gradient(170deg, #0b1d33, #0a2a3c)' },
+    { id: 'g-dusk', name: 'Dusk rose', css: 'radial-gradient(95% 85% at 95% 100%, #c24d68 0%, transparent 60%), radial-gradient(90% 80% at 0% 0%, #2d3f66 0%, transparent 60%), linear-gradient(160deg, #141826, #10131c)' },
+    { id: 'g-graphite', name: 'Graphite', css: 'radial-gradient(100% 90% at 20% 10%, #5b626e 0%, transparent 60%), radial-gradient(80% 70% at 95% 95%, #343a44 0%, transparent 60%), linear-gradient(160deg, #16191e, #121418)' },
+  ];
+  const gradBg = g => `var(--grain), ${g.css}`;
+  // One size / repeat per layer: the grain tiles at 160px, every gradient layer fills the box.
+  const gradFit = g => { const n = (g.css.match(/gradient\(/g) || []).length;
+    return { size: ['160px 160px', ...Array(n).fill('100% 100%')].join(', '), repeat: ['repeat', ...Array(n).fill('no-repeat')].join(', ') }; };
+  const picUrl = (n, w, h) => `https://picsum.photos/id/${n}/${w}/${h}`;
+  const loadCustom = () => { try { return localStorage.getItem('carhome-wall'); } catch (e) { return null; } };
+  const srcOf = id => id === 'custom' ? loadCustom() : GRADS.some(g => g.id === id) ? 'grad:' + id : picUrl((WALLS.find(w => w.id === id) || WALLS[0]).pic, 1600, 1000);
+  const dimCache = new Map();
+  function measureDim(src) {
+    if (dimCache.has(src)) return Promise.resolve(dimCache.get(src));
+    return new Promise(res => {
+      const img = new Image(); img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        try {
+          const c = document.createElement('canvas'); c.width = 32; c.height = 20;
+          const g = c.getContext('2d'); g.drawImage(img, 0, 0, 32, 20);
+          const d = g.getImageData(0, 0, 32, 20).data; let sum = 0;
+          for (let i = 0; i < d.length; i += 4) sum += 0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2];
+          const lum = sum / (d.length / 4) / 255;                       // 0 = black, 1 = white
+          const dim = Math.min(0.28, Math.max(0, (lum - 0.42) * 0.7));  // only photos brighter than average get extra shade
+          dimCache.set(src, dim); res(dim);
+        } catch (e) { res(0); }                                            // no CORS: keep the standard shade
+      };
+      img.onerror = () => res(0);
+      img.src = src;
+    });
+  }
+  function showWall(src) {
+    if (!src) return;
+    if (src.startsWith('grad:')) {                     // gradients are all dark: no extra shade, grain tiles, glows cover
+      const g = GRADS.find(x => 'grad:' + x.id === src), fit = gradFit(g);
+      wall.style.backgroundImage = gradBg(g); wall.style.backgroundSize = fit.size; wall.style.backgroundRepeat = fit.repeat;
+      wall.style.setProperty('--dim', 0);
+      return;
+    }
+    wall.style.backgroundImage = `url("${src}")`; wall.style.backgroundSize = ''; wall.style.backgroundRepeat = '';
+    measureDim(src).then(d => wall.style.setProperty('--dim', d.toFixed(3)));
+  }
+  showWall(srcOf(S.wall) || srcOf('hills'));
+
+  function renderWp() {
+    const custom = loadCustom();
+    const tile = (id, bg, name, extra = '') => `<button class="wp-tile press${S.wall === id ? ' cur' : ''}" data-wall="${id}" style="background-image:${bg};${extra}" aria-label="${name}">
+      <i class="ph-fill ph-check-circle tick"></i><span>${name}</span></button>`;
+    $('wpGrid').innerHTML =
+      `<label class="wp-tile wp-gallery press"><input type="file" accept="image/*" id="wpFile" hidden><i class="ph-fill ph-images"></i><span>From gallery</span></label>`
+      + (custom ? tile('custom', `url('${custom}')`, 'Your photo') : '')
+      + WALLS.map(w => tile(w.id, `url('${picUrl(w.pic, 480, 288)}')`, w.name)).join('')
+      + GRADS.map(g => { const fit = gradFit(g); return tile(g.id, gradBg(g), g.name, `background-size:${fit.size};background-repeat:${fit.repeat}`); }).join('');
+    $('wpGrid').style.setProperty('--rows', Math.ceil($('wpGrid').children.length / 5));   // 3 rows, 4 once there is a photo
+    $('wpFile').addEventListener('change', e => { const f = e.target.files[0]; if (f) fromGallery(f); e.target.value = ''; });
+  }
+  function showWp(on) {
+    if (on) { showCC(false); showApps(false); renderWp(); }
+    screen.classList.toggle('show-wp', on);
+  }
+  $('wpBtn').addEventListener('click', () => showWp(true));
+  $('wpClose').addEventListener('click', () => showWp(false));
+
+  // Preview on the real home screen, then Set or Cancel (Cancel goes back to the picker).
+  let pending = null;
+  function preview(id, src, data) {
+    pending = { id, src, data };
+    showWall(src);
+    screen.classList.remove('show-wp');
+    screen.classList.add('wp-preview');
+  }
+  $('wpGrid').addEventListener('click', e => { const t = e.target.closest('[data-wall]'); if (t) preview(t.dataset.wall, srcOf(t.dataset.wall)); });
+  $('wpSet').addEventListener('click', () => {
+    if (pending.data) { try { localStorage.setItem('carhome-wall', pending.data); } catch (e) { say('That photo is too large to keep'); return; } }
+    S.wall = pending.id; save(); pending = null;
+    screen.classList.remove('wp-preview'); say('Wallpaper set');
+  });
+  $('wpCancel').addEventListener('click', () => {
+    pending = null; showWall(srcOf(S.wall));
+    screen.classList.remove('wp-preview'); showWp(true);
+  });
+
+  // Gallery photo: crop to the screen's shape (centred, like "cover"), shrink to 1340x800, JPEG. A 12 MP phone photo
+  // would otherwise sit in memory at ~50 MB; this keeps ~250 KB.
+  function fromGallery(file) {
+    const url = URL.createObjectURL(file), img = new Image();
+    img.onload = () => {
+      const k = Math.max(W / img.naturalWidth, H / img.naturalHeight);
+      const sw = W / k, sh = H / k, sx = (img.naturalWidth - sw) / 2, sy = (img.naturalHeight - sh) / 2;
+      const c = document.createElement('canvas'); c.width = W; c.height = H;
+      c.getContext('2d').drawImage(img, sx, sy, sw, sh, 0, 0, W, H);
+      URL.revokeObjectURL(url);
+      const data = c.toDataURL('image/jpeg', 0.85);
+      preview('custom', data, data);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); say('Could not open that photo'); };
+    img.src = url;
+  }
+
   const SUB = {
     wifi: on => on ? 'Faizal iPhone' : 'Off', bt: on => on ? 'Car audio' : 'Off', data: on => on ? 'Telkomsel LTE' : 'Off',
-    hotspot: on => on ? 'On' : 'Off', dnd: on => on ? 'On while driving' : 'Off', autoBri: on => on ? 'On' : 'Off',
+    hotspot: on => on ? 'On' : 'Off', glass: on => on ? 'On' : 'Off, clear panels', dnd: on => on ? 'On while driving' : 'Off', autoBri: on => on ? 'On' : 'Off',
   };
   $('cc').addEventListener('click', e => {
     const t = e.target.closest('[data-t]'), sb = e.target.closest('[data-seg] button');
@@ -754,6 +925,7 @@
   function apply() {
     screen.classList.toggle('side-left', S.side === 'left');
     screen.classList.toggle('night', isNight());
+    screen.classList.toggle('fx-transparent', !S.glass);
     $('nightHint').textContent = S.night === 'auto' ? 'Switches to Night at sunset' : S.night === 'night' ? 'Night until you change it' : 'Day until you change it';
     document.querySelectorAll('[data-t]').forEach(el => {
       el.classList.toggle('on', !!S[el.dataset.t]);
@@ -762,7 +934,7 @@
     document.querySelectorAll('[data-seg]').forEach(seg =>
       seg.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === S[seg.dataset.seg])));
     $('mapPanel').dataset.app = S.nav;
-    $('autoOpenTitle').textContent = `Open ${byId[S.nav].name} when the car starts`;
+    $('autoOpenTitle').textContent = `Show ${byId[S.nav].name} in the map panel`;
     renderStatus(); renderCar();
   }
 
