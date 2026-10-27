@@ -98,45 +98,69 @@
 
   function seeded(seed) { return () => (seed = (seed * 16807) % 2147483647) / 2147483647; }
 
-  // One puff: a sphere lit from the top-left whose rim fades out, so overlapping puffs melt into each other like vapour
-  // instead of reading as hard balls. Colours are [r, g, b].
-  const rgba = (c, a) => `rgba(${c[0]},${c[1]},${c[2]},${a})`;
-  function puff(g2, x, y, r, c) {
-    const g = g2.createRadialGradient(x - r * 0.32, y - r * 0.36, r * 0.05, x, y, r);
-    g.addColorStop(0, rgba(c.hi, 1)); g.addColorStop(0.5, rgba(c.mid, 1)); g.addColorStop(0.82, rgba(c.lo, 0.96)); g.addColorStop(1, rgba(c.lo, 0));
-    g2.fillStyle = g; g2.beginPath(); g2.arc(x, y, r, 0, Math.PI * 2); g2.fill();
-  }
+  // ---- Cloud. Built like a volumetric render, not from shaded balls: a few big masses, smaller billows bulging out of
+  //      their sunny upper-left rims, and ~1,500 soft particles scattered over the visible surface of every sphere.
+  //      Each particle is lit by its own surface normal (Lambert, light from the top-left front), so tops come out bright,
+  //      undersides and crevices grey, and the fading particles give the fuzzy edge of vapour. Drawn once per condition.
+  const rgba = (c, a) => `rgba(${c[0] | 0},${c[1] | 0},${c[2] | 0},${a})`;
+  const mix = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+  const LIGHT = (() => { const v = [-0.55, -0.62, 0.56], l = Math.hypot(...v); return v.map(x => x / l); })();
 
-  // Big masses of the cloud as fractions of the canvas (kept right of the H/L line), then two rings of smaller puffs
-  // on their lit, upper-left rims for the billowing edge.
-  const MASS = [[0.76, 0.98, 0.30], [0.96, 0.70, 0.28], [0.60, 1.02, 0.21], [0.82, 0.56, 0.21], [0.66, 0.78, 0.19], [1.03, 0.40, 0.19], [0.90, 0.88, 0.26]];
+  // Big masses as fractions of the canvas [x, y, radius], kept right of the H/L line.
+  const MASS = [[0.78, 0.98, 0.30], [0.97, 0.70, 0.28], [0.60, 1.03, 0.20], [0.84, 0.56, 0.20], [0.70, 0.70, 0.15], [1.03, 0.40, 0.19], [0.90, 0.88, 0.26], [0.56, 0.84, 0.12], [0.92, 0.42, 0.13]];
   const off = document.createElement('canvas'); off.width = W * DPR; off.height = H * DPR;
+
   function cloud(c, seed) {
-    const rnd = seeded(seed), puffs = [];
+    const rnd = seeded(seed);
+    // Spheres: masses plus billows on each mass's rim facing the sky. Billows sit a little forward (z) so they overlap.
+    const spheres = [];
     for (const [fx, fy, fr] of MASS) {
       const x = fx * W, y = fy * H, r = fr * W;
-      puffs.push([x, y, r]);
-      for (const [ring, size, n] of [[0.86, 0.42, 5], [0.98, 0.22, 7]]) {
-        for (let i = 0; i < n; i++) {
-          const a = Math.PI * (0.92 + rnd() * 0.8);          // ~165°..310°: the side that faces the light and the sky
-          const pr = r * size * (0.6 + rnd() * 0.8);
-          puffs.push([x + Math.cos(a) * r * ring * (0.85 + rnd() * 0.15), y + Math.sin(a) * r * ring * (0.85 + rnd() * 0.15), pr]);
-        }
+      spheres.push({ x, y, z: 0, r });
+      const n = 4 + Math.floor(rnd() * 3);
+      for (let i = 0; i < n; i++) {
+        const a = Math.PI * (0.95 + rnd() * 0.75), br = r * (0.34 + rnd() * 0.24);
+        spheres.push({ x: x + Math.cos(a) * r * 0.8, y: y + Math.sin(a) * r * 0.8, z: r * 0.35, r: br });
       }
     }
-    // Back to front: higher puffs first so lower, nearer ones overlap them.
-    puffs.sort((p, q) => p[1] - q[1]);
+    // Particles on the front hemisphere of each sphere, denser toward the rim where the silhouette forms.
+    const parts = [];
+    for (const s of spheres) {
+      const count = Math.round(60 + s.r * 3.4);
+      for (let i = 0; i < count; i++) {
+        const ang = rnd() * Math.PI * 2, d = Math.sqrt(0.15 + rnd() * 0.85);  // bias outward
+        const nx = Math.cos(ang) * d, ny = Math.sin(ang) * d, nz = Math.sqrt(Math.max(0, 1 - d * d));
+        const lam = Math.max(0, nx * LIGHT[0] + ny * LIGHT[1] + nz * LIGHT[2]);
+        parts.push({ x: s.x + nx * s.r * 0.92, y: s.y + ny * s.r * 0.92, depth: s.z + nz * s.r,
+                     r: s.r * (0.09 + rnd() * 0.12), lam, jitter: rnd() });
+      }
+    }
+    parts.sort((p, q) => p.depth - q.depth);                          // far first, near last
+
     const g2 = off.getContext('2d');
     g2.setTransform(DPR, 0, 0, DPR, 0, 0); g2.clearRect(0, 0, W, H);
-    for (const [x, y, r] of puffs) puff(g2, x, y, r, c);
-    // Self-shadow toward the bottom, where the cloud is thickest.
+    // Dense core so the cloud is opaque inside, in the mid-shadow tone.
+    for (const s of spheres) {
+      const g = g2.createRadialGradient(s.x, s.y, 0, s.x, s.y, s.r * 0.9);
+      g.addColorStop(0, rgba(c.mid, 1)); g.addColorStop(0.75, rgba(c.mid, 0.9)); g.addColorStop(1, rgba(c.mid, 0));
+      g2.fillStyle = g; g2.beginPath(); g2.arc(s.x, s.y, s.r * 0.9, 0, Math.PI * 2); g2.fill();
+    }
+    for (const p of parts) {
+      const t = Math.pow(p.lam, 1.1) * (0.92 + p.jitter * 0.16);
+      const col = mix(c.shadow, c.light, Math.min(1, t));
+      const g = g2.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r);
+      g.addColorStop(0, rgba(col, 0.95)); g.addColorStop(0.55, rgba(col, 0.75)); g.addColorStop(1, rgba(col, 0));
+      g2.fillStyle = g; g2.beginPath(); g2.arc(p.x, p.y, p.r, 0, Math.PI * 2); g2.fill();
+    }
+    // Bottom of the cloud sits in its own shadow.
     g2.globalCompositeOperation = 'source-atop';
-    const ao = g2.createLinearGradient(0, H * 0.5, 0, H); ao.addColorStop(0, 'rgba(0,0,0,0)'); ao.addColorStop(1, rgba(c.shade, 0.55));
+    const ao = g2.createLinearGradient(0, H * 0.45, 0, H); ao.addColorStop(0, 'rgba(0,0,0,0)'); ao.addColorStop(1, rgba(c.base, 0.5));
     g2.fillStyle = ao; g2.fillRect(0, 0, W, H); g2.globalCompositeOperation = 'source-over';
-    // Composite softly: a wide dark shadow first, then the cloud with a hair of blur so edges read as vapour.
+
+    // Composite: a wide soft shadow on the glass, then the cloud with a touch of blur so particles fuse.
     ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.filter = `blur(${14 * DPR}px)`; ctx.globalAlpha = 0.45; ctx.drawImage(off, 6 * DPR, 14 * DPR);
-    ctx.filter = `blur(${0.9 * DPR}px)`; ctx.globalAlpha = 1; ctx.drawImage(off, 0, 0);
+    ctx.filter = `blur(${16 * DPR}px)`; ctx.globalAlpha = 0.4; ctx.drawImage(off, 4 * DPR, 16 * DPR);
+    ctx.filter = `blur(${0.4 * DPR}px)`; ctx.globalAlpha = 1; ctx.drawImage(off, 0, 0);
     ctx.restore();
   }
 
@@ -160,8 +184,9 @@
     ctx.restore();
   }
 
-  const WHITE = { hi: [250, 251, 252], mid: [206, 209, 214], lo: [128, 133, 141], shade: [40, 44, 52] };
-  const STORM = { hi: [196, 201, 209], mid: [128, 134, 143], lo: [70, 75, 83], shade: [18, 20, 26] };
+  // light: fully sunlit surface; shadow: surface facing away; mid: the dense core; base: the dark underside.
+  const WHITE = { light: [248, 249, 251], shadow: [84, 89, 98], mid: [132, 137, 145], base: [30, 33, 40] };
+  const STORM = { light: [176, 182, 191], shadow: [58, 62, 70], mid: [92, 97, 105], base: [14, 16, 20] };
   const ART = {
     partly: () => { sun(W * 0.74, H * 0.46, 46); cloud(WHITE, 7); },
     rain:   () => { cloud(STORM, 11); rain(5); },
