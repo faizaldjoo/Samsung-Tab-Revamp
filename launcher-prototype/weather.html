@@ -246,15 +246,21 @@
   ART.storm = ART.rain;
 
   // Icon variant: Weatherglass TV's glass icons (vendor/weatherglass, MIT). Night swaps the sun for the moon.
-  const ICONS = location.search.includes('art=icons');
+  let ICONS = location.search.includes('art=icons');
   const night = () => { const h = new Date().getHours(); return h >= 18 || h < 6; };
   // Glow position and colour per icon, measured from the 256x192 sources and scaled to the 170x128 box.
   const GLOW = { sunny: [86, 65, 96, 'rgba(255,190,70,0.55)'], partly_cloudy_day: [129, 38, 72, 'rgba(255,190,70,0.6)'],
                  clear_night: [78, 73, 92, 'rgba(190,200,255,0.45)'], partly_cloudy_night: [113, 52, 70, 'rgba(190,200,255,0.5)'] };
   const ICON = { partly: () => night() ? 'partly_cloudy_night' : 'partly_cloudy_day', rain: () => 'rainy',
                  clear: () => night() ? 'clear_night' : 'sunny', cloudy: () => 'cloud', storm: () => 'thunderstorm' };
-  if (ICONS) $('wx').classList.add('icons');
-  $('hint').innerHTML += ICONS ? ' <a href="?">Show canvas art</a>' : ' <a href="?art=icons">Show Weatherglass icons</a>';
+  // Switch between the canvas art and the icons in place (no reload, so it also works where the URL can't carry ?art=icons).
+  const toggle = document.createElement('a'); toggle.href = '#'; $('hint').append(' ', toggle);
+  function setMode(icons) {
+    ICONS = icons; $('wx').classList.toggle('icons', icons);
+    toggle.textContent = icons ? 'Show canvas art' : 'Show Weatherglass icons';
+  }
+  toggle.addEventListener('click', e => { e.preventDefault(); setMode(!ICONS); show(STATES[si]); });
+  setMode(ICONS);
   const PLACE = 'Jakarta';
   let si = 0;
   function show(s) {
@@ -269,7 +275,7 @@
       if (g) { box.style.setProperty('--gx', g[0] + 'px'); box.style.setProperty('--gy', g[1] + 'px'); box.style.setProperty('--gr', g[2] + 'px'); box.style.setProperty('--gc', g[3]); }
     } else paint(s.kind);
   }
-  show(STATES[0]);
+  show(STATES[si]);
 
   $('wx').addEventListener('click', () => {
     const card = $('wx');
