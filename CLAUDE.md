@@ -25,6 +25,10 @@ Driven over ADB from a computer on the same Wi-Fi (Wireless debugging; pair once
   transform/opacity only (sun glow breathes, rain drops fall, lightning flash, gentle bob) (`vendor/weatherglass/`, copied from
   faizaldjoo/weatherglass-tv app/assets/weather at 94a2d9f, MIT); night swaps sun icons for moon ones. Controls panel slides out from the rail; All apps page cross-fades over home.
   Published preview (icons by default, in-page switch to the canvas art): https://claude.ai/artifact/Qxrv1da88QtyLbf8gQikSc
+  `today.html` is the Today panel redone as an HTC Sense style flip clock: two white flip cards (HH, MM; only the changed card flips,
+  minute-aligned) on a dark weather slab, animated Weatherglass icon overlapping both, place + temp left, day + H/L right,
+  condition + location + updated time below. Merges clock and weather, so the bottom row keeps the full-width player.
+  Tap clock = flip forward a minute, tap panel = next weather (prototype only).
 - Rail is CarPlay-style, on the right by default (setting: left/right): status pill on top (tap = Controls; signal, Bluetooth, battery %,
   warning icons only when not charging or too hot), the 4 most recently opened apps (open app marked), all-apps / Home button at the bottom.
   One `APPS` list in the JS drives the rail, the all-apps page and the navigation setting. Settings persist in localStorage (`carhome`).

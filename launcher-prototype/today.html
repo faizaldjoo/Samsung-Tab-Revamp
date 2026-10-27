@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Today Flip Clock</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@200;300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  /* Today panel as an HTC Sense style flip clock: two white flip cards (hours, minutes) standing on a dark weather slab,
+     the animated Weatherglass icon overlapping both in the middle, place + temperature on the left of the slab and
+     day + high/low on the right. Lives in the Today slot of the 1340 x 800 home canvas; same Liquid Glass shell as glass.html.
+     Cost on the tablet: a flip is two transform animations on one card, once a minute; the icon animates with transform and
+     opacity only (see weather.html). Nothing else moves. */
+  :root {
+    --text: #f7f8fa;
+    --muted: rgba(247, 248, 250, 0.72);
+    --faint: rgba(247, 248, 250, 0.5);
+    --r-glass: 32px;
+    --ease: cubic-bezier(0.16, 1, 0.3, 1);
+    /* Flip card paper: near-white top half, a shade darker bottom half, graphite digits. */
+    --card-top: #fbfbfa;
+    --card-top2: #eceded;
+    --card-bot: #e4e5e6;
+    --card-bot2: #cfd1d4;
+    --digit: #2b2d31;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; background: #07080a; color: var(--text); font-family: "Geist", system-ui, sans-serif; overflow: hidden; -webkit-font-smoothing: antialiased; }
+
+  /* The full 1340 x 800 home canvas, scaled the same way as glass.html. Other panels are outlines, for scale only. */
+  #stage { position: absolute; left: 50%; top: 50%; width: 1340px; height: 800px; text-shadow: 0 1px 2px rgba(0,0,0,0.25); }
+  .wall { position: fixed; inset: 0; background: #1a1d22 url(https://picsum.photos/id/1018/1600/1000) center / cover no-repeat; }
+  .wall::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(5,7,10,0.15), rgba(5,7,10,0.45)); }
+  .ghost { position: absolute; border-radius: var(--r-glass); border: 1.5px dashed rgba(255,255,255,0.28); background: rgba(10,14,22,0.22);
+    display: grid; place-items: center; font-size: 15px; font-weight: 500; color: var(--faint); }
+
+  .glass {
+    position: relative; isolation: isolate; border-radius: var(--r-glass); overflow: hidden;
+    background: linear-gradient(160deg, rgba(255,255,255,0.13), rgba(255,255,255,0.03) 45%, rgba(10,14,22,0.34));
+    backdrop-filter: blur(16px) saturate(1.6) brightness(0.74); -webkit-backdrop-filter: blur(16px) saturate(1.6) brightness(0.74);
+    box-shadow: inset 0 1.5px 0 rgba(255,255,255,0.55), inset 0 -1px 0 rgba(255,255,255,0.12), inset 0 0 0 1px rgba(255,255,255,0.14),
+      inset 0 0 24px rgba(255,255,255,0.06), 0 18px 40px rgba(4, 8, 16, 0.35);
+  }
+  .glass::before {
+    content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1.5px; pointer-events: none; z-index: 5;
+    background: linear-gradient(135deg, rgba(255,255,255,0.75), rgba(255,255,255,0.08) 30%, rgba(255,255,255,0) 60%, rgba(255,255,255,0.35));
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude;
+  }
+  @media (prefers-reduced-transparency: reduce) { .glass { background: rgba(28, 32, 40, 0.94); backdrop-filter: none; -webkit-backdrop-filter: none; } }
+
+  .today { position: absolute; left: 449px; top: 20px; width: 392px; height: 430px; }
+
+  /* Weather slab: the dark glossy base the cards stand on, like the HTC widget's body. */
+  .slab { position: absolute; left: 14px; right: 14px; top: 114px; height: 218px; border-radius: 22px; z-index: 0;
+    background: linear-gradient(180deg, #3a3e45 0%, #24272c 38%, #1a1c20 100%);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.22), inset 0 -1px 0 rgba(0,0,0,0.5), 0 10px 24px rgba(0,0,0,0.35); }
+  .slab .l, .slab .r { position: absolute; bottom: 22px; }
+  .slab .l { left: 18px; }
+  .slab .r { right: 18px; text-align: right; }
+  .slab .k { font-size: 17px; font-weight: 500; }
+  .slab .big { font-size: 32px; font-weight: 300; letter-spacing: -0.02em; line-height: 1.1; font-variant-numeric: tabular-nums; }
+  .slab .hl { font-size: 16px; color: var(--muted); margin-top: 6px; font-variant-numeric: tabular-nums; }
+
+  /* Flip cards. Each card is four layers: static top and bottom halves, plus two flaps that turn over on a change. */
+  .cards { position: absolute; top: 22px; left: 0; right: 0; display: flex; justify-content: center; gap: 14px; z-index: 1; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+  .card { position: relative; width: 168px; height: 162px; perspective: 600px; filter: drop-shadow(0 10px 14px rgba(0,0,0,0.38)); }
+  .half { position: absolute; left: 0; right: 0; height: 50%; overflow: hidden; backface-visibility: hidden; }
+  .half span { position: absolute; left: 0; right: 0; height: 162px; line-height: 162px; text-align: center; color: var(--digit); text-shadow: none;
+    font-size: 128px; font-weight: 200; letter-spacing: -0.05em; font-variant-numeric: tabular-nums; }
+  .half.t { top: 0; border-radius: 16px 16px 0 0; background: linear-gradient(180deg, var(--card-top), var(--card-top2)); transform-origin: 50% 100%; }
+  .half.b { bottom: 0; border-radius: 0 0 16px 16px; background: linear-gradient(180deg, var(--card-bot), var(--card-bot2)); transform-origin: 50% 0%; }
+  .half.b span { top: -81px; }
+  /* The hinge: a dark split line with a soft highlight under it, and two small side notches. */
+  .card::after { content: ""; position: absolute; left: 0; right: 0; top: calc(50% - 1px); height: 2px; z-index: 3;
+    background: linear-gradient(180deg, rgba(0,0,0,0.55), rgba(255,255,255,0.35)); }
+  .card::before { content: ""; position: absolute; left: -3px; right: -3px; top: calc(50% - 6px); height: 12px; z-index: 4;
+    background: linear-gradient(90deg, #4a4e55 0 5px, transparent 5px calc(100% - 5px), #4a4e55 calc(100% - 5px)); border-radius: 3px; }
+  .flapT, .flapB { z-index: 2; }
+  .flapB { transform: rotateX(90deg); }
+  .card.go .flapT { animation: flipT 0.28s ease-in forwards; }
+  .card.go .flapB { animation: flipB 0.28s 0.28s ease-out forwards; }
+  @keyframes flipT { to { transform: rotateX(-90deg); } }
+  @keyframes flipB { from { transform: rotateX(90deg); } to { transform: rotateX(0deg); } }
+  /* The top flap darkens as it falls, the way paper turns away from the light. */
+  .flapT::after { content: ""; position: absolute; inset: 0; background: rgba(0,0,0,0); }
+  .card.go .flapT::after { animation: shade 0.28s ease-in forwards; }
+  @keyframes shade { to { background: rgba(0,0,0,0.25); } }
+  @media (prefers-reduced-motion: reduce) { .card.go .flapT, .card.go .flapB, .card.go .flapT::after { animation-duration: 0.01s; animation-delay: 0s; } }
+
+  /* Weather icon, centred over the cards' feet and the slab. Animated exactly as in weather.html. */
+  .iconwrap { position: absolute; left: 50%; top: 168px; width: 170px; height: 128px; margin-left: -79px; z-index: 2; transform: scale(1.14); transform-origin: 50% 40%;
+    pointer-events: none; }
+  .ibox { position: absolute; inset: 0; filter: drop-shadow(0 10px 18px rgba(4, 8, 16, 0.45)); animation: bob 4.5s ease-in-out infinite alternate; }
+  .ibox img { position: absolute; inset: 0; width: 100%; height: 100%; }
+  @keyframes bob { from { transform: translateY(2px); } to { transform: translateY(-4px); } }
+  .ibox .glow { position: absolute; left: var(--gx); top: var(--gy); width: var(--gr); height: var(--gr); margin: calc(var(--gr) / -2) 0 0 calc(var(--gr) / -2);
+    border-radius: 50%; background: radial-gradient(circle, var(--gc) 0%, transparent 68%); opacity: 0; }
+  .ibox.k-clear .glow, .ibox.k-partly .glow { opacity: 1; animation: glow 3.2s ease-in-out infinite alternate; }
+  @keyframes glow { from { transform: scale(0.82); opacity: 0.55; } to { transform: scale(1.12); opacity: 1; } }
+  .ibox.k-rain .base { clip-path: inset(0 0 17% 0); }
+  .ibox .drops { display: none; }
+  .ibox.k-rain .drops { display: block; }
+  .ibox .drops i { position: absolute; top: 98px; width: 4px; height: 11px; border-radius: 3px;
+    background: linear-gradient(#8fd0ff, #3d9bff); opacity: 0; animation: fall 1.1s linear infinite; }
+  @keyframes fall { 0% { transform: translate(0, -6px); opacity: 0; } 15% { opacity: 1; } 100% { transform: translate(-4px, 30px); opacity: 0; } }
+  .ibox .flash { opacity: 0; filter: brightness(2.1) saturate(0.6); }
+  .ibox.k-storm .flash { animation: flash 4.8s linear infinite; }
+  @keyframes flash { 0%, 80%, 84%, 88%, 100% { opacity: 0; } 82% { opacity: 0.9; } 86% { opacity: 0.6; } }
+  .ibox.k-cloudy .base { animation: drift 7s ease-in-out infinite alternate; }
+  @keyframes drift { from { transform: translate(0, 0); } to { transform: translate(-6px, -2px); } }
+  @media (prefers-reduced-motion: reduce) { .ibox, .ibox *, .ibox .drops i { animation: none !important; } .ibox .drops i { opacity: 0.8; } }
+
+  /* Under the slab: the condition in words and the full date, with the location. */
+  .foot { position: absolute; left: 30px; right: 30px; bottom: 24px; display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; }
+  .foot .cond { font-size: 21px; font-weight: 500; }
+  .foot .place { font-size: 15px; color: var(--muted); margin-top: 4px; }
+  .foot .upd { font-size: 13px; color: var(--faint); white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+  .swap .slab .l, .swap .slab .r, .swap .foot .cond, .swap .iconwrap { opacity: 0; }
+  .slab .l, .slab .r, .foot .cond, .iconwrap { transition: opacity 0.3s var(--ease); }
+
+  .hint { position: absolute; left: 449px; top: 456px; font-size: 12px; color: var(--faint); }
+</style>
+</head>
+<body>
+<div class="wall"></div>
+<div id="stage">
+  <div class="ghost" style="left:20px;top:20px;width:411px;height:760px">Map</div>
+  <div class="ghost" style="left:859px;top:20px;width:351px;height:430px">Car</div>
+  <div class="ghost" style="left:449px;top:476px;width:593px;height:304px">Now playing</div>
+  <div class="ghost" style="left:1060px;top:476px;width:150px;height:304px">Sliders</div>
+  <div class="ghost" style="left:1228px;top:20px;width:96px;height:760px">Sidebar</div>
+
+  <section class="glass today" id="today" aria-label="Time and weather">
+    <div class="slab">
+      <div class="l"><div class="k" id="place">Jakarta</div><div class="big" id="temp">31°C</div></div>
+      <div class="r"><div class="k" id="day">Tue 27</div><div class="hl" id="hl">33° / 25°</div></div>
+    </div>
+
+    <div class="cards" id="cards" role="timer" aria-label="Time">
+      <div class="card" id="cH"></div>
+      <div class="card" id="cM"></div>
+    </div>
+
+    <div class="iconwrap" aria-hidden="true">
+      <div class="ibox" id="ibox">
+        <i class="glow"></i>
+        <img class="base" id="icon" alt="">
+        <img class="flash" id="flash" alt="">
+        <div class="drops"><i style="left:52px;animation-delay:0s"></i><i style="left:66px;animation-delay:.45s"></i><i style="left:80px;animation-delay:.2s"></i><i style="left:94px;animation-delay:.7s"></i><i style="left:108px;animation-delay:.35s"></i><i style="left:120px;animation-delay:.9s"></i></div>
+      </div>
+    </div>
+
+    <div class="foot">
+      <div><div class="cond" id="cond">Partly cloudy</div><div class="place">Kebayoran Baru, Jakarta Selatan</div></div>
+      <div class="upd" id="upd">Updated 13:42</div>
+    </div>
+  </section>
+  <div class="hint">Prototype only: tap the clock to flip it, tap anywhere else on the panel to preview other weather.</div>
+</div>
+
+<script>
+  const $ = id => document.getElementById(id);
+  const stage = $('stage');
+  function fit() { const s = Math.min(innerWidth / 1340, innerHeight / 800); stage.style.transform = `translate(-50%, -50%) scale(${s})`; }
+  addEventListener('resize', fit); fit();
+
+  // ---- Flip clock. Each card holds a two-digit value; on a change only that card flips:
+  //      the old top half falls (flapT), then the new bottom half lands (flapB). Minute-aligned, nothing runs in between. ----
+  function build(card, v) {
+    card.innerHTML = `<div class="half t"><span>${v}</span></div><div class="half b"><span>${v}</span></div>
+      <div class="half t flapT"><span>${v}</span></div><div class="half b flapB"><span>${v}</span></div>`;
+    card.dataset.v = v;
+  }
+  function flipTo(card, v) {
+    if (card.dataset.v === v) return;
+    const old = card.dataset.v;
+    const [t, b, ft, fb] = card.children;
+    t.firstChild.textContent = v;        // behind the falling flap: the new top
+    b.firstChild.textContent = old;      // under the landing flap: the old bottom, until it is covered
+    ft.firstChild.textContent = old;
+    fb.firstChild.textContent = v;
+    card.classList.remove('go'); void card.offsetWidth; card.classList.add('go');
+    clearTimeout(card._t);
+    card._t = setTimeout(() => { b.firstChild.textContent = v; card.classList.remove('go'); ft.firstChild.textContent = v; card.dataset.v = v; }, 600);
+  }
+  const two = n => String(n).padStart(2, '0');
+  let offset = 0;                        // prototype: minutes added by tapping the clock
+  function now() { return new Date(Date.now() + offset * 60000); }
+  function tick(first) {
+    const d = now(), h = two(d.getHours()), m = two(d.getMinutes());
+    if (first) { build($('cH'), h); build($('cM'), m); } else { flipTo($('cH'), h); flipTo($('cM'), m); }
+    $('day').textContent = d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric' });
+  }
+  tick(true);
+  (function schedule() { const d = new Date(); setTimeout(() => { tick(); schedule(); }, 60000 - d.getSeconds() * 1000 - d.getMilliseconds() + 20); })();
+  $('cards').addEventListener('click', e => { e.stopPropagation(); offset += 1; tick(); });
+
+  // ---- Weather icon (Weatherglass TV glass icons, vendor/weatherglass, MIT). Same mapping and animation as weather.html. ----
+  const night = () => { const h = new Date().getHours(); return h >= 18 || h < 6; };
+  const GLOW = { sunny: [86, 65, 96, 'rgba(255,190,70,0.55)'], partly_cloudy_day: [129, 38, 72, 'rgba(255,190,70,0.6)'],
+                 clear_night: [78, 73, 92, 'rgba(190,200,255,0.45)'], partly_cloudy_night: [113, 52, 70, 'rgba(190,200,255,0.5)'] };
+  const ICON = { partly: () => night() ? 'partly_cloudy_night' : 'partly_cloudy_day', rain: () => 'rainy',
+                 clear: () => night() ? 'clear_night' : 'sunny', cloudy: () => 'cloud', storm: () => 'thunderstorm' };
+  // Preview conditions. In the app: Open-Meteo current weather at the last GPS fix.
+  const STATES = [
+    { kind: 'partly', temp: 31, cond: 'Partly cloudy', hi: 33, lo: 25 },
+    { kind: 'rain',   temp: 26, cond: 'Rainy',         hi: 29, lo: 24 },
+    { kind: 'clear',  temp: 33, cond: 'Clear',         hi: 34, lo: 26 },
+    { kind: 'cloudy', temp: 29, cond: 'Cloudy',        hi: 31, lo: 25 },
+    { kind: 'storm',  temp: 25, cond: 'Thunderstorm',  hi: 28, lo: 23 },
+  ];
+  let si = 0;
+  function show(s) {
+    $('temp').textContent = `${s.temp}°C`;
+    $('hl').textContent = `${s.hi}° / ${s.lo}°`;
+    $('cond').textContent = s.cond;
+    const name = ICON[s.kind](), box = $('ibox'), src = `vendor/weatherglass/${name}.png`;
+    $('icon').src = src; $('flash').src = s.kind === 'storm' ? src : '';
+    box.className = `ibox k-${s.kind}`;
+    const g = GLOW[name];
+    if (g) { box.style.setProperty('--gx', g[0] + 'px'); box.style.setProperty('--gy', g[1] + 'px'); box.style.setProperty('--gr', g[2] + 'px'); box.style.setProperty('--gc', g[3]); }
+    const d = new Date(); $('upd').textContent = `Updated ${two(d.getHours())}:${two(d.getMinutes())}`;
+  }
+  show(STATES[0]);
+  $('today').addEventListener('click', () => {
+    const t = $('today'); t.classList.add('swap');
+    setTimeout(() => { si = (si + 1) % STATES.length; show(STATES[si]); t.classList.remove('swap'); }, 300);
+  });
+</script>
+</body>
+</html>
