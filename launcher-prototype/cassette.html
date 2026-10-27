@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Cassette Player</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css">
+<style>
+  /* Cassette version of the Now playing panel. The whole panel is the cassette:
+     song details on the label at the top, the tape window with two reels in the middle (album art spins as the right reel's hub),
+     transport controls on the bottom bridge. Same Liquid Glass tokens as the home screen.
+     Cost on the tablet: the reels spin with a CSS transform only and stop when paused; tape size is a transform once a second. */
+  :root {
+    --text: #f7f8fa;
+    --muted: rgba(247, 248, 250, 0.72);
+    --faint: rgba(247, 248, 250, 0.5);
+    --r-glass: 32px;
+    --ease: cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; background: #07080a; color: var(--text); font-family: "Geist", system-ui, sans-serif; overflow: hidden; -webkit-font-smoothing: antialiased; }
+  button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+
+  /* The full 1340 x 800 home canvas, scaled the same way as glass.html, so the cassette shows at its true size on the tablet.
+     The other home panels are drawn as empty outlines in their real positions, for scale only. */
+  #stage { position: absolute; left: 50%; top: 50%; width: 1340px; height: 800px; text-shadow: 0 1px 2px rgba(0,0,0,0.25); }
+  .wall { position: fixed; inset: 0; background: #1a1d22 url(https://picsum.photos/id/1018/1600/1000) center / cover no-repeat; }
+  .wall::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(5,7,10,0.15), rgba(5,7,10,0.45)); }
+  .ghost { position: absolute; border-radius: var(--r-glass); border: 1.5px dashed rgba(255,255,255,0.28); background: rgba(10,14,22,0.22);
+    display: grid; place-items: center; font-size: 15px; font-weight: 500; color: var(--faint); }
+
+  .glass {
+    position: relative; isolation: isolate; border-radius: var(--r-glass); overflow: hidden;
+    background: linear-gradient(160deg, rgba(255,255,255,0.13), rgba(255,255,255,0.03) 45%, rgba(10,14,22,0.34));
+    backdrop-filter: blur(16px) saturate(1.6) brightness(0.74); -webkit-backdrop-filter: blur(16px) saturate(1.6) brightness(0.74);
+    box-shadow: inset 0 1.5px 0 rgba(255,255,255,0.55), inset 0 -1px 0 rgba(255,255,255,0.12), inset 0 0 0 1px rgba(255,255,255,0.14),
+      inset 0 0 24px rgba(255,255,255,0.06), 0 18px 40px rgba(4, 8, 16, 0.35);
+  }
+  .glass::before {
+    content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1.5px; pointer-events: none; z-index: 2;
+    background: linear-gradient(135deg, rgba(255,255,255,0.75), rgba(255,255,255,0.08) 30%, rgba(255,255,255,0) 60%, rgba(255,255,255,0.35));
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude;
+  }
+  @media (prefers-reduced-transparency: reduce) { .glass { background: rgba(28, 32, 40, 0.94); backdrop-filter: none; -webkit-backdrop-filter: none; } }
+  .press { transition: transform 0.22s var(--ease), filter 0.22s; }
+  .press:active { transform: scale(0.95); filter: brightness(1.15); }
+
+  .np { position: absolute; left: 449px; top: 468px; width: 593px; height: 312px; padding: 18px 26px 0;
+    display: grid; grid-template-rows: auto 1fr auto; gap: 12px; }
+
+  /* Corner screws, like the cassette shell. */
+  .screw { position: absolute; width: 11px; height: 11px; border-radius: 50%; background: rgba(255,255,255,0.45);
+    box-shadow: inset 0 1px 1px rgba(255,255,255,0.6), 0 1px 2px rgba(0,0,0,0.3); }
+  .screw::before, .screw::after { content: ""; position: absolute; left: 50%; top: 50%; width: 6px; height: 1.5px; margin: -0.75px 0 0 -3px; background: rgba(0,0,0,0.35); transform: rotate(45deg); }
+  .screw::after { transform: rotate(-45deg); }
+
+  /* Label: song details on top. */
+  .label { display: flex; align-items: center; gap: 14px; padding: 0 6px; }
+  .side { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; flex: none;
+    box-shadow: inset 0 1.5px 0 rgba(255,255,255,0.4), 0 4px 10px rgba(0,0,0,0.25); }
+  .side img { width: 22px; height: 22px; } .side i { font-size: 22px; color: #fff; }
+  .meta { min-width: 0; flex: 1; }
+  .np-title { font-size: 22px; font-weight: 600; letter-spacing: -0.015em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.15; }
+  .np-artist { font-size: 15px; color: var(--muted); margin-top: 2px; }
+  /* Source chip: the app the media session belongs to. Prototype only: tap it to switch to the next app. */
+  .np-src { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 500; flex: none; padding: 6px 12px; border-radius: 999px;
+    background: rgba(255,255,255,0.1); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.14); }
+  /* Live radio: no song length, so the progress bar becomes a LIVE badge and the tape stays put while the reels spin. */
+  .live-badge { display: none; justify-self: center; align-items: center; gap: 8px; padding: 7px 14px; border-radius: 999px;
+    font-size: 13px; font-weight: 700; letter-spacing: 0.06em; color: #ffd0c9; background: rgba(255,122,107,0.18); box-shadow: inset 0 0 0 1px rgba(255,122,107,0.4); }
+  .live-badge i { width: 8px; height: 8px; border-radius: 50%; background: #ff7a6b; animation: pulse 1.6s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: 0.35; } }
+  .np.live .bar, .np.live .times { display: none; }
+  .np.live .live-badge { display: inline-flex; }
+  .np.live .mid { display: grid; }
+  .np.no-skip .skip { visibility: hidden; }
+  /* Station logo stand-in for apps that send a logo instead of album art. */
+  .hub.art.logo { display: grid; place-items: center; font-size: 32px; color: #fff; }
+  /* Song or app change: the label and middle fade in, so the switch is noticed at a glance. */
+  .swap { animation: swap-in 0.35s var(--ease); }
+  @keyframes swap-in { from { opacity: 0; transform: translateY(4px); } }
+
+  /* Tape window: light smoky plastic so the dark tape reads clearly. */
+  .window { position: relative; border-radius: 999px; overflow: hidden; display: grid; grid-template-columns: 128px 1fr 128px; align-items: center; padding: 0 6px;
+    background: rgba(225,232,240,0.16); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.3), inset 0 2px 10px rgba(0,0,0,0.25); }
+  .reel { position: relative; width: 128px; height: 128px; display: grid; place-items: center; }
+  .tape { position: absolute; inset: 0; border-radius: 50%; background: repeating-radial-gradient(circle, #1d1f23 0 2px, #26292e 2px 3px);
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08); transition: transform 1s linear; }
+  .hub { position: relative; width: 72px; height: 72px; border-radius: 50%; animation: spin 2.4s linear infinite; }
+  .hub.spokes { background: radial-gradient(circle, rgba(30,34,42,0.9) 0 20px, #f3f1ea 20.5px); box-shadow: 0 1px 4px rgba(0,0,0,0.35); }
+  .hub.spokes i { position: absolute; left: 50%; top: 50%; width: 5px; height: 8px; margin: -4px 0 0 -2.5px; border-radius: 1px; background: #f3f1ea; }
+  /* Album art as the right reel's hub, with a small spindle hole in the middle. */
+  .hub.art { background: #333 center / cover; box-shadow: 0 0 0 3px #f3f1ea, 0 2px 6px rgba(0,0,0,0.4); }
+  .hub.art::after { content: ""; position: absolute; left: 50%; top: 50%; width: 12px; height: 12px; margin: -6px; border-radius: 50%; background: #f3f1ea; box-shadow: inset 0 0 0 3px rgba(30,34,42,0.85); }
+  .np.paused .hub { animation-play-state: paused; }
+  @keyframes spin { to { transform: rotate(-360deg); } }
+  .mid { padding: 0 14px; }
+  .bar { height: 4px; border-radius: 999px; background: rgba(255,255,255,0.22); overflow: hidden; }
+  .bar i { display: block; height: 100%; width: 38%; background: var(--text); border-radius: inherit; }
+  .times { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); margin-top: 6px; font-variant-numeric: tabular-nums; }
+
+  /* Bridge: the trapezoid at the bottom of the shell carries the controls. */
+  .bridge { justify-self: center; width: 330px; height: 82px; display: flex; justify-content: space-between; align-items: center; padding: 6px 44px 0;
+    background: rgba(255,255,255,0.1); clip-path: polygon(8% 0, 92% 0, 100% 100%, 0 100%);
+    box-shadow: inset 0 1.5px 0 rgba(255,255,255,0.35); }
+  .bridge button { font-size: 28px; width: 54px; height: 54px; display: grid; place-items: center; border-radius: 999px; }
+  .bridge .play { width: 64px; height: 64px; font-size: 30px; background: rgba(255,255,255,0.22); box-shadow: inset 0 1.5px 0 rgba(255,255,255,0.6), inset 0 0 0 1px rgba(255,255,255,0.2); }
+
+  @media (prefers-reduced-motion: reduce) { .hub, .swap, .live-badge i { animation: none; } .tape { transition: none; } .press, .press:active { transition: none; transform: none; } }
+</style>
+</head>
+<body>
+<div class="wall"></div>
+
+<div id="stage">
+  <div class="ghost" style="left:20px;top:20px;width:411px;height:760px">Map</div>
+  <div class="ghost" style="left:449px;top:20px;width:392px;height:430px">Today</div>
+  <div class="ghost" style="left:859px;top:20px;width:351px;height:430px">Car</div>
+  <div class="ghost" style="left:1060px;top:468px;width:150px;height:312px">Sliders</div>
+  <div class="ghost" style="left:1228px;top:20px;width:96px;height:760px">Sidebar</div>
+
+  <section class="glass np" id="np">
+    <i class="screw" style="left:14px;top:14px"></i><i class="screw" style="right:14px;top:14px"></i>
+    <i class="screw" style="left:14px;bottom:14px"></i><i class="screw" style="right:14px;bottom:14px"></i>
+
+    <header class="label">
+      <span class="side" id="appIcon"></span>
+      <div class="meta">
+        <div class="np-title" id="title">Secukupnya</div>
+        <div class="np-artist" id="artist">Hindia</div>
+      </div>
+      <button class="np-src press" id="src" aria-label="Playing from"></button>
+    </header>
+
+    <div class="window">
+      <div class="reel"><div class="tape" id="tapeL"></div><div class="hub spokes" id="hubL"></div></div>
+      <div class="mid">
+        <div class="bar"><i id="prog"></i></div>
+        <div class="times"><span id="tNow">1:31</span><span id="tLen">4:02</span></div>
+        <div class="live-badge"><i></i>LIVE</div>
+      </div>
+      <div class="reel"><div class="tape" id="tapeR"></div><div class="hub art" id="art" role="img" aria-label="Album art"></div></div>
+    </div>
+
+    <div class="bridge">
+      <button class="press skip" aria-label="Previous"><i class="ph-fill ph-skip-back"></i></button>
+      <button class="play press" id="play" aria-label="Pause"><i class="ph-fill ph-pause"></i></button>
+      <button class="press skip" aria-label="Next"><i class="ph-fill ph-skip-forward"></i></button>
+    </div>
+  </section>
+</div>
+
+<script>
+  const $ = id => document.getElementById(id);
+  const stage = $('stage');
+  function fit() { const s = Math.min(innerWidth / 1340, innerHeight / 800); stage.style.transform = `translate(-50%, -50%) scale(${s})`; }
+  addEventListener('resize', fit); fit();
+
+  // Media sessions the launcher can follow. In the app these come from MediaSessionManager: whichever session is playing wins,
+  // and the source chip shows that app. Prototype only: tap the chip to move to the next one.
+  const si = slug => `<img src="https://cdn.simpleicons.org/${slug}/ffffff" alt="">`;
+  const SOURCES = [
+    { app: 'Spotify', bg: '#1db954', icon: si('spotify'), title: 'Secukupnya', artist: 'Hindia', art: 'https://picsum.photos/seed/night-drive-city-lights/240/240', len: 242, pos: 91, skip: true },
+    { app: 'YT Music', bg: '#ff0033', icon: si('youtubemusic'), title: 'Komang', artist: 'Raim Laode', art: 'https://picsum.photos/seed/komang-sunset-sea/240/240', len: 258, pos: 40, skip: true },
+    // Live radio: station logo instead of album art, no length, and this station has no skip.
+    { app: 'Prambors', bg: '#f2711c', icon: '<i class="ph-fill ph-radio"></i>', title: 'Sial', artist: 'Mahalini on Prambors FM', logo: { bg: '#f2711c', icon: 'radio' }, len: null, skip: false },
+  ];
+
+  // Six teeth on the left hub, built once.
+  $('hubL').innerHTML = Array.from({ length: 6 }, (_, i) => `<i style="transform: rotate(${i * 60}deg) translateY(-16px)"></i>`).join('');
+
+  // Tape moves from the left reel to the right one as the song plays (scale only, so the GPU does it).
+  const MIN = 80 / 128;
+  function setTape(p) {
+    $('tapeL').style.transform = `scale(${MIN + (1 - MIN) * Math.sqrt(1 - p)})`;
+    $('tapeR').style.transform = `scale(${MIN + (1 - MIN) * Math.sqrt(p)})`;
+  }
+
+  const pad = n => String(n).padStart(2, '0');
+  const fmt = t => `${Math.floor(t / 60)}:${pad(t % 60)}`;
+  let cur, playing = true;
+  function renderProgress() {
+    if (cur.len == null) return setTape(0.5);
+    $('prog').style.width = (cur.pos / cur.len * 100) + '%';
+    $('tNow').textContent = fmt(cur.pos);
+    setTape(cur.pos / cur.len);
+  }
+  function setSource(i) {
+    cur = SOURCES[i];
+    const np = $('np'), art = $('art');
+    np.classList.toggle('live', cur.len == null);
+    np.classList.toggle('no-skip', !cur.skip);
+    $('src').textContent = cur.app;
+    $('appIcon').innerHTML = cur.icon; $('appIcon').style.background = cur.bg;
+    $('title').textContent = cur.title;
+    $('artist').textContent = cur.artist;
+    if (cur.logo) { art.classList.add('logo'); art.style.background = cur.logo.bg; art.innerHTML = `<i class="ph-fill ph-${cur.logo.icon}"></i>`; }
+    else { art.classList.remove('logo'); art.innerHTML = ''; art.style.background = `#333 url(${cur.art}) center / cover`; }
+    if (cur.len != null) $('tLen').textContent = fmt(cur.len);
+    renderProgress();
+    document.querySelectorAll('.label, .mid').forEach(el => { el.classList.remove('swap'); void el.offsetWidth; el.classList.add('swap'); });
+  }
+  let si_ = 0;
+  setSource(si_);
+  $('src').addEventListener('click', () => setSource(si_ = (si_ + 1) % SOURCES.length));
+
+  $('play').onclick = () => {
+    playing = !playing;
+    $('np').classList.toggle('paused', !playing);
+    $('play').innerHTML = `<i class="ph-fill ph-${playing ? 'pause' : 'play'}"></i>`;
+    $('play').setAttribute('aria-label', playing ? 'Pause' : 'Play');
+  };
+  setInterval(() => { if (playing && cur.len != null) { cur.pos = (cur.pos + 1) % cur.len; renderProgress(); } }, 1000);
+</script>
+</body>
+</html>

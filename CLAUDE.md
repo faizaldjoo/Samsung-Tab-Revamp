@@ -14,12 +14,34 @@ Driven over ADB from a computer on the same Wi-Fi (Wireless debugging; pair once
 
 ## Custom launcher (in progress)
 - `launcher-prototype/glass.html` is the chosen design (option B, Liquid Glass over a photo wallpaper). `index.html` is option A (dark).
-- Canvas is 1340x800 landscape. Sections: Rail, Map, Now playing, Glance (speed + weather), App grid, Sliders.
+  `wireframe.html` is the flat mid-fidelity mockup of the same layout, used to settle changes cheaply before they go into glass.html.
+- Canvas is 1340x800 landscape. Sections: Rail, Map, Today (flip clock, date, location, weather + next 4 hours), Car (speedometer + 4 stats),
+  Now playing (cassette: playing app's icon + title/artist on the label, album art or station logo spins as the right reel, tape moves
+  left to right with progress, controls on the bottom bridge; live radio = LIVE badge, tape still, skip hidden if unsupported; panel stays
+  neutral glass), Sliders. `cassette.html` is the standalone cassette prototype shown in the home layout. Controls panel slides out from the rail; All apps page cross-fades over home.
+- Rail is CarPlay-style, on the right by default (setting: left/right): status pill on top (tap = Controls; signal, Bluetooth, battery %,
+  warning icons only when not charging or too hot), the 4 most recently opened apps (open app marked), all-apps / Home button at the bottom.
+  One `APPS` list in the JS drives the rail, the all-apps page and the navigation setting. Settings persist in localStorage (`carhome`).
+- Prototype-only taps: clock = next wallpaper, Car source chip = OBD/GPS, music source chip = next app (Spotify / YT Music / radio),
+  battery and temperature cards = preview warning states.
 - Next step: user is drawing a wireframe to revamp some sections; edit only the sections they change.
 - Build plan once the design is final: plain Java Android app, no Gradle (javac + d8 + aapt2 + apksigner from the Android SDK),
   HOME intent filter. Map = own OSM raster tile view + Waze/Google Maps turn info from a NotificationListenerService.
+  The blue route line in glass.html is a hand-drawn placeholder kept for looks; nav apps do not share the route, so the app shows
+  live position + turn card + ETA only (tap opens the nav app for the full route).
   Now playing via MediaSessionManager, weather from Open-Meteo, sliders via AudioManager / Settings.System.
   Blur the wallpaper once at set time instead of live blur (weak GPU).
+  Flip clock (Today panel): one custom View, digits drawn to Canvas, a single minute-aligned callback (ACTION_TIME_TICK),
+  flip = short rotationX ValueAnimator on the changed digits only; nothing runs between minutes.
+- Car panel: OBD (ELM327 over Bluetooth) shows car speed, RPM, coolant, fuel, battery V; without OBD it shows GPS speed,
+  heading, trip km, drive time, average. Trip rules: distance summed from fixes with accuracy <= 20 m, drive time counts only
+  while speed > 3 km/h, average = trip / drive time. Trip auto-resets after 20 min stationary; manual reset = long-press the
+  reset button next to the source chip. Persist counters once a minute.
+- Navigation: Controls has "Navigation app: Waze / Google Maps" (default Waze). The map panel tap and the turn-card
+  notification parser follow it. "Open <nav app> when the car starts" (default on): on ACTION_POWER_CONNECTED / wake with
+  the launcher in front, start the nav app full screen; if the user leaves it within 10 s, don't reopen it that trip.
+- Performance goal: the launcher must feel faster than stock One UI on this tablet. Animate only transform/opacity,
+  no per-frame timers, no live blur, keep idle CPU at zero between events.
 - Preview: `python3 -m http.server 8765 --bind 0.0.0.0 --directory launcher-prototype`, open `http://<computer-ip>:8765/glass.html` on the tablet.
 
 ## Not decided / parked

@@ -1,0 +1,310 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Launcher Mockup</title>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/bold/style.css">
+<style>
+  /* Mid-fidelity mockup: real layout, type, icons and colours, but flat panels (no glass, blur or photos)
+     so the layout can be settled cheaply before it goes into glass.html. Frames are 1340x800, shown at 60%. */
+  :root { --bg: #15181d; --panel: #22262d; --card: #2c313a; --line: rgba(255,255,255,0.08);
+    --text: #f2f3f5; --muted: #a3a9b4; --accent: #5aa7ff; --sun: #ffd36b; --warn: #ff7a6b; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0c0d10; color: var(--text); font-family: "Geist", system-ui, sans-serif; padding: 28px; display: grid; gap: 34px; justify-content: center; }
+  h1 { font-size: 18px; font-weight: 600; color: var(--muted); margin-bottom: 10px; }
+  .wrap { zoom: 0.6; }
+  .frame { position: relative; width: 1340px; height: 800px; background: var(--bg); border-radius: 24px; overflow: hidden;
+    display: grid; grid-template-columns: 96px 1fr; gap: 18px; padding: 20px 20px 20px 16px; }
+  .p { background: var(--panel); border-radius: 32px; position: relative; min-width: 0; }
+  .muted { color: var(--muted); }
+
+  .rail { display: flex; flex-direction: column; align-items: center; padding: 22px 0 16px; }
+  .status { width: 68px; padding: 12px 0; border-radius: 999px; background: var(--card); display: flex; flex-direction: column; gap: 8px; align-items: center; font-size: 13px; font-weight: 600; color: var(--muted); }
+  .status div { display: flex; gap: 6px; align-items: center; } .status i { font-size: 18px; }
+  .status.sel { outline: 2px solid var(--accent); }
+  .dock { margin: auto 0; display: flex; flex-direction: column; gap: 16px; }
+  .tile { width: 62px; height: 62px; border-radius: 18px; display: grid; place-items: center; color: #fff; position: relative; }
+  .tile i { font-size: 30px; } .tile img { width: 46%; }
+  .tile.active::before { content: ""; position: absolute; left: -15px; top: 18px; width: 5px; height: 26px; border-radius: 9px; background: var(--text); }
+  .home { width: 62px; height: 62px; border-radius: 999px; background: var(--card); display: grid; place-items: center; font-size: 28px; }
+
+  .main { display: grid; grid-template-columns: 1.08fr 2fr; gap: 18px; min-width: 0; }
+  .right { display: grid; grid-template-rows: 1fr 312px; gap: 18px; min-width: 0; }
+  .bottom { display: grid; grid-template-columns: 1fr 150px; gap: 18px; }
+
+  .map { padding: 16px; display: flex; flex-direction: column; background: #1b2028 repeating-linear-gradient(35deg, transparent 0 46px, rgba(255,255,255,0.035) 46px 50px); }
+  .turn { display: flex; gap: 14px; align-items: center; align-self: flex-start; background: var(--card); border-radius: 24px; padding: 12px 18px 12px 12px; }
+  .turn .arrow { width: 50px; height: 50px; border-radius: 16px; background: var(--accent); color: #061223; display: grid; place-items: center; font-size: 28px; }
+  .turn b { font-size: 27px; } .turn div div { font-size: 15px; }
+  .eta { margin-top: auto; display: grid; grid-template-columns: repeat(3, 1fr); padding: 0 6px 4px; }
+  .eta b { display: block; font-size: 24px; font-weight: 600; } .eta span { font-size: 13px; }
+
+  /* Top row: compact Today panel next to the Car panel. */
+  .top { display: grid; grid-template-columns: 1.12fr 1fr; gap: 18px; min-height: 0; }
+  .today { padding: 24px 26px; display: flex; flex-direction: column; }
+  /* Flip clock (static here; glass.html has the real flip). Split line = the panel colour showing through. */
+  .time { display: flex; align-items: center; gap: 6px; }
+  .time span { position: relative; width: 66px; height: 92px; line-height: 92px; text-align: center; border-radius: 12px; background: #fbf7e9; color: #141518;
+    font-size: 80px; font-weight: 700; letter-spacing: -0.04em; }
+  .time span::after { content: ""; position: absolute; left: 0; right: 0; top: calc(50% - 1px); height: 2px; background: var(--panel); }
+  .time .colon { display: flex; flex-direction: column; gap: 18px; padding: 0 2px; }
+  .time .colon i { width: 9px; height: 9px; border-radius: 50%; background: #fbf7e9; }
+  .day { font-size: 20px; font-weight: 500; margin-top: 14px; }
+  .place { display: flex; gap: 6px; align-items: center; margin-top: 6px; font-size: 15px; } .place i { color: var(--accent); font-size: 17px; }
+  .wx { margin-top: auto; display: flex; align-items: center; gap: 12px; padding-top: 16px; border-top: 1px solid var(--line); }
+  .wx > i { font-size: 44px; color: var(--sun); } .wx > b { font-size: 44px; font-weight: 600; letter-spacing: -0.04em; }
+  .wx div { margin-left: auto; text-align: right; font-size: 14px; line-height: 1.45; }
+  .hourly { display: grid; grid-template-columns: repeat(4, 1fr); margin-top: 14px; text-align: center; }
+  .hourly div { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 13px; } .hourly i { font-size: 22px; } .hourly b { font-size: 16px; }
+
+  /* Car panel: OBD data when an adapter is connected, otherwise what the tablet GPS can work out. */
+  .car { padding: 22px 24px; display: flex; flex-direction: column; }
+  .car-head { display: flex; justify-content: space-between; align-items: center; font-size: 15px; font-weight: 600; color: var(--muted); }
+  .chip { display: inline-flex; gap: 6px; align-items: center; padding: 6px 12px; border-radius: 999px; background: var(--card); font-size: 13px; color: var(--text); }
+  .chip i { font-size: 16px; color: var(--accent); }
+  .car-head .end { display: flex; gap: 8px; align-items: center; }
+  .reset { width: 34px; height: 34px; border-radius: 999px; background: var(--card); display: grid; place-items: center; font-size: 17px; color: var(--text); }
+  /* Speedometer: ticks light up to the current speed, one needle. In the app only the needle rotates (transform only). */
+  .gauge { flex: 1; min-height: 0; display: grid; place-items: center; }
+  .gauge svg { width: 100%; height: 100%; max-height: 205px; overflow: visible; }
+  .gauge .tk { stroke: rgba(255,255,255,0.22); stroke-width: 2; stroke-linecap: round; }
+  .gauge .tk.on { stroke: var(--text); }
+  .gauge .tk.major { stroke-width: 3; }
+  .gauge text { fill: var(--muted); font: 500 11px Geist, system-ui, sans-serif; text-anchor: middle; dominant-baseline: middle; }
+  .gauge .num { fill: var(--text); font-size: 40px; font-weight: 600; letter-spacing: -0.04em; }
+  .gauge .unit { font-size: 12px; }
+  .gauge .needle { stroke: var(--text); stroke-width: 3; stroke-linecap: round; }
+  .gauge .hub { fill: var(--panel); stroke: var(--text); stroke-width: 3; }
+  .car-sub { font-size: 13px; color: var(--muted); text-align: center; margin: 2px 0 10px; }
+  .stats { margin-top: auto; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .stat { background: var(--card); border-radius: 20px; padding: 12px 14px; }
+  .stat span { display: flex; gap: 6px; align-items: center; font-size: 13px; color: var(--muted); } .stat span i { font-size: 16px; }
+  .stat b { display: block; font-size: 22px; font-weight: 600; margin-top: 4px; } .stat b small { font-size: 14px; color: var(--muted); font-weight: 500; }
+
+  .np { padding: 22px; display: grid; grid-template-rows: auto 1fr auto; }
+  .np-head { display: flex; gap: 18px; align-items: center; }
+  .art { width: 112px; height: 112px; border-radius: 22px; background: linear-gradient(135deg, #3d4f66, #6b5a7a); display: grid; place-items: center; font-size: 40px; color: rgba(255,255,255,0.5); }
+  .np-head b { font-size: 24px; font-weight: 600; } .np-head div div { font-size: 16px; margin-top: 4px; }
+  .bar { height: 5px; border-radius: 9px; background: rgba(255,255,255,0.18); align-self: end; } .bar i { display: block; width: 38%; height: 100%; background: var(--text); border-radius: 9px; }
+  .ctrl { display: flex; justify-content: space-between; align-items: center; padding: 14px 18px 0; font-size: 34px; }
+  .ctrl .play { width: 76px; height: 76px; border-radius: 999px; background: var(--card); display: grid; place-items: center; }
+
+  .sliders { padding: 18px 14px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .vs { display: flex; flex-direction: column; align-items: center; gap: 10px; font-size: 13px; }
+  .track { flex: 1; width: 52px; border-radius: 999px; background: var(--card); position: relative; overflow: hidden; }
+  .track div { position: absolute; left: 0; right: 0; bottom: 0; background: #e9ebef; }
+  .track i { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); font-size: 24px; color: #1a1d22; }
+
+  /* Controls panel */
+  .dim::after { content: ""; position: absolute; inset: 0; background: rgba(10,11,14,0.6); }
+  .cc { position: absolute; z-index: 2; left: 130px; top: 20px; bottom: 20px; width: 700px; padding: 26px 28px 28px; background: #262a32; border-radius: 32px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5); display: flex; flex-direction: column; gap: 16px; }
+  .cc-head { display: flex; justify-content: space-between; align-items: center; } .cc-head h2 { font-size: 28px; font-weight: 600; }
+  .round { width: 48px; height: 48px; border-radius: 999px; background: var(--card); display: grid; place-items: center; font-size: 22px; }
+  .cc-grid { flex: 1; display: grid; grid-template-columns: repeat(4, 1fr); grid-template-rows: 1fr auto auto 1fr; gap: 14px; }
+  .card { background: var(--card); border-radius: 20px; padding: 16px; min-width: 0; }
+  .s2 { grid-column: span 2; } .s4 { grid-column: 1 / -1; }
+  .lbl { font-size: 13px; font-weight: 600; color: var(--muted); margin-bottom: 12px; }
+  .tog { display: flex; flex-direction: column; justify-content: space-between; }
+  .disc { width: 52px; height: 52px; border-radius: 999px; background: rgba(255,255,255,0.12); display: grid; place-items: center; font-size: 26px; }
+  .tog.on .disc { background: var(--accent); color: #061223; }
+  .tog b { display: block; font-size: 17px; font-weight: 600; margin-top: 12px; } .tog small { font-size: 13px; color: var(--muted); }
+  .tog.wide { flex-direction: row; align-items: center; gap: 14px; } .tog.wide b { margin-top: 0; }
+  .seg .logo { width: 18px; height: 18px; }
+  .seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 4px; padding: 4px; border-radius: 999px; background: rgba(0,0,0,0.25); }
+  .seg span { height: 48px; border-radius: 999px; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 15px; font-weight: 600; color: var(--muted); }
+  .seg span i { font-size: 20px; } .seg .on { background: #eef0f3; color: #14171c; }
+  .health { display: flex; flex-direction: column; justify-content: space-between; } .health i { font-size: 34px; }
+  .health b { display: block; font-size: 22px; font-weight: 600; } .health small { font-size: 13px; color: var(--muted); }
+  .health.bad { background: rgba(255,122,107,0.16); box-shadow: inset 0 0 0 1px rgba(255,122,107,0.45); } .health.bad i, .health.bad b { color: var(--warn); }
+
+  /* All apps */
+  .apps-page { padding: 34px 40px; display: flex; flex-direction: column; } .apps-page h2 { font-size: 34px; font-weight: 600; }
+  .apps { flex: 1; display: grid; grid-template-columns: repeat(6, 1fr); align-content: center; row-gap: 40px; }
+  .app { display: flex; flex-direction: column; align-items: center; gap: 12px; font-size: 16px; font-weight: 500; }
+  .app .tile { width: 92px; height: 92px; border-radius: 20px; } .app .tile i { font-size: 44px; }
+  /* Sidebar on the right (default: closer to the driver in a right-hand-drive car). Panels and markers mirror with it. */
+  .frame.right { grid-template-columns: 1fr 96px; padding: 20px 16px 20px 20px; }
+  .frame.right .rail { order: 2; }
+  .frame.right .tile.active::before { left: auto; right: -15px; }
+  .frame.right .cc { left: auto; right: 130px; }
+  .seg [data-side] { cursor: pointer; }
+  .switch { display: flex; align-items: center; gap: 14px; font-size: 14px; color: var(--muted); }
+  .switch .seg { width: 220px; } .switch .seg span { height: 36px; }
+  .note { max-width: 804px; font-size: 14px; color: var(--muted); margin-top: 10px; line-height: 1.5; }
+</style>
+</head>
+<body>
+
+<template id="rail">
+  <aside class="p rail">
+    <div class="status"><div><i class="ph-fill ph-cell-signal-high"></i>LTE</div><div><i class="ph-fill ph-bluetooth-connected"></i><i class="ph-fill ph-moon"></i></div><div><i class="ph-fill ph-battery-charging-vertical"></i>84%</div></div>
+    <nav class="dock">
+      <div class="tile active" style="background:#33ccff"><img src="https://cdn.simpleicons.org/waze/ffffff" alt="Waze"></div>
+      <div class="tile" style="background:#1db954"><img src="https://cdn.simpleicons.org/spotify/ffffff" alt="Spotify"></div>
+      <div class="tile" style="background:#f2711c"><i class="ph-fill ph-radio"></i></div>
+      <div class="tile" style="background:#25d366"><img src="https://cdn.simpleicons.org/whatsapp/ffffff" alt="WhatsApp"></div>
+    </nav>
+    <div class="home"><i class="ph-bold ph-dots-nine"></i></div>
+  </aside>
+</template>
+
+<template id="car-obd">
+  <div class="car-head">Car<span class="chip"><i class="ph-fill ph-plugs-connected"></i>OBD connected</span></div>
+  <div class="gauge" data-speed="48"></div>
+  <div class="stats">
+    <div class="stat"><span><i class="ph-fill ph-gauge"></i>Engine</span><b>1,850 <small>rpm</small></b></div>
+    <div class="stat"><span><i class="ph-fill ph-thermometer-simple"></i>Coolant</span><b>88° <small>C</small></b></div>
+    <div class="stat"><span><i class="ph-fill ph-gas-pump"></i>Fuel</span><b>62% <small>~410 km</small></b></div>
+    <div class="stat"><span><i class="ph-fill ph-car-battery"></i>Battery</span><b>14.2 <small>V</small></b></div>
+  </div>
+</template>
+
+<template id="car-gps">
+  <div class="car-head">Car<span class="end"><span class="chip"><i class="ph-fill ph-navigation-arrow"></i>Tablet GPS</span><span class="reset" title="Reset trip"><i class="ph-bold ph-arrow-counter-clockwise"></i></span></span></div>
+  <div class="gauge" data-speed="48"></div>
+  <div class="car-sub">Plug in an OBD adapter for engine data</div>
+  <div class="stats">
+    <div class="stat"><span><i class="ph-fill ph-compass"></i>Heading</span><b>NE <small>42°</small></b></div>
+    <div class="stat"><span><i class="ph-fill ph-path"></i>Trip</span><b>12.4 <small>km</small></b></div>
+    <div class="stat"><span><i class="ph-fill ph-timer"></i>Drive time</span><b>0:38</b></div>
+    <div class="stat"><span><i class="ph-fill ph-gauge"></i>Average</span><b>31 <small>km/h</small></b></div>
+  </div>
+</template>
+
+<template id="home">
+  <main class="main">
+    <section class="p map">
+      <div class="turn"><div class="arrow"><i class="ph-bold ph-arrow-bend-up-right"></i></div><div><b>300 m</b><div class="muted">Jl. Jend. Sudirman</div></div></div>
+      <div class="eta"><div><b>16:39</b><span class="muted">arrival</span></div><div><b>17 min</b><span class="muted">left</span></div><div><b>6.4 km</b><span class="muted">to go</span></div></div>
+    </section>
+    <div class="right">
+      <div class="top">
+        <section class="p today">
+          <div class="time"><span>1</span><span>6</span><div class="colon"><i></i><i></i></div><span>2</span><span>2</span></div>
+          <div class="day">Monday 26 October</div>
+          <div class="place muted"><i class="ph-fill ph-map-pin"></i>Kebayoran Baru, Jakarta Selatan</div>
+          <div class="wx"><i class="ph-fill ph-cloud-sun"></i><b>31°</b><div class="muted">Partly cloudy<br>H 33°&nbsp;&nbsp;L 25°</div></div>
+          <div class="hourly">
+            <div><span class="muted">17:00</span><i class="ph-fill ph-cloud-sun" style="color:var(--sun)"></i><b>32°</b></div>
+            <div><span class="muted">18:00</span><i class="ph-fill ph-sun" style="color:var(--sun)"></i><b>33°</b></div>
+            <div><span class="muted">19:00</span><i class="ph-fill ph-cloud"></i><b>32°</b></div>
+            <div><span class="muted">20:00</span><i class="ph-fill ph-cloud-rain" style="color:#9fcbff"></i><b>29°</b></div>
+          </div>
+        </section>
+        <section class="p car"></section>
+      </div>
+      <div class="bottom">
+        <section class="p np">
+          <div class="np-head"><div class="art"><i class="ph-fill ph-music-notes"></i></div><div><b>Secukupnya</b><div class="muted">Hindia</div><div class="muted" style="font-size:13px;margin-top:12px">Spotify</div></div></div>
+          <div class="bar"><i></i></div>
+          <div class="ctrl"><i class="ph-fill ph-skip-back"></i><div class="play"><i class="ph-fill ph-pause"></i></div><i class="ph-fill ph-skip-forward"></i></div>
+        </section>
+        <section class="p sliders">
+          <div class="vs"><div class="track"><div style="height:62%"></div><i class="ph-fill ph-speaker-high"></i></div><span class="muted">62%</span></div>
+          <div class="vs"><div class="track"><div style="height:45%"></div><i class="ph-fill ph-sun"></i></div><span class="muted">45%</span></div>
+        </section>
+      </div>
+    </div>
+  </main>
+</template>
+
+<div class="switch">Sidebar side <div class="seg"><span data-side="left">Left</span><span data-side="right">Right</span></div></div>
+
+<section>
+  <h1>1. Home, OBD connected</h1>
+  <div class="wrap"><div class="frame" data-fill="rail home" data-car="obd"></div></div>
+  <p class="note">An OBD-II Bluetooth adapter (ELM327) plugged under the dashboard gives real speed, engine RPM, coolant temperature, fuel level and battery voltage.</p>
+</section>
+
+<section>
+  <h1>1b. Home, no OBD (tablet GPS only)</h1>
+  <div class="wrap"><div class="frame" data-fill="rail home" data-car="gps"></div></div>
+  <p class="note">Trip and drive time count from the tablet GPS. They reset on their own after the car has been still for 20 minutes, or at once with the reset button next to the GPS chip (tap and hold, so a stray touch can't clear a trip).</p>
+  <p class="note">Sidebar: status at the top (tap it to open Controls), the 4 most recent apps with the open one marked, All apps at the bottom. A warning icon appears in the status only when the tablet is not charging or too hot.</p>
+</section>
+
+<section>
+  <h1>2. Controls</h1>
+  <div class="wrap"><div class="frame dim" data-fill="rail home" data-car="obd" id="ccFrame">
+    <section class="cc">
+      <div class="cc-head"><h2>Controls</h2><div class="round"><i class="ph-bold ph-x"></i></div></div>
+      <div class="cc-grid">
+        <div class="card tog on"><span class="disc"><i class="ph-bold ph-wifi-high"></i></span><span><b>Wi-Fi</b><small>Faizal iPhone</small></span></div>
+        <div class="card tog on"><span class="disc"><i class="ph-fill ph-bluetooth-connected"></i></span><span><b>Bluetooth</b><small>Car audio</small></span></div>
+        <div class="card tog on"><span class="disc"><i class="ph-fill ph-cell-signal-high"></i></span><span><b>Mobile data</b><small>Telkomsel LTE</small></span></div>
+        <div class="card tog"><span class="disc"><i class="ph-bold ph-broadcast"></i></span><span><b>Hotspot</b><small>Off</small></span></div>
+        <div class="card s2"><div class="lbl">Night mode</div><div class="seg"><span class="on">Auto</span><span>Day</span><span>Night</span></div><small class="muted" style="display:block;margin-top:10px;font-size:13px">Switches to Night at sunset</small></div>
+        <div class="card s2"><div class="lbl">Sidebar</div><div class="seg"><span data-side="left">Left</span><span data-side="right">Right</span></div><small class="muted" style="display:block;margin-top:10px;font-size:13px">Right sits closer to the driver</small></div>
+        <div class="card s2"><div class="lbl">Navigation app</div><div class="seg"><span class="on"><img class="logo" src="https://cdn.simpleicons.org/waze/14171c" alt="">Waze</span><span><img class="logo" src="https://cdn.simpleicons.org/googlemaps/a3a9b4" alt="">Google Maps</span></div><small class="muted" style="display:block;margin-top:10px;font-size:13px">Map tap and turn info use this app</small></div>
+        <div class="card s2 tog wide on"><span class="disc"><i class="ph-fill ph-car-simple"></i></span><span><b>Open Waze when the car starts</b><small>Full screen as soon as the tablet wakes</small></span></div>
+        <div class="card tog on"><span class="disc"><i class="ph-fill ph-moon"></i></span><span><b>Do Not Disturb</b><small>On while driving</small></span></div>
+        <div class="card tog on"><span class="disc"><i class="ph-fill ph-sun-dim"></i></span><span><b>Auto brightness</b><small>On</small></span></div>
+        <div class="card health"><i class="ph-fill ph-battery-charging-vertical"></i><span><b>84%</b><small>Charging</small></span></div>
+        <div class="card health bad"><i class="ph-fill ph-thermometer-hot"></i><span><b>47°C</b><small>Too hot, shade it</small></span></div>
+      </div>
+    </section>
+  </div></div>
+  <p class="note">Slides out from the sidebar over a dimmed home screen. Tap outside or X to close. The temperature card is shown in its warning state as an example. In the Android app, Wi-Fi and Bluetooth open Android's own small settings panel; the other controls can switch directly.</p>
+</section>
+
+<section>
+  <h1>3. All apps</h1>
+  <div class="wrap"><div class="frame" data-fill="rail" id="appsFrame">
+    <section class="p apps-page">
+      <h2>All apps</h2>
+      <div class="apps" id="apps"></div>
+    </section>
+  </div></div>
+  <p class="note">Opens from the bottom of the sidebar, which turns into a Home button while this page is open. Tapping an app opens it and adds it to the top of the recent apps.</p>
+</section>
+
+<script>
+  // Fill each frame from the shared templates so the three screens stay in sync.
+  document.querySelectorAll('[data-fill]').forEach(f => {
+    const parts = f.dataset.fill.split(' ').map(id => document.getElementById(id).content.cloneNode(true));
+    f.prepend(...parts);
+    const car = f.querySelector('.car');
+    if (car) car.append(document.getElementById('car-' + f.dataset.car).content.cloneNode(true));
+  });
+
+  // Speedometer, 0-160 km/h over a 240° sweep with the opening at the bottom.
+  function gauge(speed) {
+    const cx = 110, cy = 108, max = 160, at = (v, r) => {
+      const a = (150 + 240 * v / max) * Math.PI / 180;
+      return [(cx + r * Math.cos(a)).toFixed(1), (cy + r * Math.sin(a)).toFixed(1)];
+    };
+    let out = '';
+    for (let v = 0; v <= max; v += 5) {
+      const major = v % 20 === 0, [x1, y1] = at(v, 96), [x2, y2] = at(v, major ? 84 : 89);
+      out += `<line class="tk${major ? ' major' : ''}${v <= speed ? ' on' : ''}" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/>`;
+      if (major) { const [tx, ty] = at(v, 71); out += `<text x="${tx}" y="${ty}">${v}</text>`; }
+    }
+    const [nx, ny] = at(speed, 78);
+    return `<svg viewBox="0 0 220 200" role="img" aria-label="${speed} km/h">${out}
+      <line class="needle" x1="${cx}" y1="${cy}" x2="${nx}" y2="${ny}"/><circle class="hub" cx="${cx}" cy="${cy}" r="7"/>
+      <text class="num" x="${cx}" y="${cy + 54}">${speed}</text><text class="unit" x="${cx}" y="${cy + 80}">km/h</text></svg>`;
+  }
+  document.querySelectorAll('.gauge').forEach(g => g.innerHTML = gauge(+g.dataset.speed));
+  document.querySelector('#ccFrame .status').classList.add('sel');
+
+  // Sidebar side: the page switch and the Controls option both flip every frame.
+  function setSide(side) {
+    document.querySelectorAll('.frame').forEach(f => f.classList.toggle('right', side === 'right'));
+    document.querySelectorAll('[data-side]').forEach(b => b.classList.toggle('on', b.dataset.side === side));
+  }
+  document.addEventListener('click', e => { const b = e.target.closest('[data-side]'); if (b) setSide(b.dataset.side); });
+  setSide('right');
+  document.querySelector('#appsFrame .home').innerHTML = '<i class="ph-bold ph-house"></i>';
+
+  const si = s => `<img src="https://cdn.simpleicons.org/${s}/ffffff" alt="">`, ph = n => `<i class="ph-fill ph-${n}"></i>`;
+  const APPS = [['Waze','#33ccff',si('waze')],['Maps','#34a853',si('googlemaps')],['Spotify','#1db954',si('spotify')],['YT Music','#ff0033',si('youtubemusic')],
+    ['Apple Music','#fa243c',si('applemusic')],['Prambors','#f2711c',ph('radio')],['Phone','#2fbf5b',ph('phone')],['WhatsApp','#25d366',si('whatsapp')],
+    ['CarbitLink','#2c6bed',ph('car-profile')],['YouTube','#ff0033',si('youtube')],['Chrome','#f2f4f7','<img src="https://cdn.simpleicons.org/googlechrome" alt="">'],['Settings','#59606d',ph('gear-six')]];
+  document.getElementById('apps').innerHTML = APPS.map(([n, bg, icon]) => `<div class="app"><div class="tile" style="background:${bg}">${icon}</div>${n}</div>`).join('');
+</script>
+</body>
+</html>

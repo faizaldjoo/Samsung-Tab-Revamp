@@ -11,25 +11,39 @@
 <style>
   /* Liquid Glass look: an approximation of Apple's material (no official web version exists).
      Built from backdrop blur + saturation, an SVG edge-refraction filter, specular rim highlights.
-     Radius system: glass panels 32px, app tiles 20px, controls full pill. One accent: --accent. */
+     Radius system: glass panels 32px, cards and app tiles 20px, controls full pill. One accent: --accent.
+     Performance rule for the Tab A7 Lite: animate transform/opacity only, no per-frame timers, nothing runs while idle. */
   :root {
     --text: #f7f8fa;
     --muted: rgba(247, 248, 250, 0.72);
     --faint: rgba(247, 248, 250, 0.5);
     --accent: #5aa7ff;
+    --sun: #ffd36b;
+    --warn: #ff7a6b;
+    --card: rgba(255,255,255,0.09);
     --r-glass: 32px;
     --r-tile: 20px;
+    --ease: cubic-bezier(0.16, 1, 0.3, 1);
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body { height: 100%; background: #07080a; color: var(--text); font-family: "Geist", system-ui, sans-serif; overflow: hidden; -webkit-font-smoothing: antialiased; }
-  button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+  button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; -webkit-tap-highlight-color: transparent; text-align: left; }
+  .muted { color: var(--muted); }
 
+  /* Sidebar on the right by default (driver's side in a right-hand-drive car). .side-left mirrors it. */
   #screen { text-shadow: 0 1px 2px rgba(0,0,0,0.25);
     width: 1340px; height: 800px; position: absolute; left: 50%; top: 50%; overflow: hidden;
-    display: grid; grid-template-columns: 96px 1fr; gap: 18px; padding: 20px 20px 20px 16px;
+    display: grid; grid-template-columns: 1fr 96px; grid-template-rows: minmax(0, 1fr); gap: 18px; padding: 20px 16px 20px 20px;
     transform-origin: center center;
   }
-  .wall { position: absolute; inset: -20px; background: #1a1d22 center / cover no-repeat; transition: opacity 0.6s ease; }
+  .main { min-height: 0; }
+  .rail { grid-column: 2; grid-row: 1; }
+  .main, .apps-page { grid-column: 1; grid-row: 1; }
+  #screen.side-left { grid-template-columns: 96px 1fr; padding: 20px 20px 20px 16px; }
+  #screen.side-left .rail { grid-column: 1; }
+  #screen.side-left .main, #screen.side-left .apps-page { grid-column: 2; }
+
+  .wall { position: absolute; inset: -20px; background: #1a1d22 center / cover no-repeat; transition: opacity 0.6s ease, filter 0.6s ease; }
   /* Darken the photo toward the bottom so white text always clears contrast. */
   .wall::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(5,7,10,0.15), rgba(5,7,10,0.45)); }
 
@@ -52,24 +66,48 @@
     -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude;
   }
   @supports not (backdrop-filter: url(#refract)) { .glass { backdrop-filter: blur(16px) saturate(1.6) brightness(0.74); } }
-  @media (prefers-reduced-transparency: reduce) { .glass { background: rgba(28, 32, 40, 0.94); backdrop-filter: none; -webkit-backdrop-filter: none; } }
+  @media (prefers-reduced-transparency: reduce) { .glass, .cc { background: rgba(28, 32, 40, 0.94); backdrop-filter: none; -webkit-backdrop-filter: none; } }
 
-  .press { transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), filter 0.22s; }
+  .press { transition: transform 0.22s var(--ease), filter 0.22s; }
   .press:active { transform: scale(0.95); filter: brightness(1.15); }
-  @media (prefers-reduced-motion: reduce) { .press, .press:active { transition: none; transform: none; } .wall { transition: none; } }
 
-  /* Rail */
-  .rail { display: flex; flex-direction: column; align-items: center; padding: 18px 0 14px; }
-  .clock { font-size: 27px; font-weight: 600; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
-  .status { display: flex; gap: 6px; align-items: center; color: var(--muted); font-size: 13px; font-weight: 600; margin-top: 6px; }
-  .status i { font-size: 16px; }
-  .dock { margin: auto 0; display: flex; flex-direction: column; gap: 18px; }
+  /* Rail: status (tap for Controls), recent apps newest first, all-apps / home at the bottom. */
+  .rail { display: flex; flex-direction: column; align-items: center; padding: 22px 0 16px; }
+  .status { width: 62px; padding: 16px 0 12px; border-radius: 999px; display: flex; flex-direction: column; gap: 14px; align-items: center;
+    color: var(--text); background: rgba(255,255,255,0.08); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.1); }
+  .status .row { display: flex; flex-direction: column; gap: 3px; align-items: center; }
+  .status .row:empty { display: none; }
+  .status i { font-size: 22px; }
+  .status .off { color: var(--faint); }
+  .status small { font-size: 12px; font-weight: 600; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .status .warn { color: var(--warn); animation: pulse 1.6s ease-in-out infinite; }
+  /* Settings button under the status pill: the obvious way into the Controls drawer (the status pill opens it too). */
+  .gear { margin-top: 14px; width: 62px; height: 62px; border-radius: 999px; display: grid; place-items: center; font-size: 28px;
+    background: rgba(255,255,255,0.08); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.1); }
+  #screen.show-cc .gear { background: var(--accent); box-shadow: none; }
+  @keyframes pulse { 50% { opacity: 0.45; } }
+  .dock { margin: auto 0; display: flex; flex-direction: column; gap: 16px; }
   .dock .tile { width: 62px; height: 62px; }
-  .all-apps { width: 62px; height: 62px; border-radius: 999px; display: grid; place-items: center; font-size: 28px; background: rgba(255,255,255,0.14); box-shadow: inset 0 1px 0 rgba(255,255,255,0.4), inset 0 0 0 1px rgba(255,255,255,0.12); }
+  .dock .tile img { width: 46%; height: 46%; }
+  .dock .tile i { font-size: 30px; }
+  .dock-item { position: relative; animation: slot-in 0.35s var(--ease) both; }
+  /* Marks the app that is open right now, on the outer edge of the rail. */
+  .dock-item.active::before { content: ""; position: absolute; right: -15px; top: 50%; width: 5px; height: 26px; margin-top: -13px; border-radius: 999px; background: var(--text); }
+  #screen.side-left .dock-item.active::before { right: auto; left: -15px; }
+  @keyframes slot-in { from { opacity: 0; transform: translateY(-10px) scale(0.9); } }
+  .home-btn { width: 62px; height: 62px; border-radius: 999px; display: grid; place-items: center; font-size: 28px; background: rgba(255,255,255,0.14); box-shadow: inset 0 1px 0 rgba(255,255,255,0.4), inset 0 0 0 1px rgba(255,255,255,0.12); }
+
+  /* Home and the all-apps page share the same grid cell and cross-fade. */
+  .main, .apps-page { transition: opacity 0.32s var(--ease), transform 0.32s var(--ease); }
+  .apps-page { opacity: 0; transform: scale(1.03); pointer-events: none; }
+  #screen.show-apps .main { opacity: 0; transform: scale(0.97); pointer-events: none; }
+  #screen.show-apps .apps-page { opacity: 1; transform: none; pointer-events: auto; }
 
   .main { display: grid; grid-template-columns: 1.08fr 2fr; gap: 18px; min-width: 0; }
-  .right { display: grid; grid-template-rows: 296px 1fr; gap: 18px; min-width: 0; }
-  .top { display: grid; grid-template-columns: 1.35fr 1fr; gap: 18px; }
+  /* minmax(0, 1fr): the top row must shrink to what is left above the 312px row, never push the page past the screen. */
+  .right { display: grid; grid-template-rows: minmax(0, 1fr) 312px; gap: 18px; min-width: 0; min-height: 0; }
+  .top { display: grid; grid-template-columns: 1.12fr 1fr; gap: 18px; min-height: 0; }
+  .today, .car { min-height: 0; }
   .bottom { display: grid; grid-template-columns: 1fr 150px; gap: 18px; }
 
   /* Map: map sits inside a glass frame, like a lens. */
@@ -83,50 +121,147 @@
   .route { position: absolute; inset: 0; width: 100%; height: 100%; }
   .puck { position: absolute; left: 50%; top: 66%; width: 28px; height: 28px; margin: -14px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 6px rgba(90,167,255,0.28), 0 0 0 3px #fff inset; }
   .maneuver { position: relative; margin: 14px; align-self: flex-start; display: flex; gap: 14px; align-items: center; padding: 12px 18px 12px 12px; border-radius: 24px; }
-  .maneuver .arrow { width: 50px; height: 50px; border-radius: 16px; background: var(--accent); display: grid; place-items: center; font-size: 28px; color: #061223; }
+  .maneuver .arrow { width: 50px; height: 50px; border-radius: 16px; background: var(--accent); display: grid; place-items: center; font-size: 28px; color: #fff; }
   .maneuver .dist { font-size: 27px; font-weight: 700; letter-spacing: -0.02em; }
   .maneuver .street { font-size: 15px; color: var(--muted); margin-top: 2px; }
   .eta { position: relative; margin-top: auto; display: grid; grid-template-columns: repeat(3, 1fr); padding: 0 20px 18px; }
   .eta b { display: block; font-size: 24px; font-weight: 600; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
   .eta span { font-size: 13px; color: var(--muted); }
 
-  /* Now playing: album art tints the panel. */
-  .np { padding: 22px; display: grid; grid-template-rows: auto 1fr auto; }
-  .np .tint { position: absolute; inset: -30%; z-index: -1; background: center / cover; filter: blur(40px) saturate(1.3) brightness(0.7); opacity: 0.3; }
-  .np-head { display: flex; gap: 18px; align-items: center; }
-  .art { width: 112px; height: 112px; border-radius: 22px; object-fit: cover; flex: none; box-shadow: 0 12px 28px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.18); background: #333; }
-  .np-title { font-size: 24px; font-weight: 600; letter-spacing: -0.015em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .np-artist { font-size: 16px; color: var(--muted); margin-top: 4px; }
-  .np-src { display: inline-flex; align-items: center; gap: 6px; margin-top: 12px; font-size: 13px; color: var(--muted); }
-  .np-src img { width: 15px; height: 15px; }
-  .progress { align-self: end; margin-top: 16px; }
-  .bar { height: 5px; border-radius: 999px; background: rgba(255,255,255,0.22); overflow: hidden; }
+  /* Today: flip clock, date, location, weather now + next hours. */
+  .today { padding: 24px 26px; display: flex; flex-direction: column; }
+  .time { display: flex; align-items: center; gap: 6px; }
+  /* Flip clock. A flip only moves transform on the 1-2 digits that changed; nothing animates between minutes. */
+  .flip { --h: 92px; position: relative; width: 66px; height: var(--h); perspective: 360px; color: #141518; text-shadow: none;
+    font-size: 80px; font-weight: 700; letter-spacing: -0.04em; font-variant-numeric: tabular-nums; }
+  .flip .h { position: absolute; left: 0; right: 0; height: calc(50% - 1px); overflow: hidden; background: #fbf7e9; }
+  .flip .h span { position: absolute; left: 0; right: 0; height: var(--h); line-height: var(--h); text-align: center; }
+  .flip .t { top: 0; border-radius: 12px 12px 0 0; transform-origin: 50% calc(100% + 1px); }
+  .flip .b { bottom: 0; border-radius: 0 0 12px 12px; transform-origin: 50% -1px; background: #f3eedd; }
+  .flip .b span { bottom: 0; }
+  .flip .ft, .flip .fb { z-index: 1; backface-visibility: hidden; }
+  .flip .fb { transform: rotateX(90deg); }
+  .flip.go .ft { animation: flip-top 0.22s ease-in forwards; }
+  .flip.go .fb { animation: flip-bottom 0.22s 0.22s ease-out forwards; }
+  @keyframes flip-top { to { transform: rotateX(-90deg); } }
+  @keyframes flip-bottom { to { transform: rotateX(0deg); } }
+  .colon { display: flex; flex-direction: column; gap: 18px; padding: 0 2px; }
+  .colon i { width: 9px; height: 9px; border-radius: 50%; background: #fbf7e9; }
+  .day { font-size: 20px; font-weight: 500; margin-top: 14px; }
+  .place { display: flex; align-items: center; gap: 6px; margin-top: 6px; font-size: 15px; color: var(--muted); }
+  .place i { font-size: 17px; color: var(--text); }
+  .wx { margin-top: auto; display: flex; align-items: center; gap: 12px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.16); }
+  .wx > i { font-size: 44px; color: var(--sun); }
+  .wx > b { font-size: 44px; font-weight: 600; letter-spacing: -0.04em; line-height: 1; }
+  .wx div { margin-left: auto; text-align: right; font-size: 14px; line-height: 1.45; color: var(--muted); }
+  .hourly { display: grid; grid-template-columns: repeat(4, 1fr); margin-top: 14px; }
+  .hour { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .hour span { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .hour i { font-size: 22px; }
+  .hour b { font-size: 16px; font-weight: 600; }
+
+  /* Car: speedometer + 4 stats. OBD data when an adapter is connected, otherwise what the tablet GPS can work out. */
+  .car { padding: 22px 24px; display: flex; flex-direction: column; }
+  .car-head { display: flex; justify-content: space-between; align-items: center; font-size: 15px; font-weight: 600; color: var(--muted); }
+  .car-head .end { display: flex; gap: 8px; align-items: center; }
+  .chip { display: inline-flex; gap: 6px; align-items: center; padding: 6px 12px; border-radius: 999px; background: var(--card); font-size: 13px; color: var(--text); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.1); }
+  .chip i { font-size: 16px; color: var(--accent); }
+  .reset { width: 34px; height: 34px; border-radius: 999px; background: var(--card); display: grid; place-items: center; font-size: 17px; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.1); }
+  .gauge { flex: 1; min-height: 0; position: relative; }
+  .gauge svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .gauge .tk { stroke: rgba(255,255,255,0.22); stroke-width: 2; stroke-linecap: round; }
+  .gauge .tk.on { stroke: var(--text); }
+  .gauge .tk.major { stroke-width: 3; }
+  .gauge text { fill: var(--muted); font: 500 11px Geist, system-ui, sans-serif; text-anchor: middle; dominant-baseline: middle; }
+  .gauge .num { fill: var(--text); font-size: 40px; font-weight: 600; letter-spacing: -0.04em; font-variant-numeric: tabular-nums; }
+  .gauge .unit { font-size: 12px; }
+  /* Only the needle moves: a CSS transform around the hub, eased, so the GPU composites it. */
+  .gauge .needle { stroke: var(--text); stroke-width: 3; stroke-linecap: round; transform-box: view-box; transform-origin: 110px 108px; transition: transform 0.6s var(--ease); }
+  .gauge .pivot { fill: #1c2028; stroke: var(--text); stroke-width: 3; }
+  .car-sub { font-size: 13px; color: var(--muted); text-align: center; margin: 2px 0 10px; min-height: 16px; }
+  .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .stat { background: var(--card); border-radius: var(--r-tile); padding: 12px 14px; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08); }
+  .stat span { display: flex; gap: 6px; align-items: center; font-size: 13px; color: var(--muted); }
+  .stat span i { font-size: 16px; }
+  .stat b { display: block; font-size: 22px; font-weight: 600; margin-top: 4px; font-variant-numeric: tabular-nums; }
+  .stat b small { font-size: 14px; color: var(--muted); font-weight: 500; }
+
+  /* Now playing as a cassette: details on the label, album art spins as the right reel, controls on the bottom bridge.
+     Follows whichever app owns the playing media session (MediaSessionManager in the app). */
+  .np { padding: 18px 26px 0; display: grid; grid-template-rows: auto 1fr auto; gap: 12px; min-height: 0; }
+
+  /* Corner screws, like the cassette shell. */
+  .screw { position: absolute; width: 11px; height: 11px; border-radius: 50%; background: rgba(255,255,255,0.45);
+    box-shadow: inset 0 1px 1px rgba(255,255,255,0.6), 0 1px 2px rgba(0,0,0,0.3); }
+  .screw::before, .screw::after { content: ""; position: absolute; left: 50%; top: 50%; width: 6px; height: 1.5px; margin: -0.75px 0 0 -3px; background: rgba(0,0,0,0.35); transform: rotate(45deg); }
+  .screw::after { transform: rotate(-45deg); }
+
+  /* Label: song details on top. */
+  .label { display: flex; align-items: center; gap: 14px; padding: 0 6px; }
+  .side { width: 40px; cursor: pointer; height: 40px; border-radius: 12px; display: grid; place-items: center; flex: none;
+    box-shadow: inset 0 1.5px 0 rgba(255,255,255,0.4), 0 4px 10px rgba(0,0,0,0.25); }
+  .side img { width: 22px; height: 22px; } .side i { font-size: 22px; color: #fff; }
+  .meta { min-width: 0; flex: 1; }
+  .np-title { font-size: 22px; font-weight: 600; letter-spacing: -0.015em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.15; }
+  .np-artist { font-size: 15px; color: var(--muted); margin-top: 2px; }
+  /* Source chip: the app the media session belongs to. Prototype only: tap it to switch to the next app. */
+  .np-src { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 500; flex: none; padding: 6px 12px; border-radius: 999px;
+    background: rgba(255,255,255,0.1); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.14); }
+  /* Live radio: no song length, so the progress bar becomes a LIVE badge and the tape stays put while the reels spin. */
+  .live-badge { display: none; justify-self: center; align-items: center; gap: 8px; padding: 7px 14px; border-radius: 999px;
+    font-size: 13px; font-weight: 700; letter-spacing: 0.06em; color: #ffd0c9; background: rgba(255,122,107,0.18); box-shadow: inset 0 0 0 1px rgba(255,122,107,0.4); }
+  .live-badge i { width: 8px; height: 8px; border-radius: 50%; background: #ff7a6b; animation: pulse 1.6s ease-in-out infinite; }
+  .np.live .bar, .np.live .times { display: none; }
+  .np.live .live-badge { display: inline-flex; }
+  .np.live .mid { display: grid; }
+  .np.no-skip .skip { visibility: hidden; }
+  /* Station logo stand-in for apps that send a logo instead of album art. */
+  .hub.art.logo { display: grid; place-items: center; font-size: 32px; color: #fff; }
+  /* Song or app change: the label and middle fade in, so the switch is noticed at a glance. */
+  .swap { animation: swap-in 0.35s var(--ease); }
+  @keyframes swap-in { from { opacity: 0; transform: translateY(4px); } }
+
+  /* Tape window: light smoky plastic so the dark tape reads clearly. */
+  .window { position: relative; border-radius: 999px; overflow: hidden; display: grid; grid-template-columns: 128px 1fr 128px; align-items: center; padding: 0 6px;
+    background: rgba(225,232,240,0.16); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.3), inset 0 2px 10px rgba(0,0,0,0.25); }
+  .reel { position: relative; width: 128px; height: 128px; display: grid; place-items: center; }
+  .tape { position: absolute; inset: 0; border-radius: 50%; background: repeating-radial-gradient(circle, #1d1f23 0 2px, #26292e 2px 3px);
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08); transition: transform 1s linear; }
+  .hub { position: relative; width: 72px; height: 72px; border-radius: 50%; animation: spin 2.4s linear infinite; }
+  .hub.spokes { background: radial-gradient(circle, rgba(30,34,42,0.9) 0 20px, #f3f1ea 20.5px); box-shadow: 0 1px 4px rgba(0,0,0,0.35); }
+  .hub.spokes i { position: absolute; left: 50%; top: 50%; width: 5px; height: 8px; margin: -4px 0 0 -2.5px; border-radius: 1px; background: #f3f1ea; }
+  /* Album art as the right reel's hub, with a small spindle hole in the middle. */
+  .hub.art { background: #333 center / cover; box-shadow: 0 0 0 3px #f3f1ea, 0 2px 6px rgba(0,0,0,0.4); }
+  .hub.art::after { content: ""; position: absolute; left: 50%; top: 50%; width: 12px; height: 12px; margin: -6px; border-radius: 50%; background: #f3f1ea; box-shadow: inset 0 0 0 3px rgba(30,34,42,0.85); }
+  .np.paused .hub { animation-play-state: paused; }
+  @keyframes spin { to { transform: rotate(-360deg); } }
+  .mid { padding: 0 14px; }
+  .bar { height: 4px; border-radius: 999px; background: rgba(255,255,255,0.22); overflow: hidden; }
   .bar i { display: block; height: 100%; width: 38%; background: var(--text); border-radius: inherit; }
-  .times { display: flex; justify-content: space-between; font-size: 12px; color: var(--faint); margin-top: 6px; font-variant-numeric: tabular-nums; }
-  .controls { display: flex; justify-content: space-between; align-items: center; padding: 6px 18px 0; }
-  .controls button { font-size: 34px; width: 64px; height: 64px; display: grid; place-items: center; border-radius: 999px; }
-  .controls .play { width: 76px; height: 76px; font-size: 36px; background: rgba(255,255,255,0.22); box-shadow: inset 0 1.5px 0 rgba(255,255,255,0.6), inset 0 0 0 1px rgba(255,255,255,0.2), 0 8px 20px rgba(0,0,0,0.25); }
+  .times { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); margin-top: 6px; font-variant-numeric: tabular-nums; }
 
-  /* Glance */
-  .glance { padding: 22px 24px; display: flex; flex-direction: column; }
-  .date { font-size: 15px; font-weight: 600; color: var(--muted); }
-  .speed { margin-top: 10px; display: flex; align-items: baseline; gap: 8px; }
-  .speed b { font-size: 92px; line-height: 1; font-weight: 600; letter-spacing: -0.05em; font-variant-numeric: tabular-nums; }
-  .speed span { font-size: 18px; color: var(--muted); font-weight: 500; }
-  .weather { margin-top: auto; display: flex; align-items: center; gap: 12px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.16); }
-  .weather i { font-size: 34px; color: #ffd36b; }
-  .weather b { font-size: 22px; font-weight: 600; }
-  .weather span { display: block; font-size: 13px; color: var(--muted); }
+  /* Bridge: the trapezoid at the bottom of the shell carries the controls. */
+  .bridge { justify-self: center; width: 330px; height: 82px; display: flex; justify-content: space-between; align-items: center; padding: 6px 44px 0;
+    background: rgba(255,255,255,0.1); clip-path: polygon(8% 0, 92% 0, 100% 100%, 0 100%);
+    box-shadow: inset 0 1.5px 0 rgba(255,255,255,0.35); }
+  .bridge button { font-size: 28px; width: 54px; height: 54px; display: grid; place-items: center; border-radius: 999px; }
+  .bridge .play { width: 64px; height: 64px; font-size: 30px; background: rgba(255,255,255,0.22); box-shadow: inset 0 1.5px 0 rgba(255,255,255,0.6), inset 0 0 0 1px rgba(255,255,255,0.2); }
 
-  /* Apps */
-  .apps { padding: 24px 28px; display: grid; grid-template-columns: repeat(4, 1fr); grid-template-rows: repeat(2, 1fr); gap: 10px 8px; }
-  .app { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; }
-  .tile { width: 78px; height: 78px; border-radius: var(--r-tile); display: grid; place-items: center; position: relative;
+
+  /* App tiles, shared by the rail and the all-apps page. */
+  .tile { width: 92px; height: 92px; border-radius: var(--r-tile); display: grid; place-items: center; position: relative;
     box-shadow: inset 0 1.5px 0 rgba(255,255,255,0.45), inset 0 -2px 6px rgba(0,0,0,0.12), 0 8px 18px rgba(0,0,0,0.28); }
   .tile::after { content: ""; position: absolute; inset: 0; border-radius: inherit; background: linear-gradient(180deg, rgba(255,255,255,0.28), rgba(255,255,255,0) 50%); pointer-events: none; }
   .tile img { width: 44%; height: 44%; }
-  .tile i { font-size: 38px; color: #fff; }
-  .app span { font-size: 14px; font-weight: 500; text-shadow: 0 1px 2px rgba(0,0,0,0.35); }
+  .tile i { font-size: 44px; color: #fff; }
+
+  /* All apps page */
+  .apps-page { padding: 34px 40px; display: flex; flex-direction: column; }
+  .apps-page h1 { font-size: 34px; font-weight: 600; letter-spacing: -0.02em; }
+  .apps-grid { flex: 1; display: grid; grid-template-columns: repeat(6, 1fr); align-content: center; row-gap: 40px; }
+  .app { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+  .app span { font-size: 16px; font-weight: 500; text-shadow: 0 1px 2px rgba(0,0,0,0.35); }
+  #screen.show-apps .app { animation: slot-in 0.4s var(--ease) both; animation-delay: calc(var(--i) * 22ms); }
 
   /* Sliders: glass tubes filled with light. */
   .sliders { padding: 18px 14px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -137,8 +272,79 @@
   .track .fill { position: absolute; left: 0; right: 0; bottom: 0; background: linear-gradient(180deg, rgba(255,255,255,0.96), rgba(255,255,255,0.82)); box-shadow: inset 0 2px 0 #fff; }
   .track i { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); font-size: 24px; color: #1a1d22; pointer-events: none; }
 
-  .toast { position: absolute; left: 50%; bottom: 30px; transform: translate(-50%, 20px); opacity: 0; padding: 12px 22px; border-radius: 999px; font-size: 15px; pointer-events: none; transition: opacity 0.2s, transform 0.25s cubic-bezier(0.16,1,0.3,1); z-index: 5; }
+  /* Controls: slides out from the rail over a dimmed home screen. Tap outside or X to close. */
+  /* A dark scrim covers the home screen (the rail stays on top) and the panel is near-opaque,
+     so the map and app icons behind it do not bleed through the cards. */
+  .cc-scrim { position: absolute; inset: 0; grid-area: auto; z-index: 3; background: rgba(5, 7, 10, 0.4); opacity: 0; pointer-events: none; transition: opacity 0.28s var(--ease); }
+  #screen.show-cc .cc-scrim { opacity: 1; pointer-events: auto; }
+  .rail { z-index: 5; }
+  .cc { position: absolute; z-index: 4; right: 130px; top: 20px; bottom: 20px; width: 700px; padding: 26px 28px 28px;
+    display: flex; flex-direction: column; gap: 16px;
+    /* Glass kept, but frosted much harder than the home panels: a 40px blur turns the map and icons behind into soft colour,
+       and the dark tint keeps the cards readable. Only drawn while the drawer is open, so the heavier blur costs nothing at rest. */
+    background: linear-gradient(160deg, rgba(255,255,255,0.10), rgba(255,255,255,0.02) 45%, rgba(10,14,22,0.42));
+    backdrop-filter: blur(40px) saturate(1.5) brightness(0.62);
+    -webkit-backdrop-filter: blur(40px) saturate(1.5) brightness(0.62);
+    opacity: 0; transform: translateX(16px) scale(0.98); transform-origin: right center; pointer-events: none;
+    transition: opacity 0.28s var(--ease), transform 0.28s var(--ease); }
+  #screen.side-left .cc { right: auto; left: 130px; transform: translateX(-16px) scale(0.98); transform-origin: left center; }
+  #screen.show-cc .cc { opacity: 1; transform: none; pointer-events: auto; }
+  .cc-head { display: flex; justify-content: space-between; align-items: center; }
+  .cc-head h2 { font-size: 28px; font-weight: 600; letter-spacing: -0.02em; }
+  .round { width: 48px; height: 48px; border-radius: 999px; display: grid; place-items: center; font-size: 22px; background: rgba(255,255,255,0.14); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.12); }
+  .cc-grid { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(4, 1fr); grid-template-rows: minmax(0, 1fr) auto auto minmax(0, 1fr); gap: 14px; }
+  .card { border-radius: var(--r-tile); background: var(--card); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.1); padding: 16px; min-width: 0; }
+  .s2 { grid-column: span 2; }
+  .lbl { font-size: 13px; font-weight: 600; color: var(--muted); margin-bottom: 12px; }
+  .hint { display: block; font-size: 13px; color: var(--muted); margin-top: 10px; }
+  /* Toggle card: the icon disc fills with the accent when on. */
+  .tog { display: flex; flex-direction: column; justify-content: space-between; }
+  .tog .disc { width: 52px; height: 52px; border-radius: 999px; display: grid; place-items: center; font-size: 26px; background: rgba(255,255,255,0.16); transition: background 0.2s, color 0.2s; flex: none; }
+  .tog.on .disc { background: var(--accent); color: #fff; }
+  .tog b { display: block; font-size: 17px; font-weight: 600; margin-top: 12px; }
+  .tog small { display: block; font-size: 13px; color: var(--muted); margin-top: 3px; }
+  .tog.wide { flex-direction: row; align-items: center; gap: 14px; }
+  .tog.wide b { margin-top: 0; }
+  /* On/off switch, so a setting card reads as a setting rather than a button that launches something. */
+  .sw { margin-left: auto; flex: none; width: 56px; height: 34px; border-radius: 999px; position: relative; background: rgba(255,255,255,0.18);
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.12); transition: background 0.2s; }
+  .sw::after { content: ""; position: absolute; left: 3px; top: 3px; width: 28px; height: 28px; border-radius: 50%; background: #fff;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.3); transition: transform 0.25s var(--ease); }
+  .tog.on .sw { background: var(--accent); }
+  .tog.on .sw::after { transform: translateX(22px); }
+  /* Segmented control: one choice at a time, full pill. */
+  .seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 4px; padding: 4px; border-radius: 999px; background: rgba(0,0,0,0.2); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.1); }
+  .seg button { height: 48px; border-radius: 999px; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 15px; font-weight: 600; color: var(--muted); transition: background 0.2s, color 0.2s; }
+  .seg button img { width: 18px; height: 18px; opacity: 0.7; }
+  .seg button[aria-pressed="true"] { background: rgba(255,255,255,0.92); color: #14171c; text-shadow: none; }
+  .seg button[aria-pressed="true"] img { filter: invert(1); opacity: 1; }
+  .health { display: flex; flex-direction: column; justify-content: space-between; }
+  .health > i { font-size: 34px; }
+  .health b { display: block; font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .health small { display: block; font-size: 13px; color: var(--muted); margin-top: 2px; }
+  .health.bad { background: rgba(255,122,107,0.16); box-shadow: inset 0 0 0 1px rgba(255,122,107,0.45); }
+  .health.bad > i, .health.bad b { color: var(--warn); }
+
+  /* Night mode: darker wallpaper and glass, dimmer whites, so the screen does not glare at night. */
+  #screen.night { --text: #e4e6ea; --muted: rgba(228, 230, 234, 0.66); }
+  #screen.night .wall { filter: brightness(0.38) saturate(0.6); }
+  #screen.night .glass { background: linear-gradient(160deg, rgba(255,255,255,0.06), rgba(8,10,14,0.55)); }
+  #screen.night .cc { background: linear-gradient(160deg, rgba(255,255,255,0.05), rgba(8,10,14,0.6)); }
+  #screen.night .track .fill { opacity: 0.7; }
+  #screen.night .flip .h { background: #d9d5c6; }
+  #screen.night .flip .b { background: #cdc9ba; }
+  #screen.night .colon i { background: #d9d5c6; }
+  #screen.night .map-tiles .grid { filter: invert(1) hue-rotate(180deg) brightness(0.6) contrast(0.9) saturate(0.3); }
+
+  .toast { position: absolute; left: 50%; bottom: 30px; transform: translate(-50%, 20px); opacity: 0; padding: 12px 22px; border-radius: 999px; font-size: 15px; pointer-events: none; transition: opacity 0.2s, transform 0.25s var(--ease); z-index: 5; }
   .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+  @media (prefers-reduced-motion: reduce) {
+    .press, .press:active, .main, .apps-page, .cc, .wall, .gauge .needle, .sw, .sw::after { transition: none; }
+    .press:active { transform: none; }
+    .dock-item, #screen.show-apps .app, .status .warn, .flip.go .ft, .flip.go .fb, .hub, .swap, .live-badge i { animation: none; }
+    .tape { transition: none; }
+  }
 </style>
 </head>
 <body>
@@ -154,18 +360,19 @@
   <div class="wall" id="wall"></div>
 
   <aside class="glass rail">
-    <button class="clock press" id="clock" aria-label="Change wallpaper">08:30</button>
-    <div class="status"><i class="ph-fill ph-cell-signal-high"></i>LTE<i class="ph-fill ph-battery-charging-vertical"></i></div>
-    <nav class="dock">
-      <button class="tile press" style="background:#33ccff" data-app="Waze"><img src="https://cdn.simpleicons.org/waze/ffffff" alt="Waze"></button>
-      <button class="tile press" style="background:#1db954" data-app="Spotify"><img src="https://cdn.simpleicons.org/spotify/ffffff" alt="Spotify"></button>
-      <button class="tile press" style="background:#f2711c" data-app="Prambors"><i class="ph-fill ph-radio" style="font-size:30px"></i></button>
-    </nav>
-    <button class="all-apps press" data-app="All apps" aria-label="All apps"><i class="ph-bold ph-dots-nine"></i></button>
+    <button class="status press" id="statusBtn" aria-label="Open controls">
+      <div class="row" id="stNet"></div>
+      <div class="row" id="stBt"></div>
+      <div class="row" id="stBat"></div>
+      <div class="row warn" id="stWarn"></div>
+    </button>
+    <button class="gear press" id="gearBtn" aria-label="Settings"><i class="ph-fill ph-gear-six"></i></button>
+    <nav class="dock" id="dock" aria-label="Recent apps"></nav>
+    <button class="home-btn press" id="homeBtn" aria-label="All apps"><i class="ph-bold ph-dots-nine"></i></button>
   </aside>
 
   <main class="main">
-    <section class="glass map press" data-app="Waze">
+    <section class="glass map press" id="mapPanel" data-app="waze">
       <div class="map-inner">
         <div class="map-tiles"><div class="grid" id="tiles"></div></div>
         <svg class="route" viewBox="0 0 400 760" preserveAspectRatio="none" aria-hidden="true">
@@ -187,48 +394,58 @@
 
     <div class="right">
       <div class="top">
-        <section class="glass np">
-          <div class="tint" id="tint"></div>
-          <div class="np-head">
-            <img class="art" id="art" src="https://picsum.photos/seed/night-drive-city-lights/240/240" alt="Album art">
-            <div style="min-width:0">
-              <div class="np-title">Secukupnya</div>
-              <div class="np-artist">Hindia</div>
-              <div class="np-src"><img src="https://cdn.simpleicons.org/spotify/ffffff" alt="">Spotify</div>
-            </div>
-          </div>
-          <div class="progress">
-            <div class="bar"><i id="prog"></i></div>
-            <div class="times"><span id="tNow">1:31</span><span>4:02</span></div>
-          </div>
-          <div class="controls">
-            <button class="press" aria-label="Previous"><i class="ph-fill ph-skip-back"></i></button>
-            <button class="play press" id="play" aria-label="Pause"><i class="ph-fill ph-pause"></i></button>
-            <button class="press" aria-label="Next"><i class="ph-fill ph-skip-forward"></i></button>
-          </div>
+        <section class="glass today">
+          <button class="time press" id="time" aria-label="Change wallpaper"></button>
+          <div class="day" id="date">Monday 26 October</div>
+          <div class="place"><i class="ph-fill ph-map-pin"></i>Kebayoran Baru, Jakarta Selatan</div>
+          <div class="wx"><i class="ph-fill ph-cloud-sun"></i><b>31°</b><div>Partly cloudy<br>H 33°&nbsp;&nbsp;L 25°</div></div>
+          <div class="hourly" id="hourly"></div>
         </section>
 
-        <section class="glass glance">
-          <div class="date" id="date">Sunday, 25 October</div>
-          <div class="speed"><b id="speed">48</b><span>km/h</span></div>
-          <div class="weather">
-            <i class="ph-fill ph-cloud-sun"></i>
-            <div><b>31°</b><span>Partly cloudy, Jakarta</span></div>
+        <section class="glass car">
+          <div class="car-head">Car
+            <span class="end">
+              <!-- Prototype only: tap the chip to switch between OBD and GPS data. -->
+              <button class="chip press" id="srcChip" aria-label="Data source"></button>
+              <button class="reset press" id="resetBtn" aria-label="Reset trip (hold)"><i class="ph-bold ph-arrow-counter-clockwise"></i></button>
+            </span>
           </div>
+          <div class="gauge" id="gauge"></div>
+          <div class="car-sub" id="carSub"></div>
+          <div class="stats" id="stats"></div>
         </section>
       </div>
 
       <div class="bottom">
-        <section class="glass apps">
-          <button class="app press" data-app="Waze"><div class="tile" style="background:#33ccff"><img src="https://cdn.simpleicons.org/waze/ffffff" alt=""></div><span>Waze</span></button>
-          <button class="app press" data-app="Spotify"><div class="tile" style="background:#1db954"><img src="https://cdn.simpleicons.org/spotify/ffffff" alt=""></div><span>Spotify</span></button>
-          <button class="app press" data-app="YouTube Music"><div class="tile" style="background:#ff0033"><img src="https://cdn.simpleicons.org/youtubemusic/ffffff" alt=""></div><span>YT Music</span></button>
-          <button class="app press" data-app="Apple Music"><div class="tile" style="background:#fa243c"><img src="https://cdn.simpleicons.org/applemusic/ffffff" alt=""></div><span>Apple Music</span></button>
-          <button class="app press" data-app="Prambors"><div class="tile" style="background:#f2711c"><i class="ph-fill ph-radio"></i></div><span>Prambors</span></button>
-          <button class="app press" data-app="CarbitLink"><div class="tile" style="background:#2c6bed"><i class="ph-fill ph-car-profile"></i></div><span>CarbitLink</span></button>
-          <button class="app press" data-app="Chrome"><div class="tile" style="background:#f2f4f7"><img src="https://cdn.simpleicons.org/googlechrome" alt=""></div><span>Chrome</span></button>
-          <button class="app press" data-app="Settings"><div class="tile" style="background:#59606d"><i class="ph-fill ph-gear-six"></i></div><span>Settings</span></button>
-        </section>
+        <section class="glass np" id="np">
+        <i class="screw" style="left:14px;top:14px"></i><i class="screw" style="right:14px;top:14px"></i>
+        <i class="screw" style="left:14px;bottom:14px"></i><i class="screw" style="right:14px;bottom:14px"></i>
+
+        <header class="label">
+          <button class="side press" id="appIcon" aria-label="Open app"></button>
+          <div class="meta">
+            <div class="np-title" id="title">Secukupnya</div>
+            <div class="np-artist" id="artist">Hindia</div>
+          </div>
+          <button class="np-src press" id="src" aria-label="Playing from"></button>
+        </header>
+
+        <div class="window">
+          <div class="reel"><div class="tape" id="tapeL"></div><div class="hub spokes" id="hubL"></div></div>
+          <div class="mid">
+            <div class="bar"><i id="prog"></i></div>
+            <div class="times"><span id="tNow">1:31</span><span id="tLen">4:02</span></div>
+            <div class="live-badge"><i></i>LIVE</div>
+          </div>
+          <div class="reel"><div class="tape" id="tapeR"></div><div class="hub art" id="art" role="img" aria-label="Album art"></div></div>
+        </div>
+
+        <div class="bridge">
+          <button class="press skip" aria-label="Previous"><i class="ph-fill ph-skip-back"></i></button>
+          <button class="play press" id="play" aria-label="Pause"><i class="ph-fill ph-pause"></i></button>
+          <button class="press skip" aria-label="Next"><i class="ph-fill ph-skip-forward"></i></button>
+        </div>
+      </section>
 
         <section class="glass sliders">
           <div class="vs"><div class="track" data-k="vol" data-v="62"><div class="fill"></div><i class="ph-fill ph-speaker-high"></i></div><div class="val" id="vol">62%</div></div>
@@ -238,79 +455,344 @@
     </div>
   </main>
 
+  <section class="glass apps-page" id="appsPage" aria-label="All apps">
+    <h1>All apps</h1>
+    <div class="apps-grid" id="appsGrid"></div>
+  </section>
+
+  <div class="cc-scrim" id="ccScrim"></div>
+  <section class="glass cc" id="cc" aria-label="Controls">
+    <div class="cc-head">
+      <h2>Controls</h2>
+      <button class="round press" id="ccClose" aria-label="Close controls"><i class="ph-bold ph-x"></i></button>
+    </div>
+    <div class="cc-grid">
+      <!-- In the Android app Wi-Fi and Bluetooth open Settings.Panel (apps cannot toggle them since Android 10);
+           data, DND and auto brightness can toggle directly once WRITE_SECURE_SETTINGS is granted over ADB. -->
+      <button class="card tog press" data-t="wifi"><span class="disc"><i class="ph-bold ph-wifi-high"></i></span><span><b>Wi-Fi</b><small></small></span></button>
+      <button class="card tog press" data-t="bt"><span class="disc"><i class="ph-fill ph-bluetooth-connected"></i></span><span><b>Bluetooth</b><small></small></span></button>
+      <button class="card tog press" data-t="data"><span class="disc"><i class="ph-fill ph-cell-signal-high"></i></span><span><b>Mobile data</b><small></small></span></button>
+      <button class="card tog press" data-t="hotspot"><span class="disc"><i class="ph-bold ph-broadcast"></i></span><span><b>Hotspot</b><small></small></span></button>
+
+      <div class="card s2">
+        <div class="lbl">Night mode</div>
+        <div class="seg" data-seg="night"><button data-v="auto">Auto</button><button data-v="day">Day</button><button data-v="night">Night</button></div>
+        <small class="hint" id="nightHint"></small>
+      </div>
+      <div class="card s2">
+        <div class="lbl">Sidebar</div>
+        <div class="seg" data-seg="side"><button data-v="left">Left</button><button data-v="right">Right</button></div>
+        <small class="hint">Right sits closer to the driver</small>
+      </div>
+
+      <div class="card s2">
+        <div class="lbl">Navigation app</div>
+        <div class="seg" data-seg="nav">
+          <button data-v="waze"><img src="https://cdn.simpleicons.org/waze/ffffff" alt="">Waze</button>
+          <button data-v="maps"><img src="https://cdn.simpleicons.org/googlemaps/ffffff" alt="">Google Maps</button>
+        </div>
+        <small class="hint">Map tap and turn info use this app</small>
+      </div>
+      <button class="card s2 tog wide press" data-t="autoOpen"><span class="disc"><i class="ph-fill ph-car-simple"></i></span><span><b id="autoOpenTitle">Open Waze when the car starts</b><small>Full screen as soon as the tablet wakes</small></span><span class="sw" aria-hidden="true"></span></button>
+
+      <button class="card tog press" data-t="dnd"><span class="disc"><i class="ph-fill ph-moon"></i></span><span><b>Do Not Disturb</b><small></small></span></button>
+      <button class="card tog press" data-t="autoBri"><span class="disc"><i class="ph-fill ph-sun-dim"></i></span><span><b>Auto brightness</b><small></small></span></button>
+      <!-- Prototype only: tap these two cards to preview the warning states. -->
+      <button class="card health press" id="batCard"><i></i><span><b></b><small></small></span></button>
+      <button class="card health press" id="tempCard"><i></i><span><b></b><small></small></span></button>
+    </div>
+  </section>
+
   <div class="glass toast" id="toast"></div>
 </div>
 
 <script>
   const screen = document.getElementById('screen');
+  const $ = id => document.getElementById(id);
   function fit() {
     const s = Math.min(innerWidth / 1340, innerHeight / 800);
     screen.style.transform = `translate(-50%, -50%) scale(${s})`;
   }
   addEventListener('resize', fit); fit();
 
-  // Wallpapers to compare (Picsum photos, prototype only).
+  const toast = $('toast'); let tt;
+  function say(msg) { toast.textContent = msg; toast.classList.add('show'); clearTimeout(tt); tt = setTimeout(() => toast.classList.remove('show'), 1400); }
+
+  // Wallpapers to compare (Picsum photos, prototype only). Tap the clock to try the next one.
   const walls = [
     'https://picsum.photos/id/1018/1600/1000',
     'https://picsum.photos/id/1015/1600/1000',
     'https://picsum.photos/id/1036/1600/1000',
     'https://picsum.photos/id/1044/1600/1000',
   ];
-  // Prototype only: tap the clock to try the next wallpaper.
-  const wall = document.getElementById('wall'); let wi = 0;
+  const wall = $('wall'); let wi = 0;
   function setWall(i) { wi = i % walls.length; wall.style.backgroundImage = `url(${walls[wi]})`; }
-  document.getElementById('clock').addEventListener('click', () => setWall(wi + 1));
+  $('time').addEventListener('click', () => setWall(wi + 1));
   setWall(0);
 
-  document.getElementById('tint').style.backgroundImage = `url(${document.getElementById('art').src})`;
-
-  const tiles = document.getElementById('tiles');
+  const tiles = $('tiles');
   for (let y = 16949; y <= 16952; y++)
     for (let x = 26105; x <= 26108; x++) {
       const img = new Image(); img.src = `https://tile.openstreetmap.org/15/${x}/${y}.png`; img.alt = ''; tiles.appendChild(img);
     }
 
+  // Settings. Persisted so the prototype remembers them between reloads.
+  const S = Object.assign(
+    { side: 'right', night: 'auto', nav: 'waze', autoOpen: true, wifi: true, bt: true, data: true, hotspot: false, dnd: true, autoBri: true, obd: true },
+    JSON.parse(localStorage.getItem('carhome') || '{}'));
+  const save = () => localStorage.setItem('carhome', JSON.stringify(S));
+
+  // Installed apps. One list drives the rail, the all-apps page and the navigation setting.
+  const si = slug => `<img src="https://cdn.simpleicons.org/${slug}/ffffff" alt="">`;
+  const ph = name => `<i class="ph-fill ph-${name}"></i>`;
+  const APPS = [
+    { id: 'waze', name: 'Waze', bg: '#33ccff', icon: si('waze') },
+    { id: 'maps', name: 'Google Maps', bg: '#34a853', icon: si('googlemaps') },
+    { id: 'spotify', name: 'Spotify', bg: '#1db954', icon: si('spotify') },
+    { id: 'ytmusic', name: 'YT Music', bg: '#ff0033', icon: si('youtubemusic') },
+    { id: 'applemusic', name: 'Apple Music', bg: '#fa243c', icon: si('applemusic') },
+    { id: 'prambors', name: 'Prambors', bg: '#f2711c', icon: ph('radio') },
+    { id: 'phone', name: 'Phone', bg: '#2fbf5b', icon: ph('phone') },
+    { id: 'whatsapp', name: 'WhatsApp', bg: '#25d366', icon: si('whatsapp') },
+    { id: 'carbitlink', name: 'CarbitLink', bg: '#2c6bed', icon: ph('car-profile') },
+    { id: 'youtube', name: 'YouTube', bg: '#ff0033', icon: si('youtube') },
+    { id: 'chrome', name: 'Chrome', bg: '#f2f4f7', icon: '<img src="https://cdn.simpleicons.org/googlechrome" alt="">' },
+    { id: 'settings', name: 'Settings', bg: '#59606d', icon: ph('gear-six') },
+  ];
+  const byId = Object.fromEntries(APPS.map(a => [a.id, a]));
+
+  // Most recent first. The first entry is the app that is open now.
+  const RECENT_MAX = 4;
+  let recents = ['waze', 'spotify', 'prambors', 'whatsapp'];
+  function renderDock() {
+    $('dock').innerHTML = recents.map((id, i) => {
+      const a = byId[id];
+      return `<button class="dock-item press${i === 0 ? ' active' : ''}" data-app="${id}" aria-label="${a.name}">
+        <div class="tile" style="background:${a.bg}">${a.icon}</div></button>`;
+    }).join('');
+  }
+  renderDock();
+
+  $('appsGrid').innerHTML = APPS.map((a, i) =>
+    `<button class="app press" data-app="${a.id}" style="--i:${i}"><div class="tile" style="background:${a.bg}">${a.icon}</div><span>${a.name}</span></button>`
+  ).join('');
+
+  // The bottom rail button opens the all-apps page and turns into a Home button while it is open.
+  const homeBtn = $('homeBtn');
+  function showApps(on) {
+    screen.classList.toggle('show-apps', on);
+    homeBtn.innerHTML = `<i class="ph-bold ph-${on ? 'house' : 'dots-nine'}"></i>`;
+    homeBtn.setAttribute('aria-label', on ? 'Home' : 'All apps');
+  }
+  homeBtn.addEventListener('click', () => showApps(!screen.classList.contains('show-apps')));
+
+  function openApp(id) {
+    recents = [id, ...recents.filter(r => r !== id)].slice(0, RECENT_MAX);
+    renderDock(); showApps(false); showCC(false);
+    say(`Opens ${byId[id].name}`);
+  }
+  screen.addEventListener('click', e => { const el = e.target.closest('[data-app]'); if (el) openApp(el.dataset.app); });
+
+  // Controls panel.
+  const showCC = on => screen.classList.toggle('show-cc', on);
+  ['statusBtn', 'gearBtn'].forEach(id => $(id).addEventListener('click', () => showCC(!screen.classList.contains('show-cc'))));
+  $('ccClose').addEventListener('click', () => showCC(false));
+  $('ccScrim').addEventListener('click', () => showCC(false));
+
+  const SUB = {
+    wifi: on => on ? 'Faizal iPhone' : 'Off', bt: on => on ? 'Car audio' : 'Off', data: on => on ? 'Telkomsel LTE' : 'Off',
+    hotspot: on => on ? 'On' : 'Off', dnd: on => on ? 'On while driving' : 'Off', autoBri: on => on ? 'On' : 'Off',
+  };
+  $('cc').addEventListener('click', e => {
+    const t = e.target.closest('[data-t]'), sb = e.target.closest('[data-seg] button');
+    if (t) S[t.dataset.t] = !S[t.dataset.t];
+    else if (sb) S[sb.closest('[data-seg]').dataset.seg] = sb.dataset.v;
+    else return;
+    save(); apply();
+  });
+
+  function isNight() { const h = new Date().getHours(); return S.night === 'night' || (S.night === 'auto' && (h >= 18 || h < 6)); }
+  function apply() {
+    screen.classList.toggle('side-left', S.side === 'left');
+    screen.classList.toggle('night', isNight());
+    $('nightHint').textContent = S.night === 'auto' ? 'Switches to Night at sunset' : S.night === 'night' ? 'Night until you change it' : 'Day until you change it';
+    document.querySelectorAll('[data-t]').forEach(el => {
+      el.classList.toggle('on', !!S[el.dataset.t]);
+      const sm = el.querySelector('small'); if (SUB[el.dataset.t]) sm.textContent = SUB[el.dataset.t](S[el.dataset.t]);
+    });
+    document.querySelectorAll('[data-seg]').forEach(seg =>
+      seg.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === S[seg.dataset.seg])));
+    $('mapPanel').dataset.app = S.nav;
+    $('autoOpenTitle').textContent = `Open ${byId[S.nav].name} when the car starts`;
+    renderStatus(); renderCar();
+  }
+
+  // Tablet health. Prototype only: tap the cards to preview the warning states.
+  let charging = true, level = 84, temp = 36;
+  $('batCard').addEventListener('click', () => { charging = !charging; apply(); });
+  $('tempCard').addEventListener('click', () => { temp = temp >= 45 ? 36 : 47; apply(); });
+  function renderStatus() {
+    const hot = temp >= 45;
+    // Signal shows Wi-Fi when it is the active connection, otherwise mobile; dimmed icons mean off.
+    $('stNet').innerHTML = S.wifi ? `<i class="ph-bold ph-wifi-high"></i>` : S.data ? `<i class="ph-fill ph-cell-signal-high"></i>` : `<i class="ph-fill ph-cell-signal-slash off"></i>`;
+    $('stBt').innerHTML = S.bt ? `<i class="ph-fill ph-bluetooth-connected"></i>` : `<i class="ph-fill ph-bluetooth-slash off"></i>`;
+    $('stBat').innerHTML = `<i class="ph-fill ph-battery-${charging ? 'charging-vertical' : 'high'}"></i><small>${level}%</small>`;
+    $('stWarn').innerHTML = (hot ? `<i class="ph-fill ph-thermometer-hot"></i>` : '') + (charging ? '' : `<i class="ph-fill ph-plugs"></i>`);
+    const bat = $('batCard'), tc = $('tempCard');
+    bat.classList.toggle('bad', !charging);
+    bat.innerHTML = `<i class="ph-fill ph-battery-${charging ? 'charging-vertical' : 'high'}"></i><span><b>${level}%</b><small>${charging ? 'Charging' : 'Not charging, check the cable'}</small></span>`;
+    tc.classList.toggle('bad', hot);
+    tc.innerHTML = `<i class="ph-fill ph-thermometer-${hot ? 'hot' : 'simple'}"></i><span><b>${temp}°C</b><small>${hot ? 'Too hot, shade it' : 'Normal'}</small></span>`;
+  }
+
+  // Speedometer: 0-160 km/h over a 240° sweep, opening at the bottom. Built once; updates touch the needle, tick classes and the number.
+  const GMAX = 160, CX = 110, CY = 108;
+  const gAt = (v, r) => { const a = (150 + 240 * v / GMAX) * Math.PI / 180; return [(CX + r * Math.cos(a)).toFixed(1), (CY + r * Math.sin(a)).toFixed(1)]; };
+  (function buildGauge() {
+    let out = '';
+    for (let v = 0; v <= GMAX; v += 5) {
+      const major = v % 20 === 0, [x1, y1] = gAt(v, 96), [x2, y2] = gAt(v, major ? 84 : 89);
+      out += `<line class="tk${major ? ' major' : ''}" data-v="${v}" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/>`;
+      if (major) { const [tx, ty] = gAt(v, 71); out += `<text x="${tx}" y="${ty}">${v}</text>`; }
+    }
+    $('gauge').innerHTML = `<svg viewBox="0 0 220 200" role="img" aria-label="Speed">${out}
+      <line class="needle" id="needle" x1="${CX}" y1="${CY}" x2="${CX + 78}" y2="${CY}"/><circle class="pivot" cx="${CX}" cy="${CY}" r="7"/>
+      <text class="num" id="gNum" x="${CX}" y="${CY + 54}">0</text><text class="unit" x="${CX}" y="${CY + 80}">km/h</text></svg>`;
+  })();
+  const ticks = [...document.querySelectorAll('.gauge .tk')];
+
+  // Trip counters (GPS). Distance adds up while moving; drive time counts only above 3 km/h.
+  let speed = 48, tripKm = 12.4, driveS = 38 * 60;
+  const TICK_S = 1.5;
+  function renderCar() {
+    $('needle').style.transform = `rotate(${150 + 240 * speed / GMAX}deg)`;
+    $('gNum').textContent = speed;
+    ticks.forEach(t => t.classList.toggle('on', +t.dataset.v <= speed));
+    $('srcChip').innerHTML = S.obd ? `<i class="ph-fill ph-plugs-connected"></i>OBD connected` : `<i class="ph-fill ph-navigation-arrow"></i>Tablet GPS`;
+    $('carSub').textContent = S.obd ? '' : 'Plug in an OBD adapter for engine data';
+    $('resetBtn').style.visibility = S.obd ? 'hidden' : 'visible';
+    const stat = (icon, label, val, unit) => `<div class="stat"><span><i class="ph-fill ph-${icon}"></i>${label}</span><b>${val}${unit ? ` <small>${unit}</small>` : ''}</b></div>`;
+    const avg = driveS > 0 ? Math.round(tripKm / (driveS / 3600)) : 0;
+    $('stats').innerHTML = S.obd
+      ? stat('gauge', 'Engine', (800 + speed * 36).toLocaleString('en'), 'rpm') + stat('thermometer-simple', 'Coolant', '88°', 'C') + stat('gas-pump', 'Fuel', '62%', '~410 km') + stat('car-battery', 'Battery', '14.2', 'V')
+      : stat('compass', 'Heading', 'NE', '42°') + stat('path', 'Trip', tripKm.toFixed(1), 'km') + stat('timer', 'Drive time', `${Math.floor(driveS / 3600)}:${String(Math.floor(driveS / 60) % 60).padStart(2, '0')}`) + stat('gauge', 'Average', avg, 'km/h');
+  }
+  $('srcChip').addEventListener('click', () => { S.obd = !S.obd; save(); renderCar(); });
+  // Hold the reset button for 0.6 s so a stray touch cannot clear a trip.
+  let holdT;
+  $('resetBtn').addEventListener('pointerdown', () => { holdT = setTimeout(() => { tripKm = 0; driveS = 0; renderCar(); say('Trip reset'); }, 600); });
+  ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => $('resetBtn').addEventListener(ev, () => clearTimeout(holdT)));
+  // Prototype only: simulated driving.
+  setInterval(() => {
+    speed = Math.max(0, Math.min(72, speed + Math.round((Math.random() - 0.5) * 6)));
+    if (speed > 3) { driveS += TICK_S; tripKm += speed / 3600 * TICK_S; }
+    renderCar();
+  }, TICK_S * 1000);
+
+  // Flip clock: 4 digit cards. Each card has a static top/bottom half and two flaps that only animate when the digit changes.
+  const timeEl = $('time');
+  const half = c => `<div class="h ${c}"><span></span></div>`;
+  const card = () => `<div class="flip">${half('t')}${half('b')}${half('t ft')}${half('b fb')}</div>`;
+  timeEl.innerHTML = card() + card() + '<div class="colon"><i></i><i></i></div>' + card() + card();
+  const digits = [...timeEl.querySelectorAll('.flip')];
+  const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
+  const fill = (el, v) => el.querySelectorAll('span').forEach(s => s.textContent = v);
+  digits.forEach(el => el.addEventListener('animationend', e => {
+    if (!e.target.classList.contains('fb')) return;
+    fill(el, el.dataset.v); el.classList.remove('go');
+  }));
+  function setDigit(el, v) {
+    const old = el.dataset.v;
+    if (old === v) return;
+    el.dataset.v = v;
+    if (old === undefined || reduceMotion.matches) return fill(el, v);
+    // Static top and falling-in bottom flap show the new digit; static bottom and falling top flap still show the old one.
+    const [t, b, ft, fb] = el.children;
+    t.firstChild.textContent = fb.firstChild.textContent = v;
+    b.firstChild.textContent = ft.firstChild.textContent = old;
+    el.classList.add('go');
+  }
+
+  // Mock forecast for the prototype; the app will read Open-Meteo hourly data.
+  const FORECAST = [['cloud-sun', 32, 'var(--sun)'], ['sun', 33, 'var(--sun)'], ['cloud', 32, 'var(--text)'], ['cloud-rain', 29, '#9fcbff']];
   const pad = n => String(n).padStart(2, '0');
   function tick() {
     const d = new Date();
-    document.getElementById('clock').textContent = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
-    document.getElementById('date').textContent = d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
+    [...pad(d.getHours()) + pad(d.getMinutes())].forEach((v, i) => setDigit(digits[i], v));
+    $('date').textContent = d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
     const a = new Date(d.getTime() + 17 * 60000);
-    document.getElementById('arrive').textContent = `${pad(a.getHours())}:${pad(a.getMinutes())}`;
+    $('arrive').textContent = `${pad(a.getHours())}:${pad(a.getMinutes())}`;
+    $('hourly').innerHTML = FORECAST.map(([icon, t, c], i) =>
+      `<div class="hour"><span>${pad((d.getHours() + i + 1) % 24)}:00</span><i class="ph-fill ph-${icon}" style="color:${c}"></i><b>${t}°</b></div>`).join('');
+    if (S.night === 'auto') screen.classList.toggle('night', isNight());
   }
-  tick(); setInterval(tick, 10000);
+  // Wake once per minute, right after the minute changes, instead of polling.
+  function scheduleTick() { tick(); setTimeout(scheduleTick, 60000 - Date.now() % 60000 + 30); }
+  scheduleTick();
+  apply();
 
-  let playing = true, pos = 91; const len = 242;
-  const playBtn = document.getElementById('play');
-  playBtn.onclick = () => {
+  // Media sessions the launcher can follow. In the app these come from MediaSessionManager: whichever session is playing wins,
+  // and the source chip shows that app. Prototype only: tap the chip to move to the next one.
+  const SOURCES = [
+    { id: 'spotify', app: 'Spotify', bg: '#1db954', icon: si('spotify'), title: 'Secukupnya', artist: 'Hindia', art: 'https://picsum.photos/seed/night-drive-city-lights/240/240', len: 242, pos: 91, skip: true },
+    { id: 'ytmusic', app: 'YT Music', bg: '#ff0033', icon: si('youtubemusic'), title: 'Komang', artist: 'Raim Laode', art: 'https://picsum.photos/seed/komang-sunset-sea/240/240', len: 258, pos: 40, skip: true },
+    // Live radio: station logo instead of album art, no length, and this station has no skip.
+    { id: 'prambors', app: 'Prambors', bg: '#f2711c', icon: '<i class="ph-fill ph-radio"></i>', title: 'Sial', artist: 'Mahalini on Prambors FM', logo: { bg: '#f2711c', icon: 'radio' }, len: null, skip: false },
+  ];
+
+  // Six teeth on the left hub, built once.
+  $('hubL').innerHTML = Array.from({ length: 6 }, (_, i) => `<i style="transform: rotate(${i * 60}deg) translateY(-16px)"></i>`).join('');
+
+  // Tape moves from the left reel to the right one as the song plays (scale only, so the GPU does it).
+  const TAPE_MIN = 80 / 128;
+  function setTape(p) {
+    $('tapeL').style.transform = `scale(${TAPE_MIN + (1 - TAPE_MIN) * Math.sqrt(1 - p)})`;
+    $('tapeR').style.transform = `scale(${TAPE_MIN + (1 - TAPE_MIN) * Math.sqrt(p)})`;
+  }
+
+  const fmt = t => `${Math.floor(t / 60)}:${pad(t % 60)}`;
+  let cur, playing = true;
+  function renderProgress() {
+    if (cur.len == null) return setTape(0.5);
+    $('prog').style.width = (cur.pos / cur.len * 100) + '%';
+    $('tNow').textContent = fmt(cur.pos);
+    setTape(cur.pos / cur.len);
+  }
+  function setSource(i) {
+    cur = SOURCES[i];
+    const np = $('np'), art = $('art');
+    np.classList.toggle('live', cur.len == null);
+    np.classList.toggle('no-skip', !cur.skip);
+    $('src').textContent = cur.app;
+    $('appIcon').innerHTML = cur.icon; $('appIcon').style.background = cur.bg; $('appIcon').dataset.app = cur.id;
+    $('title').textContent = cur.title;
+    $('artist').textContent = cur.artist;
+    if (cur.logo) { art.classList.add('logo'); art.style.background = cur.logo.bg; art.innerHTML = `<i class="ph-fill ph-${cur.logo.icon}"></i>`; }
+    else { art.classList.remove('logo'); art.innerHTML = ''; art.style.background = `#333 url(${cur.art}) center / cover`; }
+    if (cur.len != null) $('tLen').textContent = fmt(cur.len);
+    renderProgress();
+    document.querySelectorAll('.label, .mid').forEach(el => { el.classList.remove('swap'); void el.offsetWidth; el.classList.add('swap'); });
+  }
+  let si_ = 0;
+  setSource(si_);
+  $('src').addEventListener('click', () => setSource(si_ = (si_ + 1) % SOURCES.length));
+
+  $('play').onclick = () => {
     playing = !playing;
-    playBtn.innerHTML = `<i class="ph-fill ph-${playing ? 'pause' : 'play'}"></i>`;
-    playBtn.setAttribute('aria-label', playing ? 'Pause' : 'Play');
+    $('np').classList.toggle('paused', !playing);
+    $('play').innerHTML = `<i class="ph-fill ph-${playing ? 'pause' : 'play'}"></i>`;
+    $('play').setAttribute('aria-label', playing ? 'Pause' : 'Play');
   };
-  setInterval(() => {
-    if (!playing) return;
-    pos = (pos + 1) % len;
-    document.getElementById('prog').style.width = (pos / len * 100) + '%';
-    document.getElementById('tNow').textContent = `${Math.floor(pos / 60)}:${pad(pos % 60)}`;
-  }, 1000);
-
-  let v = 48;
-  setInterval(() => { v = Math.max(0, Math.min(72, v + Math.round((Math.random() - 0.5) * 6))); document.getElementById('speed').textContent = v; }, 1500);
+  setInterval(() => { if (playing && cur.len != null) { cur.pos = (cur.pos + 1) % cur.len; renderProgress(); } }, 1000);
 
   document.querySelectorAll('.track').forEach(t => {
-    const fill = t.querySelector('.fill'), out = document.getElementById(t.dataset.k);
+    const fill = t.querySelector('.fill'), out = $(t.dataset.k);
     const set = val => { val = Math.max(0, Math.min(100, Math.round(val))); t.dataset.v = val; fill.style.height = val + '%'; out.textContent = val + '%'; };
     set(+t.dataset.v);
     const move = e => { const r = t.getBoundingClientRect(); set((r.bottom - e.clientY) / r.height * 100); };
     t.addEventListener('pointerdown', e => { t.setPointerCapture(e.pointerId); move(e); t.onpointermove = move; });
     t.addEventListener('pointerup', () => { t.onpointermove = null; });
   });
-
-  const toast = document.getElementById('toast'); let tt;
-  document.querySelectorAll('[data-app]').forEach(el => el.addEventListener('click', () => {
-    toast.textContent = `Opens ${el.dataset.app}`;
-    toast.classList.add('show'); clearTimeout(tt); tt = setTimeout(() => toast.classList.remove('show'), 1400);
-  }));
 </script>
 </body>
 </html>
