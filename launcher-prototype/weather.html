@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Weather Card</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  /* Weather card for the home screen: current conditions only (no hourly list). Big light temperature, condition and place,
+     high/low at the bottom, and a soft 3D weather object (cloud, sun, rain) cropped by the bottom-right corner of the card.
+     Same Liquid Glass tokens as glass.html. It sits left of a narrower Now playing panel in the bottom row.
+     Cost on the tablet: the weather object is drawn once to a canvas per condition change; the only motion is a slow
+     transform drift on that canvas, which stops under reduced motion. */
+  :root {
+    --text: #f7f8fa;
+    --muted: rgba(247, 248, 250, 0.72);
+    --faint: rgba(247, 248, 250, 0.5);
+    --r-glass: 32px;
+    --ease: cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; background: #07080a; color: var(--text); font-family: "Geist", system-ui, sans-serif; overflow: hidden; -webkit-font-smoothing: antialiased; }
+
+  /* The full 1340 x 800 home canvas, scaled the same way as glass.html, so the card shows at its true size on the tablet.
+     The other home panels are drawn as empty outlines in their real positions, for scale only. */
+  #stage { position: absolute; left: 50%; top: 50%; width: 1340px; height: 800px; text-shadow: 0 1px 2px rgba(0,0,0,0.25); }
+  .wall { position: fixed; inset: 0; background: #1a1d22 url(https://picsum.photos/id/1018/1600/1000) center / cover no-repeat; }
+  .wall::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(5,7,10,0.15), rgba(5,7,10,0.45)); }
+  .ghost { position: absolute; border-radius: var(--r-glass); border: 1.5px dashed rgba(255,255,255,0.28); background: rgba(10,14,22,0.22);
+    display: grid; place-items: center; font-size: 15px; font-weight: 500; color: var(--faint); text-align: center; line-height: 1.4; }
+
+  .glass {
+    position: relative; isolation: isolate; border-radius: var(--r-glass); overflow: hidden;
+    background: linear-gradient(160deg, rgba(255,255,255,0.13), rgba(255,255,255,0.03) 45%, rgba(10,14,22,0.34));
+    backdrop-filter: blur(16px) saturate(1.6) brightness(0.74); -webkit-backdrop-filter: blur(16px) saturate(1.6) brightness(0.74);
+    box-shadow: inset 0 1.5px 0 rgba(255,255,255,0.55), inset 0 -1px 0 rgba(255,255,255,0.12), inset 0 0 0 1px rgba(255,255,255,0.14),
+      inset 0 0 24px rgba(255,255,255,0.06), 0 18px 40px rgba(4, 8, 16, 0.35);
+  }
+  .glass::before {
+    content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1.5px; pointer-events: none; z-index: 2;
+    background: linear-gradient(135deg, rgba(255,255,255,0.75), rgba(255,255,255,0.08) 30%, rgba(255,255,255,0) 60%, rgba(255,255,255,0.35));
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude;
+  }
+  @media (prefers-reduced-transparency: reduce) { .glass { background: rgba(28, 32, 40, 0.94); backdrop-filter: none; -webkit-backdrop-filter: none; } }
+
+  /* Weather card. Text sits above the art; the art is pinned to the bottom-right and cropped by the card's corner. */
+  .wx { position: absolute; left: 449px; top: 468px; width: 296px; height: 312px; padding: 28px 26px 26px; display: flex; flex-direction: column;
+    cursor: pointer; -webkit-tap-highlight-color: transparent; }
+  .wx .art { position: absolute; right: -40px; bottom: -44px; width: 340px; height: 300px; z-index: 0; pointer-events: none;
+    animation: drift 9s ease-in-out infinite alternate; }
+  @keyframes drift { from { transform: translate(0, 0); } to { transform: translate(-6px, -4px); } }
+  @media (prefers-reduced-motion: reduce) { .wx .art { animation: none; } }
+  .wx .txt { position: relative; z-index: 1; }
+  .temp { font-size: 64px; font-weight: 300; letter-spacing: -0.03em; line-height: 1; font-variant-numeric: tabular-nums; }
+  .temp small { font-size: 1em; margin-left: 0.18em; letter-spacing: 0; }
+  .cond { font-size: 19px; font-weight: 400; color: var(--muted); margin-top: 10px; white-space: nowrap; }
+  .hl { position: relative; z-index: 1; margin-top: auto; font-size: 17px; color: var(--faint); font-variant-numeric: tabular-nums; display: flex; gap: 14px; }
+  /* Swap: text and art fade together when the condition changes. */
+  .wx .txt, .wx .hl, .wx .art { transition: opacity 0.35s var(--ease); }
+  .wx.swap .txt, .wx.swap .hl, .wx.swap .art { opacity: 0; }
+
+  .hint { position: absolute; left: 449px; top: 451px; font-size: 12px; color: var(--faint); }
+</style>
+</head>
+<body>
+<div class="wall"></div>
+<div id="stage">
+  <div class="ghost" style="left:20px;top:20px;width:411px;height:760px">Map</div>
+  <div class="ghost" style="left:449px;top:20px;width:392px;height:430px">Today</div>
+  <div class="ghost" style="left:859px;top:20px;width:351px;height:430px">Car</div>
+  <div class="ghost" style="left:763px;top:468px;width:279px;height:312px">Now playing<br>(narrower)</div>
+  <div class="ghost" style="left:1060px;top:468px;width:150px;height:312px">Sliders</div>
+  <div class="ghost" style="left:1228px;top:20px;width:96px;height:760px">Sidebar</div>
+
+  <div class="hint">Prototype only: tap the card to preview other weather.</div>
+  <section class="glass wx" id="wx" role="button" aria-label="Weather">
+    <canvas class="art" id="art" width="340" height="300" aria-hidden="true"></canvas>
+    <div class="txt">
+      <div class="temp" id="temp">31°<small>C</small></div>
+      <div class="cond" id="cond">Partly cloudy - Jakarta</div>
+    </div>
+    <div class="hl" id="hl"><span>H:33°</span><span>L:25°</span></div>
+  </section>
+</div>
+
+<script>
+  const $ = id => document.getElementById(id);
+  const stage = $('stage');
+  function fit() { const s = Math.min(innerWidth / 1340, innerHeight / 800); stage.style.transform = `translate(-50%, -50%) scale(${s})`; }
+  addEventListener('resize', fit); fit();
+
+  // ---- Weather art. Drawn once per condition: every puff of cloud is a sphere lit from the top-left,
+  //      overlapping puffs give the cauliflower look. Seeded random keeps the shape the same on every load. ----
+  const cv = $('art'), DPR = Math.min(2, devicePixelRatio || 1), W = 340, H = 300;
+  cv.width = W * DPR; cv.height = H * DPR;
+  const ctx = cv.getContext('2d');
+
+  function seeded(seed) { return () => (seed = (seed * 16807) % 2147483647) / 2147483647; }
+
+  // One puff: a sphere lit from the top-left whose rim fades out, so overlapping puffs melt into each other like vapour
+  // instead of reading as hard balls. Colours are [r, g, b].
+  const rgba = (c, a) => `rgba(${c[0]},${c[1]},${c[2]},${a})`;
+  function puff(g2, x, y, r, c) {
+    const g = g2.createRadialGradient(x - r * 0.32, y - r * 0.36, r * 0.05, x, y, r);
+    g.addColorStop(0, rgba(c.hi, 1)); g.addColorStop(0.5, rgba(c.mid, 1)); g.addColorStop(0.82, rgba(c.lo, 0.96)); g.addColorStop(1, rgba(c.lo, 0));
+    g2.fillStyle = g; g2.beginPath(); g2.arc(x, y, r, 0, Math.PI * 2); g2.fill();
+  }
+
+  // Big masses of the cloud as fractions of the canvas (kept right of the H/L line), then two rings of smaller puffs
+  // on their lit, upper-left rims for the billowing edge.
+  const MASS = [[0.76, 0.98, 0.30], [0.96, 0.70, 0.28], [0.60, 1.02, 0.21], [0.82, 0.56, 0.21], [0.66, 0.78, 0.19], [1.03, 0.40, 0.19], [0.90, 0.88, 0.26]];
+  const off = document.createElement('canvas'); off.width = W * DPR; off.height = H * DPR;
+  function cloud(c, seed) {
+    const rnd = seeded(seed), puffs = [];
+    for (const [fx, fy, fr] of MASS) {
+      const x = fx * W, y = fy * H, r = fr * W;
+      puffs.push([x, y, r]);
+      for (const [ring, size, n] of [[0.86, 0.42, 5], [0.98, 0.22, 7]]) {
+        for (let i = 0; i < n; i++) {
+          const a = Math.PI * (0.92 + rnd() * 0.8);          // ~165°..310°: the side that faces the light and the sky
+          const pr = r * size * (0.6 + rnd() * 0.8);
+          puffs.push([x + Math.cos(a) * r * ring * (0.85 + rnd() * 0.15), y + Math.sin(a) * r * ring * (0.85 + rnd() * 0.15), pr]);
+        }
+      }
+    }
+    // Back to front: higher puffs first so lower, nearer ones overlap them.
+    puffs.sort((p, q) => p[1] - q[1]);
+    const g2 = off.getContext('2d');
+    g2.setTransform(DPR, 0, 0, DPR, 0, 0); g2.clearRect(0, 0, W, H);
+    for (const [x, y, r] of puffs) puff(g2, x, y, r, c);
+    // Self-shadow toward the bottom, where the cloud is thickest.
+    g2.globalCompositeOperation = 'source-atop';
+    const ao = g2.createLinearGradient(0, H * 0.5, 0, H); ao.addColorStop(0, 'rgba(0,0,0,0)'); ao.addColorStop(1, rgba(c.shade, 0.55));
+    g2.fillStyle = ao; g2.fillRect(0, 0, W, H); g2.globalCompositeOperation = 'source-over';
+    // Composite softly: a wide dark shadow first, then the cloud with a hair of blur so edges read as vapour.
+    ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.filter = `blur(${14 * DPR}px)`; ctx.globalAlpha = 0.45; ctx.drawImage(off, 6 * DPR, 14 * DPR);
+    ctx.filter = `blur(${0.9 * DPR}px)`; ctx.globalAlpha = 1; ctx.drawImage(off, 0, 0);
+    ctx.restore();
+  }
+
+  function sun(x, y, r) {
+    const glow = ctx.createRadialGradient(x, y, r * 0.6, x, y, r * 1.9);
+    glow.addColorStop(0, 'rgba(255,196,92,0.45)'); glow.addColorStop(1, 'rgba(255,196,92,0)');
+    ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(x, y, r * 1.9, 0, Math.PI * 2); ctx.fill();
+    const g = ctx.createRadialGradient(x - r * 0.35, y - r * 0.4, r * 0.05, x, y, r);
+    g.addColorStop(0, '#fff6d6'); g.addColorStop(0.45, '#ffcf5c'); g.addColorStop(0.9, '#f39a2c'); g.addColorStop(1, '#e8862a');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+  }
+
+  function rain(seed) {
+    const rnd = seeded(seed);
+    ctx.save(); ctx.lineCap = 'round';
+    for (let i = 0; i < 26; i++) {
+      const x = W * (0.44 + rnd() * 0.2), y = H * (0.62 + rnd() * 0.24), len = 10 + rnd() * 12;
+      ctx.strokeStyle = `rgba(190,215,240,${0.35 + rnd() * 0.35})`; ctx.lineWidth = 1.6;
+      ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - len * 0.28, y + len); ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  const WHITE = { hi: [250, 251, 252], mid: [206, 209, 214], lo: [128, 133, 141], shade: [40, 44, 52] };
+  const STORM = { hi: [196, 201, 209], mid: [128, 134, 143], lo: [70, 75, 83], shade: [18, 20, 26] };
+  const ART = {
+    partly: () => { sun(W * 0.74, H * 0.46, 46); cloud(WHITE, 7); },
+    rain:   () => { cloud(STORM, 11); rain(5); },
+    clear:  () => sun(W * 0.80, H * 0.80, 100),
+    cloudy: () => cloud(WHITE, 3),
+  };
+  function paint(kind) { ctx.setTransform(DPR, 0, 0, DPR, 0, 0); ctx.clearRect(0, 0, W, H); ART[kind](); }
+
+  // Conditions to preview. In the app these come from Open-Meteo's current weather_code at the last GPS fix
+  // (0 clear, 1-2 partly, 3/45/48 cloudy, 51-67/80-82 rain, 95+ storm uses the rain art).
+  const STATES = [
+    { kind: 'partly', temp: 31, cond: 'Partly cloudy', hi: 33, lo: 25 },
+    { kind: 'rain',   temp: 26, cond: 'Rainy',         hi: 29, lo: 24 },
+    { kind: 'clear',  temp: 33, cond: 'Clear',         hi: 34, lo: 26 },
+    { kind: 'cloudy', temp: 29, cond: 'Cloudy',        hi: 31, lo: 25 },
+  ];
+  const PLACE = 'Jakarta';
+  let si = 0;
+  function show(s) {
+    $('temp').innerHTML = `${s.temp}°<small>C</small>`;
+    $('cond').textContent = `${s.cond} - ${PLACE}`;
+    $('hl').innerHTML = `<span>H:${s.hi}°</span><span>L:${s.lo}°</span>`;
+    paint(s.kind);
+  }
+  show(STATES[0]);
+
+  $('wx').addEventListener('click', () => {
+    const card = $('wx');
+    card.classList.add('swap');
+    setTimeout(() => { si = (si + 1) % STATES.length; show(STATES[si]); card.classList.remove('swap'); }, 350);
+  });
+</script>
+</body>
+</html>
