@@ -20,7 +20,9 @@ Driven over ADB from a computer on the same Wi-Fi (Wireless debugging; pair once
   left to right with progress, controls on the bottom bridge; live radio = LIVE badge, tape still, skip hidden if unsupported; panel stays
   neutral glass), Sliders. `cassette.html` is the standalone cassette prototype shown in the home layout.
   `weather.html` is the standalone weather card (current conditions only: temp, condition - place, H/L, a soft 3D cloud/sun/rain drawn
-  once to a canvas per condition) in the bottom-left slot left of a narrower Now playing; home screen not changed yet (on hold). Controls panel slides out from the rail; All apps page cross-fades over home.
+  once to a canvas per condition) in the bottom-left slot left of a narrower Now playing; home screen not changed yet (on hold).
+  `weather.html?art=icons` shows the same card with Weatherglass TV's glass icons instead (`vendor/weatherglass/`, copied from
+  faizaldjoo/weatherglass-tv app/assets/weather at 94a2d9f, MIT); night swaps sun icons for moon ones. Controls panel slides out from the rail; All apps page cross-fades over home.
 - Rail is CarPlay-style, on the right by default (setting: left/right): status pill on top (tap = Controls; signal, Bluetooth, battery %,
   warning icons only when not charging or too hot), the 4 most recently opened apps (open app marked), all-apps / Home button at the bottom.
   One `APPS` list in the JS drives the rail, the all-apps page and the navigation setting. Settings persist in localStorage (`carhome`).

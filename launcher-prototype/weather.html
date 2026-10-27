@@ -51,14 +51,22 @@
     animation: drift 9s ease-in-out infinite alternate; }
   @keyframes drift { from { transform: translate(0, 0); } to { transform: translate(-6px, -4px); } }
   @media (prefers-reduced-motion: reduce) { .wx .art { animation: none; } }
+  /* Icon variant (weather.html?art=icons): the glass weather icons from the Weatherglass TV launcher instead of the canvas art.
+     Shown at 0.66x of their 256x192 source so they stay sharp on the tablet. */
+  .wx .icon { position: absolute; right: 14px; bottom: 48px; width: 170px; height: 128px; z-index: 0; pointer-events: none; display: none;
+    filter: drop-shadow(0 10px 18px rgba(4, 8, 16, 0.4)); animation: drift 9s ease-in-out infinite alternate; }
+  @media (prefers-reduced-motion: reduce) { .wx .icon { animation: none; } }
+  .wx.icons .icon { display: block; }
+  .wx.icons .art { display: none; }
+  .hint a { color: var(--muted); }
   .wx .txt { position: relative; z-index: 1; }
   .temp { font-size: 64px; font-weight: 300; letter-spacing: -0.03em; line-height: 1; font-variant-numeric: tabular-nums; }
   .temp small { font-size: 1em; margin-left: 0.18em; letter-spacing: 0; }
   .cond { font-size: 19px; font-weight: 400; color: var(--muted); margin-top: 10px; white-space: nowrap; }
   .hl { position: relative; z-index: 1; margin-top: auto; font-size: 17px; color: var(--faint); font-variant-numeric: tabular-nums; display: flex; gap: 14px; }
   /* Swap: text and art fade together when the condition changes. */
-  .wx .txt, .wx .hl, .wx .art { transition: opacity 0.35s var(--ease); }
-  .wx.swap .txt, .wx.swap .hl, .wx.swap .art { opacity: 0; }
+  .wx .txt, .wx .hl, .wx .art, .wx .icon { transition: opacity 0.35s var(--ease); }
+  .wx.swap .txt, .wx.swap .hl, .wx.swap .art, .wx.swap .icon { opacity: 0; }
 
   .hint { position: absolute; left: 449px; top: 451px; font-size: 12px; color: var(--faint); }
 </style>
@@ -73,9 +81,10 @@
   <div class="ghost" style="left:1060px;top:468px;width:150px;height:312px">Sliders</div>
   <div class="ghost" style="left:1228px;top:20px;width:96px;height:760px">Sidebar</div>
 
-  <div class="hint">Prototype only: tap the card to preview other weather.</div>
+  <div class="hint" id="hint">Prototype only: tap the card to preview other weather.</div>
   <section class="glass wx" id="wx" role="button" aria-label="Weather">
     <canvas class="art" id="art" width="340" height="300" aria-hidden="true"></canvas>
+    <img class="icon" id="icon" alt="">
     <div class="txt">
       <div class="temp" id="temp">31°<small>C</small></div>
       <div class="cond" id="cond">Partly cloudy - Jakarta</div>
@@ -202,14 +211,25 @@
     { kind: 'rain',   temp: 26, cond: 'Rainy',         hi: 29, lo: 24 },
     { kind: 'clear',  temp: 33, cond: 'Clear',         hi: 34, lo: 26 },
     { kind: 'cloudy', temp: 29, cond: 'Cloudy',        hi: 31, lo: 25 },
+    { kind: 'storm',  temp: 25, cond: 'Thunderstorm',  hi: 28, lo: 23 },
   ];
+  // Canvas art has no storm of its own yet; it borrows the rain cloud.
+  ART.storm = ART.rain;
+
+  // Icon variant: Weatherglass TV's glass icons (vendor/weatherglass, MIT). Night swaps the sun for the moon.
+  const ICONS = location.search.includes('art=icons');
+  const night = () => { const h = new Date().getHours(); return h >= 18 || h < 6; };
+  const ICON = { partly: () => night() ? 'partly_cloudy_night' : 'partly_cloudy_day', rain: () => 'rainy',
+                 clear: () => night() ? 'clear_night' : 'sunny', cloudy: () => 'cloud', storm: () => 'thunderstorm' };
+  if (ICONS) $('wx').classList.add('icons');
+  $('hint').innerHTML += ICONS ? ' <a href="?">Show canvas art</a>' : ' <a href="?art=icons">Show Weatherglass icons</a>';
   const PLACE = 'Jakarta';
   let si = 0;
   function show(s) {
     $('temp').innerHTML = `${s.temp}°<small>C</small>`;
     $('cond').textContent = `${s.cond} - ${PLACE}`;
     $('hl').innerHTML = `<span>H:${s.hi}°</span><span>L:${s.lo}°</span>`;
-    paint(s.kind);
+    if (ICONS) $('icon').src = `vendor/weatherglass/${ICON[s.kind]()}.png`; else paint(s.kind);
   }
   show(STATES[0]);
 
