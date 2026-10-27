@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>bbot Screensaver</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css">
-<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&family=Sofia+Sans+Extra+Condensed:wght@700&display=swap" rel="stylesheet">
+<!-- Fonts and icons are bundled (vendor/), so the page starts fast and works offline. -->
+<link rel="stylesheet" href="vendor/fonts/fonts.css">
+<link rel="stylesheet" href="vendor/phosphor/fill/style.css">
 <style>
   /* Lite bbot screensaver. bbot (github.com/bwndapp/bbot, MIT) is already WebGL-free: one SVG driven by springs.
      The bundle is vendored in vendor/bbot so it runs offline. This page only adds the screensaver director
@@ -43,6 +43,18 @@
   .clock .wx .now { font-size: 19px; color: var(--text); font-variant-numeric: tabular-nums; }
   .clock .wx .loc { font-size: 15px; color: var(--muted); margin-top: 3px; max-width: 360px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
+  /* Lite: with &noface the face is off and the clock and weather sit large in the middle. */
+  /* Lite: flat controls like Car Home Lite's player: plain white skip icons, a solid light circle for play/pause.
+     Solid colours, no rim, no fade or press animation. */
+  #screen.lite .media { gap: 40px; transition: none; }
+  #screen.lite .media button { font-size: 36px; background: none; box-shadow: none; transition: none; color: #f1f3f5; }
+  #screen.lite .media button.play { width: 84px; height: 84px; font-size: 38px; background: #f1f3f5; color: #0e1013; }
+  #screen.lite .media button:active { transform: none; background: none; opacity: 0.6; }
+  #screen.lite .media button.play:active { background: #f1f3f5; }
+  #screen.noface #bot { display: none; }
+  #screen.noface .clock { left: 50%; top: 50%; transform: translate(-50%, -62%); flex-direction: column; gap: 22px; text-align: center; }
+  #screen.noface .clock .t { font-size: 220px; }
+  #screen.noface .clock .rule { display: none; }
   .song { position: absolute; left: 50%; bottom: 72px; width: 640px; margin-left: -320px; overflow: hidden; white-space: nowrap; font-size: 17px; color: var(--muted);
     -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
     opacity: 0; transition: opacity 0.5s; pointer-events: none; }
@@ -93,7 +105,58 @@
   const screenEl = document.getElementById('screen');
   // Opened from the launcher's screensaver button: a single tap goes back home (the other gestures still play with the face).
   const fromHome = new URLSearchParams(location.search).get('from') === 'home';
+  // Which home to go back to (glass.html, or lite.html for Car Home Lite).
+  const HOME = /^[\w-]+\.html$/.test(new URLSearchParams(location.search).get('home') || '') ? new URLSearchParams(location.search).get('home') : 'glass.html';
+  // Lite (screensaver.html?lite, from Car Home Lite): the face moves in bursts. It animates only while it has something
+  // to do (a mood change, reaction or glance from the director below, spaced out in lite, or a touch), then holds still,
+  // so the tablet draws nothing in between. While awake it draws at most 30 frames a
+  // second instead of 60: its springs are timed from elapsed time but step at most 1/30 s, so 30 fps keeps full speed.
+  // Measured on the tablet: face at 60 fps ~175% CPU, 30 fps ~130%, still clock ~11%.
+  // &fps=<n> sets the frame rate, &nonstop animates all the time, &noface turns the face off (still clock).
+  const qs = new URLSearchParams(location.search), LITE = qs.has('lite'), CALM = LITE && !qs.has('nonstop');
+  if (LITE) {
+    document.getElementById('screen').classList.add('lite');
+    if (qs.has('noface')) document.getElementById('screen').classList.add('noface');
+    const step = 1000 / (+qs.get('fps') || 30), BURST = 3000;
+    // One shared frame timer: everything that animates (the face, the song line) draws in the same frame, not twice.
+    let awakeUntil = Infinity, nextId = 1, timer = 0, queue = [], parked = []; // parked: frames held while asleep
+    const flush = () => {
+      timer = 0; const q = queue, t = performance.now(); queue = [];
+      q.forEach(f => f.cb(t));
+    };
+    // Eyes shut mid-blink: keep drawing until they open, so the face never pauses with its eyes closed (unless asleep).
+    const lid = () => document.querySelector('#bot .bwf-lid');
+    const eyesShut = () => { const m = /translate\(0 (-?[\d.]+)\)/.exec(lid()?.getAttribute('transform') || ''); return m && +m[1] > -4; };
+    window.requestAnimationFrame = cb => {
+      const f = { id: nextId++, cb };
+      if (performance.now() >= awakeUntil && window.faceMood !== 'sleep' && eyesShut()) awakeUntil = performance.now() + 200;
+      if (performance.now() < awakeUntil) { queue.push(f); timer ||= setTimeout(flush, step); }
+      else parked.push(f);
+      return f.id;
+    };
+    window.cancelAnimationFrame = id => { queue = queue.filter(f => f.id !== id); parked = parked.filter(f => f.id !== id); };
+    window.wakeFace = (ms = BURST) => {
+      awakeUntil = Math.max(awakeUntil === Infinity ? 0 : awakeUntil, performance.now() + ms);
+      const ps = parked; parked = []; ps.forEach(f => requestAnimationFrame(f.cb));
+    };
+    if (!qs.has('nonstop')) {
+      awakeUntil = performance.now() + BURST; // settle in, then sleep
+      addEventListener('pointerdown', () => wakeFace(4000), true);
+    }
+  }
   const botEl = document.getElementById('bot');
+
+  // The lids are filled with the background, so fully shut eyes (asleep, a blink) vanish. Stop the lids just short of
+  // meeting: a thin slit of eye stays, which reads as a closed eye. face.js moves each lid with
+  // setAttribute('transform', 'rotate(a) translate(0 y)'); the top lid's edge is at y, the bottom lid's at y too.
+  const SLIT = 0.6;   // half the slit, in face units (the eye radius is 12); ~8 px on screen
+  const setAttr = SVGRectElement.prototype.setAttribute;
+  SVGRectElement.prototype.setAttribute = function (k, v) {
+    if (k === 'transform' && this.classList.contains('bwf-lid'))
+      v = v.replace(/translate\(0 (-?[\d.]+)\)/, (m, y) =>
+        `translate(0 ${(this.getAttribute('y') === '0' ? Math.max(+y, SLIT) : Math.min(+y, -SLIT)).toFixed(2)})`);
+    return setAttr.call(this, k, v);
+  };
 
   // Fit the 1340x800 design canvas to any window, same as glass.html.
   function fit() {
@@ -104,6 +167,11 @@
 
   const face = createFace(botEl, { expression: 'idle', mouth: false });
   window.face = face; // handy for poking at it from devtools
+  // Lite burst mode: whatever the face is told to do (mood, reaction, glance) wakes it long enough to play out.
+  if (window.wakeFace) for (const k of ['setExpression', 'react', 'look']) {
+    const fn = face[k].bind(face);
+    face[k] = (...args) => { wakeFace(k === 'look' ? (args[2] || 1500) + 800 : 2500); return fn(...args); };
+  }
 
   // ---- Director: weighted mood cycling, mostly calm. Each entry is [mood, weight]. ----
   const DAY = [['idle', 6], ['content', 4], ['happy', 3], ['curious', 3], ['thinking', 2], ['relieved', 2],
@@ -125,14 +193,15 @@
   let mood = 'idle', moodTimer, pinned = false;
   function nextMood() {
     if (!pinned) {
-      mood = pick(isNight() ? NIGHT : DAY, mood);
+      mood = window.faceMood = pick(isNight() ? NIGHT : DAY, mood);
       face.setExpression(mood);
       if (ENTRY[mood]) setTimeout(() => face.react(ENTRY[mood]), 350);
       // Eyes shut means nothing to track; turn tracking back on otherwise.
       face.set({ track: mood !== 'sleep' });
     }
     clearTimeout(moodTimer);
-    moodTimer = setTimeout(nextMood, mood === 'sleep' ? rand(20000, 40000) : rand(7000, 15000));
+    // Lite spaces moods out (each one is a burst of drawing).
+    moodTimer = setTimeout(nextMood, mood === 'sleep' ? rand(20000, 40000) : CALM ? rand(16000, 26000) : rand(7000, 15000));
   }
   moodTimer = setTimeout(nextMood, 4000);
 
@@ -143,22 +212,26 @@
         Math.random() < 0.35 ? face.react('wink') : face.look(rand(-1, 1), rand(-0.6, 0.4), rand(900, 1800));
       }
       fidget();
-    }, rand(6000, 14000));
+    }, CALM ? rand(12000, 22000) : rand(6000, 14000));
   })();
 
-  // ---- Burn-in drift: face and clock wander ±40/±20px over minutes. Moved at 1 Hz; the SVG itself animates. ----
+  // ---- Burn-in drift: face and clock wander ±40/±20px over minutes. Moved at 1 Hz (every 10 s in lite, where each
+  // screen update costs); the SVG itself animates. ----
   const drift = document.getElementById('drift');
   setInterval(() => {
     const t = performance.now();
     drift.style.transform = `translate(${(Math.sin(t / 47000) * 40).toFixed(1)}px, ${(Math.cos(t / 61000) * 20).toFixed(1)}px)`;
-  }, 1000);
+  }, CALM ? 10000 : 1000);
 
   // ---- Clock ----
   const timeEl = document.getElementById('time'), dateEl = document.getElementById('date');
   function tick() {
     const d = new Date();
     // 24-hour time, always two-digit hours (09:05, 13:15).
-    timeEl.textContent = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    // Written only when it changes: every repaint costs on the tablet.
+    const t = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    if (timeEl.textContent === t) return;
+    timeEl.textContent = t;
     dateEl.textContent = d.toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' });
   }
   setInterval(tick, 5000); tick();
@@ -221,7 +294,7 @@
     tapTimer = setTimeout(() => {
       if (taps >= 3) show('annoyed', ['shake'], 3500);
       else if (taps === 2) { show('surprised', ['pop'], 4000); setTimeout(() => face.setExpression('joy'), 900); }
-      else if (fromHome) location.href = 'glass.html';
+      else if (fromHome) location.href = HOME;
       else show(asleep() ? 'surprised' : 'happy', ['bounce'], 3500);
       taps = 0;
     }, 280);
@@ -242,6 +315,7 @@
     'message':     () => { show('curious', ['boing'], 3500); face.look(0.6, -0.6, 1500); },
     'charging':    () => show('relieved', ['nod'], 4000),
     'battery-low': () => show('sleepy', [], 6000),
+    'unplugged':   () => show('sleepy', [], 4000),
     'speeding':    () => show('scared', ['jitter'], 4000),
   };
   EVENTS.horn = () => { show('scared', ['jitter', 'jitter'], 1600); setTimeout(() => show('annoyed', ['shake'], 3000), 1600); };
@@ -324,8 +398,9 @@
   };
   // Prototype only: a sample song with a long title so the marquee shows in the preview (?nosong hides it).
   // On the tablet the app pushes the real one instead.
-  if (!new URLSearchParams(location.search).has('nosong'))
+  if (!window.Android && !new URLSearchParams(location.search).has('nosong'))
     player.set({ title: 'Zona Nyaman (OST. Filosofi Kopi 2: Ben & Jody)', artist: 'Fourtwnty', playing: true });
+
 
   // ---- Browser-side player: a queue of local files, routed through the analyser so horn/beat detection hear it. ----
   const Q = { files: [], i: -1, audio: null, src: null, notify: true };
@@ -537,6 +612,7 @@
       if (place != null) { placePushed = true; placeEl.textContent = place; }
       else if (!placePushed && GS.last) placeEl.textContent = '';
     },
+    place(name) { placePushed = true; placeEl.textContent = name; },
     async refresh() {
       const lat = GS.last?.lat ?? -6.842, lon = GS.last?.lon ?? 107.921;
       try {
@@ -605,6 +681,40 @@
     bar.appendChild(meter);
     setInterval(() => { meter.textContent = [HS.on || HS.info ? HS.info : '', GS.info].filter(Boolean).join('   |   '); }, 200);
     screenEl.appendChild(bar);
+  }
+
+  // ---- The tablet (Android app only). Bridge.java pushes host.on(type, data): the playing song (controls go back
+  //      through Android.media), GPS fixes for the drive reactions and the weather, the place name, and the battery
+  //      (plugged in / unplugged / low). Plugging in is also "car start", which goes home when that setting is on. ----
+  if (window.Android) {
+    const strip = n => (n || '').replace(/^(Kabupaten|Kab\.|Kota|Kecamatan|Kec\.)\s+/i, '');
+    let gotFix = false, wasPlaying = null, wasCharging = null, lowShown = false;
+    player.onControl = cmd => Android.media(cmd);
+    window.host = {
+      on(type, d) {
+        if (type === 'media') {
+          if (!d.pkg || !d.title) { player.set({ title: '', artist: '', playing: false }); return; }
+          player.set({ title: d.title, artist: d.artist || '', playing: !!d.playing });
+          // Changes react; a song already playing when the screensaver opens starts it grooving too.
+          if (wasPlaying !== !!d.playing && (wasPlaying !== null || d.playing)) bbot.event(d.playing ? 'music-play' : 'music-pause');
+          wasPlaying = !!d.playing;
+        } else if (type === 'battery') {
+          if (wasCharging !== null && wasCharging !== !!d.charging) bbot.event(d.charging ? 'charging' : 'unplugged');
+          wasCharging = !!d.charging;
+          if (!d.charging && d.level <= 15 && !lowShown) { lowShown = true; bbot.event('battery-low'); }
+          if (d.charging || d.level > 20) lowShown = false;
+        } else if (type === 'gps') {
+          if (fromHome && (d.speed || 0) * 3.6 > 10) { location.href = HOME; return; }   // moving off: back to the dashboard
+          gpsFix(d);
+          if (!gotFix) { gotFix = true; weather.refresh(); }   // weather where the car is, not the fallback
+        } else if (type === 'place') {
+          const area = strip(d.area), district = strip(d.district);
+          if (area || district) weather.place(district && district !== area ? `${district}, ${area}` : area || district);
+        } else if (type === 'home') location.href = HOME;
+        else if (type === 'car-start') location.href = HOME + '#carstart';   // home opens the nav app
+      },
+    };
+    Android.ready();
   }
 </script>
 </body>

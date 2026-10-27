@@ -1,0 +1,803 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Car Home Lite</title>
+<link rel="stylesheet" href="vendor/fonts/fonts.css">
+<link rel="stylesheet" href="vendor/phosphor/fill/style.css">
+<style>
+  /* Car Home Lite: the same features as glass.html on a UI the Galaxy Tab A7 Lite can draw cheaply.
+     Measured on the tablet, every screen update costs about 10% CPU per update per second, so this page:
+     - uses solid surfaces only: no wallpaper, blur, backdrop-filter, filters, shadows or translucent layers;
+     - has no CSS animation or transition: things change in place, at most once a second;
+     - is laid out at the screen's real size (fluid grid), not a fixed canvas scaled with a transform;
+     - darkens each map tile once, as it loads (drawn into a canvas), instead of a live CSS filter on the moving map.
+     Same tablet bridge as glass.html (window.Android / host.on), same settings key ("carhome"). */
+  :root {
+    --bg: #0e1013; --panel: #171a1f; --raised: #20242b; --line: #2a2f37;
+    --text: #f1f3f5; --muted: #aab1bb; --faint: #7d8590;
+    --accent: #5aa7ff; --warn: #ff7a6b; --ok: #34c759;
+    --r: 18px;
+  }
+  /* Night: darker surfaces and softer whites; still no filters. */
+  body.night { --bg: #08090b; --panel: #101216; --raised: #171a1f; --line: #1f2329; --text: #d9dde2; --muted: #9098a2; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; overflow: hidden; background: var(--bg); color: var(--text);
+    font-family: "Geist", system-ui, sans-serif; -webkit-font-smoothing: antialiased; -webkit-tap-highlight-color: transparent; user-select: none; }
+  button { font: inherit; color: inherit; background: none; border: 0; text-align: left; cursor: pointer; }
+  .press:active { opacity: 0.6; }
+  i[class^="ph"] { line-height: 1; }
+  .num { font-variant-numeric: tabular-nums; }
+
+  /* Layout: rail on the right (or left), then map / centre / car columns. */
+  #app { height: 100%; display: grid; grid-template-columns: 1fr 68px; gap: 10px; padding: 10px; }
+  body.left #app { grid-template-columns: 68px 1fr; }
+  body.left .rail { order: -1; }
+  /* One grid for all panels: the car panel spans two narrow columns on top; below, the music card takes one of them
+     and the volume / brightness bars the other (narrow), so the cassette gets the width. Columns are display: contents. */
+  .main { min-width: 0; min-height: 0; display: grid; gap: 10px;
+    grid-template-columns: 0.95fr 1.15fr 0.5fr 0.4fr; grid-template-rows: 1fr auto;
+    grid-template-areas: "map today car car" "map music music sliders"; }
+  .col { display: contents; }
+  .map { grid-area: map; } .today { grid-area: today; } .music { grid-area: music; } .car { grid-area: car; } .sliders { grid-area: sliders; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); min-height: 0; overflow: hidden; position: relative; }
+  .label { font-size: 14px; font-weight: 500; color: var(--muted); }
+
+  /* Rail */
+  .rail { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); display: flex; flex-direction: column; align-items: center; padding: 10px 0; gap: 10px; }
+  .status { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 8px 0 10px; width: 52px; border-radius: 14px; background: var(--raised); }
+  .status .bat { font-size: 14px; font-weight: 600; }
+  .status i { font-size: 18px; }
+  .status .off { color: var(--faint); }
+  .status .warn { color: var(--warn); }
+  .rbtn { width: 52px; height: 52px; border-radius: 14px; display: grid; place-items: center; background: var(--raised); font-size: 24px; }
+  .rbtn.on { background: var(--accent); color: #fff; }
+  .dock { margin: auto 0; display: flex; flex-direction: column; gap: 10px; align-items: center; }
+  .dock .sep { width: 24px; height: 1px; background: var(--line); }
+  .tile { width: 52px; height: 52px; border-radius: 14px; display: grid; place-items: center; position: relative; }
+  .tile img { width: 50%; height: 50%; }
+  .tile i { font-size: 26px; color: #fff; }
+  .tile .pin { position: absolute; top: -4px; right: -4px; width: 18px; height: 18px; border-radius: 50%; background: var(--text); color: var(--bg); display: none; place-items: center; }
+  .tile .pin i { font-size: 11px; color: var(--bg); }
+  .pinned .pin { display: grid; }
+  .dock-item { position: relative; }
+  .dock-item.open::after { content: ""; position: absolute; right: -9px; top: 50%; width: 4px; height: 20px; margin-top: -10px; border-radius: 2px; background: var(--text); }
+  body.left .dock-item.open::after { right: auto; left: -9px; }
+
+  /* Map: OSM data, dark tiles, the car under the puck; turn card and ETA only while the nav app navigates. */
+  .map { background: #111418; }
+  /* Google map (Map: Google): fills the panel under the cards; no gestures, so a tap still opens the nav app. */
+  .gmap { position: absolute; inset: 0; pointer-events: none; }
+  .map.google .tiles, .map.google .attrib { display: none; }
+  .map:not(.google) .gmap { display: none; }
+  /* Waze live map (Map: Waze live): Waze's own embed in an iframe bigger than the panel, so its search box, buttons and
+     footer sit outside the panel and the frame can slide with the car before it needs reloading. */
+  .wmap { position: absolute; border: 0; pointer-events: none; background: #f6f4ef; }
+  .map.waze .tiles, .map.waze .attrib { display: none; }
+  /* Dark (Map: Dark): Dark Matter vector map drawn by MapLibre; no gestures, so a tap still opens the nav app. */
+  .map .vmap { position: absolute; inset: 0; pointer-events: none; }   /* .map: beats MapLibre's own position: relative */
+  .map.vector .tiles { display: none; }
+  .map:not(.vector) .vmap { display: none; }
+  .tiles { position: absolute; display: grid; }
+  .tiles canvas { width: 256px; height: 256px; display: block; }
+  .puck { position: absolute; left: 50%; top: 64%; width: 22px; height: 22px; margin: -11px; border-radius: 50%; background: var(--accent); border: 3px solid #fff; }
+  .turn { position: absolute; left: 10px; right: 10px; top: 10px; display: flex; gap: 12px; align-items: center; padding: 10px 14px 10px 10px; border-radius: 14px; background: var(--raised); }
+  .turn .arrow { width: 44px; height: 44px; border-radius: 12px; background: var(--accent); display: grid; place-items: center; font-size: 26px; color: #fff; flex: none; }
+  .turn .arrow img { width: 34px; height: 34px; }
+  .turn .dist { font-size: 24px; font-weight: 700; }
+  .turn .street { font-size: 14px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .turn > div:last-child { min-width: 0; }
+  .eta { position: absolute; left: 10px; right: 10px; bottom: 10px; display: grid; grid-template-columns: repeat(3, 1fr); padding: 10px 14px; border-radius: 14px; background: var(--raised); }
+  .eta b { display: block; font-size: 20px; font-weight: 600; }
+  .eta span { font-size: 13px; color: var(--muted); }
+  .hint { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); padding: 9px 16px; border-radius: 999px; background: var(--raised); font-size: 14px; font-weight: 600; white-space: nowrap; }
+  .attrib { position: absolute; right: 6px; bottom: 2px; font-size: 9px; color: var(--faint); }
+  .map.nav .hint { display: none; }
+  .map:not(.nav) .turn, .map:not(.nav) .eta, .map.no-eta .eta { display: none; }
+
+  /* Today: plain text clock, date, weather with a still icon. */
+  .today { padding: 16px 20px; display: grid; grid-template-rows: auto 1fr auto; }
+  /* HTC Sense style flip cards, drawn once: light card, centre seam, hinge notches. The digits change in place once a
+     minute; no flip animation (each animated frame costs ~10% CPU on this tablet). */
+  .flip { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .card2 { position: relative; height: 128px; border-radius: 14px; background: #eceef0; color: #25282d; display: grid; place-items: center;
+    font-size: 108px; font-weight: 300; letter-spacing: -0.04em; line-height: 1; overflow: hidden; }
+  .card2::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 50%; background: #dfe1e4; }
+  .card2::after { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 2px; margin-top: -1px; background: #b9bdc3; }
+  .card2 span { position: relative; z-index: 1; }
+  .card2 .notch { position: absolute; z-index: 2; top: 50%; width: 6px; height: 14px; margin-top: -7px; border-radius: 3px; background: var(--panel); }
+  .card2 .notch.l { left: -3px; } .card2 .notch.r { right: -3px; }
+  body.night .card2 { background: #c9ccd1; } body.night .card2::before { background: #bcc0c5; }
+  .date { font-size: 17px; font-weight: 500; color: var(--muted); margin-top: 10px; }
+  .wx { align-self: end; display: flex; align-items: center; gap: 12px; }
+  .wx img { width: 56px; height: 42px; object-fit: contain; }
+  .wx .t { font-size: 30px; font-weight: 500; }
+  .wx .c { font-size: 15px; color: var(--muted); }
+  .wx .hl { margin-left: auto; text-align: right; font-size: 15px; color: var(--muted); }
+  .place { font-size: 14px; color: var(--muted); margin-top: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  /* Music as a flat cassette: label strip with the song on top, a window with two still reels (spokes on the left, the
+     album art as the right reel) and the progress between them, controls on the bridge below. Nothing spins smoothly:
+     each moving frame would cost ~10% CPU here; the progress and the left reel step once a second. */
+  .music { padding: 14px 16px 0; display: grid; grid-template-rows: auto auto auto; gap: 14px; align-content: end; }
+  .screw { position: absolute; width: 8px; height: 8px; border-radius: 50%; background: var(--line); }
+  .screw.tl { left: 10px; top: 10px; } .screw.tr { right: 10px; top: 10px; } .screw.bl { left: 10px; bottom: 10px; } .screw.br { right: 10px; bottom: 10px; }
+  .tape-label { text-align: center; min-width: 0; padding: 0 14px; }
+  .tape-label .title { font-size: 19px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tape-label .artist { font-size: 15px; color: var(--muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .window { align-self: center; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 12px; padding: 8px; border-radius: 999px; background: var(--raised); }
+  .reel { width: 84px; height: 84px; border-radius: 50%; background: #2c3038; display: grid; place-items: center; }
+  .hub { width: 58px; height: 58px; border-radius: 50%; display: grid; place-items: center; }
+  .hub.spokes { background: #e7e5de; }
+  .hub.spokes::before { content: ""; width: 34px; height: 34px; border-radius: 50%; background: repeating-conic-gradient(#25282d 0 18deg, transparent 18deg 60deg);
+    transform: rotate(var(--turn, 0deg)); }
+  .hub.spokes::after { content: ""; position: absolute; width: 12px; height: 12px; border-radius: 50%; background: #e7e5de; }
+  .hub.spokes { position: relative; }
+  .art { background: #3a3f48 center / cover; font-size: 24px; color: var(--muted); }
+  .mid { min-width: 0; display: grid; gap: 6px; justify-items: center; }
+  .prog { width: 100%; }
+  .prog .bar { height: 4px; border-radius: 2px; background: #3a3f48; overflow: hidden; }
+  .prog .bar i { display: block; height: 100%; width: 0; background: var(--text); }
+  .prog .times { display: flex; justify-content: space-between; font-size: 13px; color: var(--muted); margin-top: 5px; }
+  .live-badge { display: none; font-size: 12px; font-weight: 700; letter-spacing: 0.06em; color: var(--warn); }
+  .music.live .prog { display: none; } .music.live .live-badge { display: block; }
+  .music.idle .prog { visibility: hidden; }
+  .app-pill { display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px 5px 8px; border-radius: 999px; background: var(--panel); font-size: 13px; font-weight: 600; }
+  .app-pill img { width: 14px; height: 14px; } .app-pill i { font-size: 15px; }
+  .controls { justify-self: center; width: 78%; display: grid; grid-template-columns: 1fr 1.3fr 1fr; gap: 8px; padding: 10px 18px 12px;
+    background: var(--raised); clip-path: polygon(7% 0, 93% 0, 100% 100%, 0 100%); }
+  .controls button { border-radius: 12px; display: grid; place-items: center; font-size: 26px; height: 52px; }
+  .controls .play { background: var(--text); color: var(--bg); font-size: 30px; }
+  .music.no-skip .skip { visibility: hidden; }
+
+  /* Car: big speed number, source chip, four stats. */
+  .car { padding: 14px 16px; display: grid; grid-template-rows: auto auto 1fr; gap: 10px; }
+  .car-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 11px; border-radius: 999px; background: var(--raised); font-size: 13px; font-weight: 600; }
+  .speed { display: flex; align-items: baseline; gap: 8px; }
+  .speed b { font-size: 76px; font-weight: 600; letter-spacing: -0.03em; line-height: 1; }
+  .speed span { font-size: 16px; color: var(--muted); }
+  .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; align-content: end; }
+  .stat { background: var(--raised); border-radius: 12px; padding: 9px 12px; }
+  .stat span { display: flex; align-items: center; gap: 5px; font-size: 13px; font-weight: 500; color: var(--muted); }
+  .stat b { display: block; font-size: 20px; font-weight: 600; margin-top: 2px; }
+  .stat b small { font-size: 13px; font-weight: 500; color: var(--muted); }
+  .reset { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; background: var(--raised); font-size: 16px; }
+
+  /* Volume and brightness: two vertical bars filling from the bottom; drag anywhere on a bar. */
+  .sliders { padding: 12px 10px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .slider { display: grid; grid-template-rows: 1fr auto; justify-items: center; gap: 8px; min-height: 0; }
+  .track { position: relative; width: 100%; max-width: 72px; height: 100%; border-radius: 18px; background: var(--raised); overflow: hidden; touch-action: none; }
+  .track .fill { position: absolute; left: 0; right: 0; bottom: 0; height: 50%; background: var(--text); }
+  .track i { position: absolute; left: 50%; bottom: 14px; margin-left: -12px; font-size: 24px; color: #2a2e35; }
+  .track.low i { color: var(--text); }
+  .slider .val { font-size: 14px; color: var(--muted); }
+
+  /* Pages over the main area: all apps, Controls. Instant, no transitions. */
+  .page { display: none; position: absolute; inset: 10px; z-index: 5; background: var(--bg); }
+  body.left .page { inset: 10px 10px 10px 88px; }
+  body:not(.left) .page { inset: 10px 88px 10px 10px; }
+  body.show-apps #apps, body.show-cc #cc { display: grid; }
+  #apps { grid-template-rows: auto 1fr; gap: 14px; padding: 10px 6px; }
+  .page h1 { font-size: 26px; font-weight: 600; }
+  .page .sub { font-size: 14px; color: var(--muted); margin-top: 3px; }
+  .apps-grid { display: grid; grid-template-columns: repeat(6, 1fr); align-content: start; row-gap: 22px; }
+  .app { display: flex; flex-direction: column; align-items: center; gap: 8px; font-size: 14px; font-weight: 500; }
+  .app .tile { width: 64px; height: 64px; border-radius: 16px; }
+  #cc { grid-template-rows: auto 1fr; gap: 12px; padding: 6px; }
+  .cc-head { display: flex; justify-content: space-between; align-items: center; }
+  .close { height: 44px; padding: 0 20px; border-radius: 999px; background: var(--raised); font-size: 15px; font-weight: 600; }
+  .cc-grid { display: grid; grid-template-columns: repeat(4, 1fr); grid-auto-rows: min-content; gap: 10px; align-content: start; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 12px; min-width: 0; }
+  .card.s2 { grid-column: span 2; }
+  .tog { display: flex; align-items: center; gap: 10px; }
+  .tog .disc { width: 40px; height: 40px; border-radius: 50%; background: var(--raised); display: grid; place-items: center; font-size: 20px; flex: none; }
+  .tog.on .disc { background: var(--accent); color: #fff; }
+  .tog b { display: block; font-size: 15px; font-weight: 600; }
+  .tog small { display: block; font-size: 13px; color: var(--muted); }
+  .seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 4px; padding: 4px; border-radius: 12px; background: var(--raised); margin-top: 8px; }
+  .seg button { height: 38px; border-radius: 9px; text-align: center; font-size: 14px; font-weight: 600; color: var(--muted); }
+  .seg button[aria-pressed="true"] { background: var(--text); color: var(--bg); }
+  .sw { margin-left: auto; width: 46px; height: 28px; border-radius: 14px; background: var(--raised); position: relative; flex: none; }
+  .sw::after { content: ""; position: absolute; left: 3px; top: 3px; width: 22px; height: 22px; border-radius: 50%; background: var(--muted); }
+  .tog.on .sw { background: var(--accent); } .tog.on .sw::after { left: 21px; background: #fff; }
+  .health { display: flex; align-items: center; gap: 10px; }
+  .health i { font-size: 22px; } .health b { font-size: 18px; } .health small { display: block; font-size: 13px; color: var(--muted); }
+  .health.bad i, .health.bad small { color: var(--warn); }
+  .full { color: var(--accent); font-size: 14px; font-weight: 600; }
+  .scrim { display: none; }
+
+  .toast { position: absolute; left: 50%; bottom: 20px; transform: translateX(-50%); padding: 10px 18px; border-radius: 999px; background: var(--text); color: var(--bg); font-size: 15px; font-weight: 600; z-index: 9; display: none; }
+  .toast.show { display: block; }
+</style>
+</head>
+<body>
+<div id="app">
+  <main class="main">
+    <section class="panel map press" id="map" data-app="waze" aria-label="Map">
+      <div class="tiles" id="tiles"></div>
+      <div class="gmap" id="gmap"></div>
+      <div id="wmaps"></div>
+      <div class="vmap" id="vmap"></div>
+      <div class="puck"></div>
+      <div class="turn">
+        <div class="arrow" id="navArrow"><i class="ph-fill ph-arrow-bend-up-right"></i></div>
+        <div><div class="dist num" id="navDist">300 m</div><div class="street" id="navStreet">Jl. Prabu Geusan Ulun</div></div>
+      </div>
+      <div class="eta num">
+        <div><b id="etaAt">17:31</b><span>arrival</span></div>
+        <div><b id="etaLeft">12 min</b><span>left</span></div>
+        <div><b id="etaDist">4.2 km</b><span>to go</span></div>
+      </div>
+      <div class="hint" id="mapHint">Tap for Waze</div>
+      <div class="attrib" id="attrib">&copy; OpenStreetMap contributors</div>
+    </section>
+
+    <div class="col">
+      <section class="panel today" aria-label="Today">
+        <div><div class="flip num" id="time"><div class="card2"><span id="cH">--</span><i class="notch l"></i><i class="notch r"></i></div><div class="card2"><span id="cM">--</span><i class="notch l"></i><i class="notch r"></i></div></div><div class="date" id="date"></div></div>
+        <div></div>
+        <div>
+          <div class="wx"><img id="wxIcon" alt="" src="vendor/weatherglass/partly_cloudy_day.png"><div><div class="t num" id="wxTemp">--&deg;</div><div class="c" id="wxCond"></div></div><div class="hl num" id="wxHL"></div></div>
+          <div class="place" id="place">Sumedang Utara, Sumedang</div>
+        </div>
+      </section>
+      <section class="panel music" id="music" aria-label="Now playing">
+        <i class="screw tl"></i><i class="screw tr"></i><i class="screw bl"></i><i class="screw br"></i>
+        <div class="tape-label"><div class="title" id="title"></div><div class="artist" id="artist"></div></div>
+        <div class="window">
+          <div class="reel"><div class="hub spokes"></div></div>
+          <div class="mid">
+            <div class="prog"><div class="bar"><i id="prog"></i></div><div class="times num"><span id="tNow">0:00</span><span id="tLen">0:00</span></div></div>
+            <div class="live-badge">LIVE</div>
+            <button class="app-pill press" id="appPill"></button>
+          </div>
+          <div class="reel"><div class="hub art" id="art"></div></div>
+        </div>
+        <div class="controls">
+          <button class="skip press" id="prev" aria-label="Previous"><i class="ph-fill ph-skip-back"></i></button>
+          <button class="play press" id="play" aria-label="Pause"><i class="ph-fill ph-pause"></i></button>
+          <button class="skip press" id="next" aria-label="Next"><i class="ph-fill ph-skip-forward"></i></button>
+        </div>
+      </section>
+    </div>
+
+    <div class="col">
+      <section class="panel car" aria-label="Car">
+        <div class="car-head"><span class="label">Car</span><span style="display:flex;gap:6px"><button class="chip press" id="srcChip"></button><button class="reset press" id="resetBtn" aria-label="Reset trip (hold)"><i class="ph-fill ph-arrow-counter-clockwise"></i></button></span></div>
+        <div class="speed num"><b id="speed">0</b><span>km/h</span></div>
+        <div class="stats num" id="stats"></div>
+      </section>
+      <section class="panel sliders" aria-label="Volume and brightness">
+        <div class="slider"><div class="track" data-k="vol"><div class="fill"></div><i class="ph-fill ph-speaker-high"></i></div><span class="val num" id="volVal"></span></div>
+        <div class="slider"><div class="track" data-k="bri"><div class="fill"></div><i class="ph-fill ph-sun"></i></div><span class="val num" id="briVal"></span></div>
+      </section>
+    </div>
+  </main>
+
+  <aside class="rail" aria-label="Sidebar">
+    <button class="status press" id="statusBtn" aria-label="Controls">
+      <span class="bat num" id="stBat">--%</span><i id="stNet" class="ph-fill ph-wifi-high"></i><i id="stBt" class="ph-fill ph-bluetooth"></i><span id="stWarn"></span>
+    </button>
+    <button class="rbtn press" id="gearBtn" aria-label="Controls"><i class="ph-fill ph-gear-six"></i></button>
+    <button class="rbtn press" id="saverBtn" aria-label="Screensaver"><i class="ph-fill ph-eyes"></i></button>
+    <nav class="dock" id="dock" aria-label="Pinned and recent apps"></nav>
+    <button class="rbtn press" id="homeBtn" aria-label="All apps"><i class="ph-fill ph-dots-nine"></i></button>
+  </aside>
+</div>
+
+<section class="page" id="apps" aria-label="All apps">
+  <div><h1>All apps</h1><p class="sub">Hold an app to pin it to the sidebar</p></div>
+  <div class="apps-grid" id="appsGrid"></div>
+</section>
+
+<section class="page" id="cc" aria-label="Controls">
+  <div class="cc-head"><h1>Controls</h1><button class="close press" id="ccClose">Done</button></div>
+  <div class="cc-grid">
+    <button class="card tog press" data-t="wifi"><span class="disc"><i class="ph-fill ph-wifi-high"></i></span><span><b>Wi-Fi</b><small></small></span></button>
+    <button class="card tog press" data-t="bt"><span class="disc"><i class="ph-fill ph-bluetooth"></i></span><span><b>Bluetooth</b><small></small></span></button>
+    <button class="card tog press" data-t="data"><span class="disc"><i class="ph-fill ph-cell-signal-high"></i></span><span><b>Mobile data</b><small></small></span></button>
+    <button class="card tog press" data-t="hotspot"><span class="disc"><i class="ph-fill ph-broadcast"></i></span><span><b>Hotspot</b><small></small></span></button>
+    <div class="card s2"><div class="label">Night mode</div><div class="seg" data-seg="night"><button data-v="auto">Auto</button><button data-v="day">Day</button><button data-v="night">Night</button></div></div>
+    <div class="card s2"><div class="label">Sidebar</div><div class="seg" data-seg="side"><button data-v="left">Left</button><button data-v="right">Right</button></div></div>
+    <div class="card s2"><div class="label">Map</div><div class="seg" data-seg="mapSrc"><button data-v="dark">Dark</button><button data-v="osm">OpenStreetMap</button><button data-v="waze">Waze live</button><button data-v="google">Google</button></div></div>
+    <div class="card s2"><div class="label">Navigation app</div><div class="seg" data-seg="nav"><button data-v="waze">Waze</button><button data-v="maps">Google Maps</button></div></div>
+    <button class="card s2 tog press" data-t="autoOpen"><span class="disc"><i class="ph-fill ph-car-simple"></i></span><span><b id="autoOpenTitle">Open Waze when the car starts</b><small>Full screen when you plug in</small></span><span class="sw"></span></button>
+    <button class="card tog press" data-t="dnd"><span class="disc"><i class="ph-fill ph-moon"></i></span><span><b>Do Not Disturb</b><small></small></span></button>
+    <button class="card tog press" data-t="autoBri"><span class="disc"><i class="ph-fill ph-sun-dim"></i></span><span><b>Auto brightness</b><small></small></span></button>
+    <div class="card health" id="batCard"></div>
+    <div class="card health" id="tempCard"></div>
+    <div class="card s2" style="background:none;border:0;padding:4px 2px"><button class="full press" id="fullBtn">Switch to the full version (glass)</button></div>
+  </div>
+</section>
+
+<div class="toast" id="toast"></div>
+
+<!-- Google Maps API key (window.GOOGLE_MAPS_KEY), git-ignored; copy maps-key.example.js to maps-key.js. Optional:
+     without it the map stays on OpenStreetMap. -->
+<script src="maps-key.js"></script>
+<script>
+  const $ = id => document.getElementById(id);
+  const NATIVE = !!window.Android;     // the Android app (Bridge.java); otherwise a browser prototype with sample data
+  const pad = n => String(n).padStart(2, '0');
+  let tt;
+  function say(msg) { $('toast').textContent = msg; $('toast').classList.add('show'); clearTimeout(tt); tt = setTimeout(() => $('toast').classList.remove('show'), 1500); }
+
+  // ---- Settings, shared with glass.html. ----
+  const S = Object.assign({ side: 'right', night: 'auto', nav: 'waze', mapSrc: 'dark', pins: ['waze', 'spotify'], autoOpen: true,
+    wifi: true, bt: true, data: true, hotspot: false, dnd: true, autoBri: true, obd: true }, JSON.parse(localStorage.getItem('carhome') || '{}'));
+  const save = () => {
+    localStorage.setItem('carhome', JSON.stringify(S));
+    if (NATIVE) Android.setPrefs(JSON.stringify({ autoOpen: S.autoOpen, navPkg: (byId[S.nav] || {}).pkg }));
+  };
+
+  // ---- Apps. ----
+  const si = slug => `<img src="vendor/simpleicons/${slug}.svg" alt="">`, ph = n => `<i class="ph-fill ph-${n}"></i>`;
+  const APPS = [
+    { id: 'waze', pkg: 'com.waze', name: 'Waze', bg: '#33ccff', icon: si('waze') },
+    { id: 'maps', pkg: 'com.google.android.apps.maps', name: 'Google Maps', bg: '#34a853', icon: si('googlemaps') },
+    { id: 'spotify', pkg: 'com.spotify.music', name: 'Spotify', bg: '#1db954', icon: si('spotify') },
+    { id: 'ytmusic', pkg: 'com.google.android.apps.youtube.music', name: 'YT Music', bg: '#ff0033', icon: si('youtubemusic') },
+    { id: 'applemusic', pkg: 'com.apple.android.music', name: 'Apple Music', bg: '#fa243c', icon: si('applemusic') },
+    { id: 'prambors', pkg: 'com.pandacode.prambors.prambors', name: 'Prambors', bg: '#f2711c', icon: ph('radio') },
+    { id: 'phone', pkg: 'com.samsung.android.dialer', name: 'Phone', bg: '#2fbf5b', icon: ph('phone') },
+    { id: 'whatsapp', pkg: 'com.whatsapp', name: 'WhatsApp', bg: '#25d366', icon: si('whatsapp') },
+    { id: 'carbitlink', pkg: 'net.easyconn.carman.wws', name: 'CarbitLink', bg: '#2c6bed', icon: ph('car-profile') },
+    { id: 'youtube', pkg: 'com.google.android.youtube', name: 'YouTube', bg: '#ff0033', icon: si('youtube') },
+    { id: 'chrome', pkg: 'com.android.chrome', name: 'Chrome', bg: '#f2f4f7', icon: si('googlechrome') },
+    { id: 'settings', pkg: 'com.android.settings', name: 'Settings', bg: '#59606d', icon: ph('gear-six') },
+  ];
+  if (NATIVE) for (let i = APPS.length - 1; i >= 0; i--) if (APPS[i].id !== S.nav && !Android.has(APPS[i].pkg)) APPS.splice(i, 1);
+  const byId = Object.fromEntries(APPS.map(a => [a.id, a])), appByPkg = pkg => APPS.find(a => a.pkg === pkg);
+  let recents = ['waze', 'prambors', 'whatsapp', 'spotify', 'ytmusic'].filter(id => byId[id]);
+  S.pins = S.pins.filter(id => byId[id]);
+  const RAIL = 4, PIN = '<span class="pin"><i class="ph-fill ph-push-pin"></i></span>';
+  const tileHtml = a => `<div class="tile" style="background:${a.bg}">${a.icon}${PIN}</div>`;
+  function renderDock() {
+    const pins = S.pins.slice(0, RAIL), rest = recents.filter(id => !pins.includes(id)).slice(0, RAIL - pins.length);
+    const item = (id, pinned) => `<button class="dock-item press${pinned ? ' pinned' : ''}${id === recents[0] ? ' open' : ''}" data-app="${id}" aria-label="${byId[id].name}">${tileHtml(byId[id])}</button>`;
+    $('dock').innerHTML = pins.map(id => item(id, true)).join('') + (pins.length && rest.length ? '<span class="sep"></span>' : '') + rest.map(id => item(id, false)).join('');
+    document.querySelectorAll('#appsGrid .app').forEach(el => el.classList.toggle('pinned', S.pins.includes(el.dataset.app)));
+  }
+  $('appsGrid').innerHTML = APPS.map(a => `<button class="app press" data-app="${a.id}">${tileHtml(a)}<span>${a.name}</span></button>`).join('');
+  renderDock();
+
+  function openApp(id) {
+    if (!byId[id]) return;
+    recents = [id, ...recents.filter(r => r !== id)].slice(0, 8);
+    renderDock(); show(null);
+    if (NATIVE) Android.openApp(byId[id].pkg); else say(`Opens ${byId[id].name}`);
+  }
+  // Hold an app in the sidebar or All apps to pin or unpin it.
+  let holdT, held = false;
+  document.addEventListener('pointerdown', e => {
+    const el = e.target.closest('.dock-item, .app'); if (!el) return;
+    held = false; clearTimeout(holdT);
+    holdT = setTimeout(() => {
+      held = true; const id = el.dataset.app, name = byId[id].name;
+      if (S.pins.includes(id)) { S.pins = S.pins.filter(p => p !== id); say(`Unpinned ${name}`); }
+      else if (S.pins.length >= RAIL) { say('Sidebar is full: hold a pinned app to unpin it'); return; }
+      else { S.pins.push(id); say(`Pinned ${name}`); }
+      save(); renderDock();
+    }, 550);
+  });
+  ['pointerup', 'pointercancel'].forEach(ev => document.addEventListener(ev, () => clearTimeout(holdT)));
+  document.addEventListener('click', e => {
+    const el = e.target.closest('[data-app]'); if (!el || !el.dataset.app) return;
+    if (held) { held = false; return; }
+    openApp(el.dataset.app);
+  });
+
+  // ---- Pages: All apps and Controls (one at a time, shown instantly). ----
+  function show(page) {
+    document.body.classList.toggle('show-apps', page === 'apps');
+    document.body.classList.toggle('show-cc', page === 'cc');
+    $('homeBtn').innerHTML = `<i class="ph-fill ph-${page === 'apps' ? 'house' : 'dots-nine'}"></i>`;
+    $('gearBtn').classList.toggle('on', page === 'cc');
+  }
+  $('homeBtn').onclick = () => show(document.body.classList.contains('show-apps') ? null : 'apps');
+  $('gearBtn').onclick = $('statusBtn').onclick = () => show(document.body.classList.contains('show-cc') ? null : 'cc');
+  $('ccClose').onclick = () => show(null);
+  $('fullBtn').onclick = () => { location.href = 'glass.html'; };
+
+  // ---- Controls. In the app, connectivity and DND open the system panels (Android 10+ does not let apps switch them). ----
+  const NET = { ssid: '' };
+  const SUB = {
+    wifi: on => on ? (NATIVE ? NET.ssid || 'Connected' : 'Faizal iPhone') : 'Off', bt: on => on ? 'On' : 'Off',
+    data: on => on ? (NATIVE ? 'In use' : 'Telkomsel LTE') : 'Off', hotspot: on => on ? 'On' : 'Off',
+    dnd: on => on ? 'On while driving' : 'Off', autoBri: on => on ? 'On' : 'Off',
+  };
+  $('cc').addEventListener('click', e => {
+    const t = e.target.closest('[data-t]'), sb = e.target.closest('[data-seg] button');
+    if (t && NATIVE && ['wifi', 'bt', 'data', 'hotspot', 'dnd'].includes(t.dataset.t)) { Android.openPanel(t.dataset.t); return; }
+    if (t && NATIVE && t.dataset.t === 'autoBri' && !Android.setAutoBrightness(!S.autoBri)) return;
+    if (t) S[t.dataset.t] = !S[t.dataset.t];
+    else if (sb) S[sb.closest('[data-seg]').dataset.seg] = sb.dataset.v;
+    else return;
+    save(); apply();
+  });
+  const isNight = () => { const h = new Date().getHours(); return S.night === 'night' || (S.night === 'auto' && (h >= 18 || h < 6)); };
+  function apply() {
+    document.body.classList.toggle('left', S.side === 'left');
+    document.body.classList.toggle('night', isNight());
+    document.querySelectorAll('[data-t]').forEach(el => {
+      el.classList.toggle('on', !!S[el.dataset.t]);
+      const sm = el.querySelector('small'); if (SUB[el.dataset.t]) sm.textContent = SUB[el.dataset.t](S[el.dataset.t]);
+    });
+    document.querySelectorAll('[data-seg]').forEach(seg => seg.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === S[seg.dataset.seg])));
+    const nav = byId[S.nav] || APPS[0];
+    $('map').dataset.app = nav.id; $('mapHint').textContent = `Tap for ${nav.name}`;
+    $('autoOpenTitle').textContent = `Open ${nav.name} when the car starts`;
+    useMap(S.mapSrc);
+    renderStatus(); renderCar();
+  }
+
+  // ---- Status and tablet health. ----
+  let level = 84, charging = true, temp = 36;
+  function renderStatus() {
+    const hot = temp >= 45;
+    $('stBat').textContent = `${level}%`;
+    $('stNet').className = 'ph-fill ' + (S.wifi ? 'ph-wifi-high' : S.data ? 'ph-cell-signal-high' : 'ph-cell-signal-slash off');
+    $('stBt').className = 'ph-fill ' + (S.bt ? 'ph-bluetooth' : 'ph-bluetooth-slash off');
+    $('stWarn').innerHTML = (hot ? '<i class="ph-fill ph-thermometer-hot warn"></i>' : '') + (charging ? '' : '<i class="ph-fill ph-plugs warn"></i>');
+    $('batCard').className = 'card health' + (charging ? '' : ' bad');
+    $('batCard').innerHTML = `<i class="ph-fill ph-battery-${charging ? 'charging-vertical' : 'high'}"></i><span><b class="num">${level}%</b><small>${charging ? 'Charging' : 'Not charging, check the cable'}</small></span>`;
+    $('tempCard').className = 'card health' + (hot ? ' bad' : '');
+    $('tempCard').innerHTML = `<i class="ph-fill ph-thermometer-simple"></i><span><b class="num">${temp}&deg;C</b><small>${hot ? 'Too hot, shade it' : 'Normal'}</small></span>`;
+  }
+
+  // ---- Clock, once a minute. ----
+  function tick() {
+    const d = new Date();
+    $('cH').textContent = pad(d.getHours()); $('cM').textContent = pad(d.getMinutes());
+    $('date').textContent = d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
+    if (S.night === 'auto') document.body.classList.toggle('night', isNight());
+  }
+  (function minute() { tick(); setTimeout(minute, 60000 - Date.now() % 60000 + 30); })();
+
+  // ---- Weather: Open-Meteo at the GPS fix (sample: Sumedang Utara), every 20 min. Still icon, no animation. ----
+  const WX = { 0: 'Clear', 1: 'Mostly clear', 2: 'Partly cloudy', 3: 'Cloudy', 45: 'Fog', 48: 'Fog', 51: 'Drizzle', 53: 'Drizzle', 55: 'Drizzle',
+               61: 'Rain', 63: 'Rain', 65: 'Heavy rain', 80: 'Showers', 81: 'Showers', 82: 'Heavy showers', 95: 'Thunderstorm', 96: 'Thunderstorm', 99: 'Thunderstorm' };
+  const wxIcon = c => { const n = new Date().getHours(), night = n >= 18 || n < 6;
+    return c <= 1 ? (night ? 'clear_night' : 'sunny') : c === 2 ? (night ? 'partly_cloudy_night' : 'partly_cloudy_day') : c === 3 ? 'cloud'
+      : c <= 48 ? 'foggy' : (c >= 71 && c <= 77) ? 'snowflake' : c >= 95 ? 'thunderstorm' : 'rainy'; };
+  function fetchWx(lat, lon) {
+    fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min&forecast_days=1&timezone=auto`)
+      .then(r => r.json()).then(j => { const c = j.current.weather_code;
+        $('wxTemp').textContent = `${Math.round(j.current.temperature_2m)}°`; $('wxCond').textContent = WX[c] || 'Cloudy';
+        $('wxHL').textContent = `${Math.round(j.daily.temperature_2m_max[0])}° / ${Math.round(j.daily.temperature_2m_min[0])}°`;
+        $('wxIcon').src = `vendor/weatherglass/${wxIcon(c)}.png`; }).catch(() => {});
+  }
+  let wxAt = Date.now();
+  fetchWx(-6.842, 107.921);
+  const strip = n => (n || '').replace(/^(Kabupaten|Kab\.|Kota|Kecamatan|Kec\.)\s+/i, '');
+
+  // ---- Car: GPS speed, heading and trip (OBD values are a prototype sample). ----
+  let speed = 0, heading = 0, tripKm = 0, driveS = 0;
+  if (!NATIVE) { speed = 48; heading = 42; tripKm = 12.4; driveS = 38 * 60; }
+  function renderCar() {
+    $('speed').textContent = speed;
+    const obd = S.obd && !NATIVE;
+    $('srcChip').innerHTML = obd ? '<i class="ph-fill ph-plugs-connected"></i>OBD' : '<i class="ph-fill ph-navigation-arrow"></i>GPS';
+    $('resetBtn').style.display = obd ? 'none' : '';
+    const st = (icon, label, val, unit) => `<div class="stat"><span><i class="ph-fill ph-${icon}"></i>${label}</span><b>${val}${unit ? ` <small>${unit}</small>` : ''}</b></div>`;
+    const avg = driveS > 0 ? Math.round(tripKm / (driveS / 3600)) : 0;
+    $('stats').innerHTML = obd
+      ? st('gauge', 'Engine', (800 + speed * 36).toLocaleString('en'), 'rpm') + st('thermometer-simple', 'Coolant', '88°', 'C') + st('gas-pump', 'Fuel', '62%', '') + st('car-battery', 'Battery', '14.2', 'V')
+      : st('compass', 'Heading', ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'][Math.round(heading / 45) % 8], '') + st('path', 'Trip', tripKm.toFixed(1), 'km')
+        + st('timer', 'Drive time', `${Math.floor(driveS / 3600)}:${pad(Math.floor(driveS / 60) % 60)}`, '') + st('gauge', 'Average', avg, 'km/h');
+  }
+  if (!NATIVE) $('srcChip').onclick = () => { S.obd = !S.obd; save(); renderCar(); };
+  $('resetBtn').addEventListener('pointerdown', () => { holdT = setTimeout(() => { tripKm = 0; driveS = 0; renderCar(); say('Trip reset'); }, 600); });
+
+  // ---- Map: OpenStreetMap tiles at zoom 16, the position under the puck (50%, 64%), north up. Each tile is darkened
+  //      once when it loads (drawn into its own canvas with the filter), so moving the map never re-runs a filter.
+  //      Tiles are replaced only when the position crosses a tile; otherwise only the grid's offset changes. ----
+  const DARK = 'invert(1) hue-rotate(180deg) brightness(0.85) contrast(0.9) saturate(0.4)';
+  function tile(z, x, y) {
+    const c = document.createElement('canvas'); c.width = c.height = TS;
+    const img = new Image();
+    img.onload = () => { const g = c.getContext('2d'); g.filter = DARK; g.drawImage(img, 0, 0); };
+    img.src = `https://tile.openstreetmap.org/${z}/${x}/${y}.png`;
+    return c;
+  }
+  const Z = 16, TS = 256, tiles = $('tiles');
+  let tileKey = '';
+  function setMap(lat, lon) {
+    pos = { lat, lon };
+    const n = 2 ** Z, r = lat * Math.PI / 180;
+    const x = (lon + 180) / 360 * n, y = (1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2 * n;
+    const W = $('map').clientWidth, H = $('map').clientHeight, px = W * 0.5, py = H * 0.64;
+    const cols = Math.ceil(W / TS) + 1, rows = Math.ceil(H / TS) + 1, x0 = Math.floor(x - px / TS), y0 = Math.floor(y - py / TS);
+    const osm = !['vector', 'waze', 'google'].some(c => $('map').classList.contains(c));   // also the fallback
+    if (osm && `${x0},${y0},${cols},${rows}` !== tileKey) {
+      tileKey = `${x0},${y0},${cols},${rows}`;
+      tiles.style.gridTemplateColumns = `repeat(${cols}, ${TS}px)`;
+      tiles.textContent = '';
+      for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) tiles.appendChild(tile(Z, x0 + i, y0 + j));
+    }
+    tiles.style.left = Math.round(px - (x - x0) * TS) + 'px';
+    tiles.style.top = Math.round(py - (y - y0) * TS) + 'px';
+    gmMove(); wzMove(x * TS, y * TS); vmMove();
+  }
+
+
+  // ---- Dark (Controls > Map: Dark, the default): the Dark Matter style (openmaptiles/dark-matter-gl-style, sprites in
+  //      vendor/dark-matter) on OpenFreeMap's free OpenMapTiles vector tiles (no key), drawn by MapLibre GL (WebGL,
+  //      vendor/maplibre, loaded only when chosen). It draws only when something changes: following the car is one
+  //      jumpTo a second, no easing. Same scale as the OSM view (MapLibre zoom 15 = 256 px zoom 16), drawn at 1x pixel
+  //      ratio, no fades; top padding puts the position at 64% of the height, under the puck. ----
+  let vm = null, vmState = '';
+  function vmUse(on) {
+    $('map').classList.toggle('vector', on && vmState !== 'failed');
+    $('attrib').innerHTML = on ? '&copy; OpenMapTiles &copy; OpenStreetMap' : '&copy; OpenStreetMap contributors';
+    if (!on) { if (vm) { vm.remove(); vm = null; vmState = ''; } return; }   // nothing keeps drawing in the background
+    if (vmState) return;
+    vmState = 'loading';
+    const css = document.createElement('link'); css.rel = 'stylesheet'; css.href = 'vendor/maplibre/maplibre-gl.css';
+    const sc = document.createElement('script'); sc.src = 'vendor/maplibre/maplibre-gl.js';
+    sc.onload = async () => {
+      try {
+        const style = await (await fetch('vendor/dark-matter/style.json')).json();
+        style.sprite = new URL(style.sprite, location.href).href;
+        // Car tuning: Dark Matter is a quiet backdrop for data; lift roads and labels so streets read at a glance.
+        const CAR = {
+          highway_path: { 'line-color': '#24272c' }, highway_minor: { 'line-color': '#30343a' },
+          highway_major_casing: { 'line-color': 'rgba(105,110,118,0.9)' }, highway_major_inner: { 'line-color': '#25282d' },
+          highway_motorway_casing: { 'line-color': 'rgba(120,126,134,0.9)' }, highway_motorway_inner: { 'line-color': '#282b31' },
+          highway_name_other: { 'text-color': '#8d929a' }, highway_name_motorway: { 'text-color': '#9aa0a8' },
+        };
+        for (const l of style.layers) {
+          Object.assign(l.paint || {}, CAR[l.id]);
+          if (l.id.startsWith('place_')) l.paint['text-color'] = '#8d929a';
+        }
+        vm = new maplibregl.Map({
+          container: 'vmap', style, zoom: Z - 1, center: pos ? [pos.lon, pos.lat] : [107.921, -6.842],
+          interactive: false, attributionControl: false, fadeDuration: 0, antialias: false, pixelRatio: 1,
+          renderWorldCopies: false, maxPitch: 0,
+        });
+        vm.on('error', e => console.warn('map', e.error && e.error.message));
+        vmState = 'ready'; vmMove();
+      } catch (e) { vmFail(); }
+    };
+    sc.onerror = vmFail;
+    document.head.append(css, sc);
+  }
+  function vmFail() { vmState = 'failed'; $('map').classList.remove('vector'); say('Dark map unavailable, showing OpenStreetMap'); }
+  function vmMove() {
+    if (!vm || !pos) return;
+    vm.jumpTo({ center: [pos.lon, pos.lat], padding: { top: Math.round($('map').clientHeight * 0.28), bottom: 0, left: 0, right: 0 } });
+  }
+
+  // ---- Waze live map (Controls > Map: Waze live): embed.waze.com in an iframe, Waze's roads, traffic and reports, no
+  //      key. It is not the Waze app: no route, no guidance (that stays in the app, with our turn card on top).
+  //      Waze tiles use the same grid and scale as OSM (zoom 16, 256 px), so between reloads the frame just slides with
+  //      the car (a transform, nothing redrawn inside it). The frame is the panel plus WZ_PAD px on every side; its
+  //      centre (the load position) starts under the puck. It reloads once the car is WZ_PAD - 110 px (~600 m) away,
+  //      keeping the old frame until the new one has loaded, so the panel never goes blank. ----
+  const WZ_PAD = 360;
+  let wz = null;   // { el, x, y }: the current frame and the world pixel position it was loaded at
+  function wzLoad(px, py) {
+    const W = $('map').clientWidth, H = $('map').clientHeight;
+    const f = document.createElement('iframe');
+    f.className = 'wmap'; f.tabIndex = -1; f.setAttribute('aria-hidden', 'true');
+    f.style.width = W + 2 * WZ_PAD + 'px'; f.style.height = H + 2 * WZ_PAD + 'px';
+    f.style.left = -WZ_PAD + 'px'; f.style.top = Math.round(H * 0.64 - (H + 2 * WZ_PAD) / 2) + 'px';
+    f.src = `https://embed.waze.com/iframe?zoom=${Z}&lat=${pos.lat.toFixed(5)}&lon=${pos.lon.toFixed(5)}&ct=livemap`;
+    const next = { el: f, x: px, y: py };
+    f.onload = () => { if (wz && wz.el !== f) wz.el.remove(); wz = next; wzMove(px, py); };
+    if (!wz) wz = next;
+    else setTimeout(() => { if (wz !== next) f.remove(); }, 20000);   // offline: drop it, try again on the next move
+    $('wmaps').appendChild(f);
+  }
+  function wzMove(px, py) {
+    if (S.mapSrc !== 'waze' || !pos) return;
+    if (!wz) return wzLoad(px, py);
+    const dx = px - wz.x, dy = py - wz.y;
+    if (Math.max(Math.abs(dx), Math.abs(dy)) > WZ_PAD - 110 && !$('wmaps').children[1]) return wzLoad(px, py);
+    wz.el.style.transform = `translate(${Math.round(-dx)}px, ${Math.round(-dy)}px)`;
+  }
+  function wzUse(on) {
+    $('map').classList.toggle('waze', on);
+    if (!on) { $('wmaps').textContent = ''; wz = null; }   // unload: nothing of Waze keeps running
+    else if (pos) setMap(pos.lat, pos.lon);
+  }
+
+  // ---- Google map (Controls > Map: Google, needs GOOGLE_MAPS_KEY). Maps JavaScript API, loaded once, only when chosen
+  //      (each page load is one billed "map load"; 10,000 a month are free). Raster tiles, not the WebGL vector map,
+  //      so the tablet draws images like the OSM view. Dark styled, north up, no controls or gestures, the position under
+  //      the puck by putting the map centre 14% of the panel height north of it (the puck sits at 64%, not 50%).
+  //      Following the car is setCenter, which is free. Falls back to OSM if the key is missing or refused. ----
+  let pos = null, gm = null, gmState = '';   // gmState: '' | 'loading' | 'ready' | 'failed'
+  const GM_DARK = [
+    { elementType: 'geometry', stylers: [{ color: '#1b1e23' }] },
+    { elementType: 'labels.text.fill', stylers: [{ color: '#9aa1ab' }] },
+    { elementType: 'labels.text.stroke', stylers: [{ color: '#14171b' }] },
+    { featureType: 'poi', stylers: [{ visibility: 'off' }] },
+    { featureType: 'transit', stylers: [{ visibility: 'off' }] },
+    { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#2c3138' }] },
+    { featureType: 'road.arterial', elementType: 'geometry', stylers: [{ color: '#363c44' }] },
+    { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#4a525c' }] },
+    { featureType: 'road', elementType: 'labels.icon', stylers: [{ visibility: 'off' }] },
+    { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#0f1a24' }] },
+    { featureType: 'landscape.natural', elementType: 'geometry', stylers: [{ color: '#1a2120' }] },
+  ];
+  function useMap(src) {
+    wzUse(src === 'waze');
+    vmUse(src === 'dark');
+    const google = src === 'google' && gmState !== 'failed' && !!window.GOOGLE_MAPS_KEY;
+    $('map').classList.toggle('google', google);
+    if (!google || gmState) return;
+    gmState = 'loading';
+    window.gmReady = () => {
+      gm = new window.google.maps.Map($('gmap'), {
+        zoom: Z, disableDefaultUI: true, gestureHandling: 'none', keyboardShortcuts: false, clickableIcons: false,
+        renderingType: window.google.maps.RenderingType.RASTER, styles: GM_DARK, backgroundColor: '#111418',
+      });
+      gmState = 'ready'; gmMove();
+    };
+    window.gm_authFailure = gmFail;   // bad or restricted key
+    const sc = document.createElement('script');
+    sc.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(window.GOOGLE_MAPS_KEY)}&callback=gmReady&loading=async`;
+    sc.async = true; sc.onerror = gmFail;   // offline: try again on the next page load
+    document.head.appendChild(sc);
+  }
+  function gmFail() { gmState = 'failed'; $('map').classList.remove('google'); if (S.mapSrc === 'google') say('Google map unavailable, showing OpenStreetMap'); }
+  function gmMove() {
+    if (!gm || !pos) return;
+    const n = 2 ** Z * TS, r = pos.lat * Math.PI / 180;
+    const y = (1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2 * n - $('map').clientHeight * 0.14;
+    const lat = Math.atan(Math.sinh(Math.PI * (1 - 2 * y / n))) * 180 / Math.PI;
+    gm.setCenter({ lat, lng: pos.lon });
+  }
+  setMap(-6.842, 107.921);
+
+  // Turn card and ETA from the nav app's notification (app); a sample in the prototype.
+  const ARROWS = [[/u-?turn|putar balik/i, 'arrow-u-up-left'], [/roundabout|bundaran/i, 'arrows-clockwise'], [/left|kiri/i, 'arrow-bend-up-left'],
+                  [/right|kanan/i, 'arrow-bend-up-right'], [/arriv|destination|tujuan|tiba/i, 'flag-checkered']];
+  function onNav(n) {
+    // Only a notification with route details counts: Waze also posts a plain "Running. Tap to open." while it is open.
+    const all = n ? `${n.title} ${n.text} ${n.sub} ${n.big}` : '', line = n ? `${n.sub} ${n.big} ${n.text}` : '';
+    const arrow = ARROWS.find(([re]) => re.test(all));
+    const left = line.match(/(\d+\s*(?:h|jam)\s*)?\d+\s*(?:min|mnt|menit)/i), dist = line.match(/[\d.,]+\s*km\b|\d+\s*m\b/i), at = line.match(/\b\d{1,2}[:.]\d{2}\b/);
+    const turnDist = /\d+\s*(?:m|km)\b/i.test(`${n?.title} ${n?.text}`);
+    const has = !!(n && (n.title || n.text) && (arrow || left || dist || at || turnDist || n.icon));
+    $('map').classList.toggle('nav', has);
+    if (!has) return;
+    $('navDist').textContent = n.title || n.text;
+    $('navStreet').textContent = n.title ? (n.text || '') : '';
+    // Google Maps sends its own arrow image; otherwise guess one from the words.
+    $('navArrow').innerHTML = n.icon ? `<img src="${n.icon}" alt="">` : `<i class="ph-fill ph-${(arrow || [0, 'navigation-arrow'])[1]}"></i>`;
+    $('etaLeft').textContent = left ? left[0] : ''; $('etaDist').textContent = dist ? dist[0] : ''; $('etaAt').textContent = at ? at[0].replace('.', ':') : '';
+    $('map').classList.toggle('no-eta', !(left || dist || at));
+  }
+
+  if (!NATIVE) $('map').classList.add('nav');
+
+  // ---- Music: still art, title cut with an ellipsis (no scrolling), progress on a one-second tick. ----
+  let cur = null, playing = false;
+  const fmt = t => `${Math.floor(t / 60)}:${pad(t % 60)}`;
+  function renderProgress() {
+    if (!cur || cur.len == null) return;
+    $('prog').style.width = (cur.pos / cur.len * 100).toFixed(1) + '%';
+    $('tNow').textContent = fmt(cur.pos); $('tLen').textContent = fmt(cur.len);
+  }
+  function setSource(src) {
+    cur = src;
+    const m = $('music');
+    m.classList.toggle('idle', !!src.idle); m.classList.toggle('live', !src.idle && src.len == null); m.classList.toggle('no-skip', !src.skip);
+    $('title').textContent = src.title; $('artist').textContent = src.artist;
+    $('appPill').innerHTML = `${src.icon}<span>${src.app}</span>`;
+    if (src.id) $('appPill').dataset.app = src.id; else $('appPill').removeAttribute('data-app');
+    $('art').style.backgroundImage = src.art ? `url("${src.art}")` : ''; $('art').innerHTML = src.art ? '' : '<i class="ph-fill ph-music-notes"></i>';
+    renderProgress();
+  }
+  function setPlaying(on) {
+    playing = on;
+    $('play').innerHTML = `<i class="ph-fill ph-${on ? 'pause' : 'play'}"></i>`; $('play').setAttribute('aria-label', on ? 'Pause' : 'Play');
+  }
+  $('prev').onclick = () => { if (NATIVE) Android.media('prev'); };
+  $('next').onclick = () => { if (NATIVE) Android.media('next'); };
+  $('play').onclick = () => { if (NATIVE) Android.media('toggle'); else setPlaying(!playing); };
+  // One tick a second while playing: the progress bar, and the left reel steps 20deg (a third of the 60deg spoke gap,
+  // so it reads as turning forward; half a gap would flicker with no direction). It rides on the redraw the progress
+  // bar already causes: no animation, no extra frames. Live radio has no progress, the reel still turns.
+  let turn = 0;
+  setInterval(() => {
+    if (!playing) return;
+    turn = (turn + 20) % 360; spokes.style.setProperty('--turn', `${turn}deg`);
+    if (cur && cur.len != null) { cur.pos = Math.min(cur.len, cur.pos + 1); renderProgress(); }
+  }, 1000);
+  const spokes = document.querySelector('.hub.spokes');
+  if (!NATIVE) {
+    const yt = byId.ytmusic;
+    setSource({ id: 'ytmusic', app: yt.name, icon: yt.icon, title: 'Zona Nyaman (OST. Filosofi Kopi 2: Ben & Jody)', artist: 'Fourtwnty',
+      art: 'https://picsum.photos/seed/night-drive-city-lights/240/240', len: 268, pos: 91, skip: true });
+    setPlaying(true);
+  }
+
+  // ---- Volume and brightness (drag along the bar). ----
+  document.querySelectorAll('.track').forEach(t => {
+    const fill = t.querySelector('.fill'), out = $(t.dataset.k + 'Val');
+    const set = (v, user) => { v = Math.max(0, Math.min(100, Math.round(v))); fill.style.height = v + '%'; out.textContent = v + '%'; t.classList.toggle('low', v < 18);
+      if (NATIVE && user) t.dataset.k === 'vol' ? Android.setVolume(v) : Android.setBrightness(v); };
+    set(NATIVE ? (t.dataset.k === 'vol' ? Android.volume() : Android.brightness()) : (t.dataset.k === 'vol' ? 62 : 45));
+    const move = e => { const r = t.getBoundingClientRect(); set((r.bottom - e.clientY) / r.height * 100, true); };
+    t.addEventListener('pointerdown', e => { t.setPointerCapture(e.pointerId); move(e); t.onpointermove = move; });
+    t.addEventListener('pointerup', () => { t.onpointermove = null; });
+  });
+
+  // ---- Screensaver: the eyes button, or by itself after 5 min without a touch while parked (lite.html?idle=<sec> to try). ----
+  const goSaver = () => { location.href = 'screensaver.html?from=home&home=lite.html&lite'; };
+  $('saverBtn').onclick = goSaver;
+  const idleParam = new URLSearchParams(location.search).get('idle'), IDLE_MS = idleParam ? +idleParam * 1000 : 5 * 60000;
+  let lastTouch = Date.now();
+  document.addEventListener('pointerdown', () => { lastTouch = Date.now(); }, true);
+  if (NATIVE || idleParam) setInterval(() => {
+    if (document.hidden) return;
+    if (speed > 3) { lastTouch = Date.now(); return; }
+    if (Date.now() - lastTouch > IDLE_MS) { lastTouch = Date.now(); goSaver(); }
+  }, idleParam ? 1000 : 15000);
+
+  apply();
+
+  // Prototype only: simulated driving, one update a second.
+  if (!NATIVE) setInterval(() => {
+    speed = Math.max(0, Math.min(72, speed + Math.round((Math.random() - 0.5) * 6)));
+    if (speed > 3) { driveS += 1; tripKm += speed / 3600; }
+    renderCar();
+  }, 1000);
+
+  // ---- The tablet (app only): Bridge.java calls host.on(type, data). Trip rules as in glass.html (CLAUDE.md "Car panel"). ----
+  if (NATIVE) {
+    try { const t = JSON.parse(localStorage.getItem('carhome-trip') || 'null'); if (t) { tripKm = t.tripKm; driveS = t.driveS; } } catch (e) { }
+    setInterval(() => localStorage.setItem('carhome-trip', JSON.stringify({ tripKm, driveS })), 60000);
+    let lastFix = null, stillSince = Date.now(), gotFix = false;
+    const rad = x => x * Math.PI / 180, km = (a, b) => { const h = Math.sin(rad(b.lat - a.lat) / 2) ** 2 + Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(rad(b.lon - a.lon) / 2) ** 2; return 12742 * Math.asin(Math.sqrt(h)); };
+    function onGps(f) {
+      const kmh = Math.round((f.speed || 0) * 3.6);
+      speed = Math.min(199, kmh);
+      if (f.heading != null && kmh > 3) heading = f.heading;
+      if (f.accuracy <= 20) {
+        if (lastFix) { const dt = (f.t - lastFix.t) / 1000; if (dt > 0 && dt < 10 && kmh > 3) { driveS += dt; tripKm += km(lastFix, f); } }
+        lastFix = f;
+      }
+      if (kmh > 3) stillSince = Date.now(); else if (Date.now() - stillSince > 20 * 60000 && (tripKm || driveS)) { tripKm = 0; driveS = 0; }
+      renderCar(); setMap(f.lat, f.lon);
+      if (!gotFix || Date.now() - wxAt > 20 * 60000) { gotFix = true; wxAt = Date.now(); fetchWx(f.lat, f.lon); }   // weather where the car is
+    }
+    function onMedia(m) {
+      if (!m.pkg || !m.title) {
+        const access = Android.mediaAccess(), app = (m.pkg && appByPkg(m.pkg)) || byId.ytmusic || APPS[0];
+        setSource({ idle: true, id: access ? app.id : null, app: access ? app.name : 'Allow music access', icon: access ? app.icon : ph('lock-key'),
+          title: 'Nothing playing', artist: access ? `Open ${app.name} to start` : 'Car Home needs Notification access', len: null, skip: false });
+        $('appPill').onclick = access ? null : () => Android.openPanel('media');
+        setPlaying(false); return;
+      }
+      $('appPill').onclick = null;
+      const app = appByPkg(m.pkg);
+      if (cur && !cur.idle && cur.pkg === m.pkg && cur.title === m.title) { cur.pos = m.pos || 0; cur.len = m.len; renderProgress(); }
+      else setSource({ id: app ? app.id : null, pkg: m.pkg, app: app ? app.name : m.app, icon: app ? app.icon : ph('music-notes'),
+        title: m.title, artist: m.artist || '', art: m.art || '', len: m.len, pos: m.pos || 0, skip: m.skip !== false });
+      setPlaying(!!m.playing);
+    }
+    window.host = {
+      on(type, d) {
+        if (type === 'battery') { level = d.level; charging = d.charging; temp = d.temp; renderStatus(); }
+        else if (type === 'net') { S.wifi = d.wifi; S.data = d.data; S.bt = d.bt; NET.ssid = d.ssid; apply(); }
+        else if (type === 'gps') onGps(d);
+        else if (type === 'place' && (d.district || d.area)) { const a = strip(d.area), di = strip(d.district); $('place').textContent = di && di !== a ? `${di}, ${a}` : a || di; }
+        else if (type === 'media') onMedia(d);
+        else if (type === 'nav') onNav(d);
+        else if (type === 'car-start') { if (S.autoOpen) openApp(S.nav); }
+        else if (type === 'home') show(null);
+      },
+    };
+    save();
+    Android.ready();
+    if (location.hash === '#carstart') { history.replaceState(null, '', location.pathname); if (S.autoOpen) setTimeout(() => openApp(S.nav), 600); }
+  }
+</script>
+</body>
+</html>

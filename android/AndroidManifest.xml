@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Car Home: the launcher-prototype pages in a full-screen WebView, registered as a Home app.
+     Built without Gradle by build.sh (aapt2 + javac + d8 + apksigner). -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="me.faizal.carhome"
+    android:versionCode="2"
+    android:versionName="1.1">
+
+    <!-- Target 28: sideloaded only. It was chosen to reach the non-SDK pop-up window API (no longer used: One UI pop-ups
+         stay on top of every app); kept because nothing here needs newer target behaviour yet. -->
+    <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="28" />
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <!-- Bluetooth on/off state for the status pill (Android 12+). -->
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
+    <!-- Brightness slider and Auto brightness: granted by the user in "Modify system settings". -->
+    <uses-permission android:name="android.permission.WRITE_SETTINGS" />
+    <!-- Controls: Wi-Fi / Bluetooth / data / hotspot / DND pull down the quick settings drawer (normal permission). -->
+    <uses-permission android:name="android.permission.EXPAND_STATUS_BAR" />
+
+    <!-- Package visibility: every launchable app, so the rail and the all-apps page can open them. -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+    </queries>
+
+    <application
+        android:label="Car Home"
+        android:icon="@drawable/ic_launcher"
+        android:hardwareAccelerated="true"
+        android:usesCleartextTraffic="false"
+        android:theme="@android:style/Theme.DeviceDefault.NoActionBar.Fullscreen">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:stateNotNeeded="true"
+            android:clearTaskOnLaunch="true"
+            android:resumeWhilePausing="true"
+            android:screenOrientation="sensorLandscape"
+            android:configChanges="orientation|screenSize|screenLayout|keyboard|keyboardHidden|navigation|uiMode|density|smallestScreenSize">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.HOME" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- Notification access: the only way an app may read other apps' media sessions (now playing + controls).
+             Later also Waze / Google Maps turn-by-turn notifications for the map's turn card. -->
+        <service
+            android:name=".MediaListener"
+            android:exported="true"
+            android:label="Car Home now playing"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
+    </application>
+</manifest>

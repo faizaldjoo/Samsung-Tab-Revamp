@@ -4,10 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Car Home Glass</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Geist:wght@200;300;400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css">
-<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/bold/style.css">
+<!-- Fonts and icons are bundled (vendor/), so the page starts fast and works offline. -->
+<link rel="stylesheet" href="vendor/fonts/fonts.css">
+<link rel="stylesheet" href="vendor/phosphor/fill/style.css">
+<link rel="stylesheet" href="vendor/phosphor/bold/style.css">
 <style>
   /* Liquid Glass look: an approximation of Apple's material (no official web version exists).
      Built from backdrop blur + saturation, an SVG edge-refraction filter, specular rim highlights.
@@ -145,6 +145,14 @@
   .map-tiles img { width: 256px; height: 256px; display: block; }
   .map-shade { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(10,13,18,0.45) 0%, rgba(10,13,18,0) 28%, rgba(10,13,18,0) 60%, rgba(10,13,18,0.85) 100%); }
   .route { position: absolute; inset: 0; width: 100%; height: 100%; }
+  /* App: live map, no route line (nav apps do not share it). Turn card and ETA only while the nav app is navigating;
+     otherwise a hint that a tap opens it. */
+  #mapPanel.live .route { display: none; }
+  #mapPanel.live .map-tiles .grid { left: 0; top: 0; transform: translate(var(--tx, 0), var(--ty, 0)); will-change: transform; }
+  #mapPanel.no-nav .maneuver, #mapPanel.no-nav .eta, #mapPanel.no-nav .eta b { visibility: hidden; }
+  .map-hint { display: none; position: absolute; left: 50%; bottom: 22px; transform: translateX(-50%); padding: 10px 18px; border-radius: 999px;
+    font-size: 15px; font-weight: 600; white-space: nowrap; background: rgba(16,20,26,0.7); box-shadow: var(--rim); }
+  #mapPanel.no-nav .map-hint { display: block; }
   .puck { position: absolute; left: 50%; top: 66%; width: 28px; height: 28px; margin: -14px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 6px rgba(90,167,255,0.28), 0 0 0 3px #fff inset; }
   .maneuver { position: relative; margin: 14px; align-self: flex-start; display: flex; gap: 14px; align-items: center; padding: 12px 18px 12px 12px; border-radius: 24px; }
   .maneuver .arrow { width: 50px; height: 50px; border-radius: 16px; background: var(--accent); display: grid; place-items: center; font-size: 28px; color: #fff; }
@@ -221,6 +229,20 @@
   .ibox.k-cloudy .base { animation: drift 7s ease-in-out infinite alternate; }
   @keyframes drift { from { transform: translate(0, 0); } to { transform: translate(-6px, -2px); } }
   @media (prefers-reduced-motion: reduce) { .ibox, .ibox *, .ibox .drops i { animation: none !important; } .ibox .drops i { opacity: 0.8; } }
+  /* Calm mode (always on in the app; glass.html?calm in a browser): no decorative loops. On this tablet each loop made the
+     whole screen redraw 60 times a second for nothing. What stays: reels while music plays, a long title scrolling,
+     the clock flip once a minute, the speed needle on GPS updates. */
+  #screen.calm .ibox, #screen.calm .ibox *, #screen.calm .status .warn, #screen.calm .live-badge i { animation: none !important; }
+  #screen.calm .ibox .drops i { opacity: 0.8; }
+  #screen.calm .ibox .glow { opacity: 0.85; }
+  /* The needle is an SVG line: easing it repaints the whole gauge every frame, and with a GPS fix every second while
+     driving it never stops (measured: 110%+ CPU on the tablet). In calm mode it steps once a second instead. */
+  #screen.calm .gauge .needle { transition: none; }
+  /* Same for the cassette: on this tablet each screen update costs about 10% CPU per update per second, so anything that
+     moves every frame costs over a full core (measured: 170% with the reels spinning, 24% still). In calm mode the
+     reels turn and the spools resize together on the one-second progress tick: one update a second. */
+  #screen.calm .hub { animation: none !important; }
+  #screen.calm .tape { transition: none !important; }
 
   /* Under the slab: the condition in words and the full date, with the location. */
   .today .foot { position: absolute; left: 30px; right: 30px; bottom: 24px; display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; }
@@ -283,7 +305,7 @@
   /* contain: inline-size keeps the (double-length) running line from widening the label, and with it the whole cassette. */
   .np-title { font-size: 22px; font-weight: 600; letter-spacing: -0.015em; white-space: nowrap; overflow: hidden; line-height: 1.15; contain: inline-size;
     -webkit-mask-image: linear-gradient(90deg, transparent, #000 4%, #000 92%, transparent); mask-image: linear-gradient(90deg, transparent, #000 4%, #000 92%, transparent); }
-  .np-title .run { display: inline-block; }
+  .np-title .run { display: inline-block; will-change: transform; }
   /* Fits the label: one centred copy, still, no fade. Only a title too long for the label runs. */
   .np-title.still { -webkit-mask-image: none; mask-image: none; }
   .np-title.still .run > i, .np-title.still .run > span { display: none; }
@@ -297,6 +319,9 @@
   .np.live .live-badge { display: inline-flex; }
   .np.live .mid { display: grid; }
   .np.no-skip .skip { visibility: hidden; }
+  /* Nothing playing (app only): no progress, no LIVE badge. */
+  .np.idle .bar, .np.idle .times, .np.idle .live-badge { display: none; }
+  .np.idle .mid { display: grid; }
   /* Station logo stand-in for apps that send a logo instead of album art. */
   .hub.art.logo { display: grid; place-items: center; font-size: 32px; color: #fff; }
   /* Song or app change: the label and middle fade in, so the switch is noticed at a glance. */
@@ -309,7 +334,8 @@
   .reel { position: relative; width: 128px; height: 128px; display: grid; place-items: center; }
   .tape { position: absolute; inset: 0; border-radius: 50%; background: repeating-radial-gradient(circle, #1d1f23 0 2px, #26292e 2px 3px);
     box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08); transition: transform 1s linear; }
-  .hub { position: relative; width: 72px; height: 72px; border-radius: 50%; animation: spin 2.4s linear infinite; }
+  .hub { position: relative; width: 72px; height: 72px; border-radius: 50%; animation: spin 2.4s linear infinite; will-change: transform; }
+  .np.idle .hub { animation: none; }
   .hub.spokes { background: radial-gradient(circle, rgba(30,34,42,0.9) 0 20px, #f3f1ea 20.5px); box-shadow: 0 1px 4px rgba(0,0,0,0.35); }
   .hub.spokes i { position: absolute; left: 50%; top: 50%; width: 5px; height: 8px; margin: -4px 0 0 -2.5px; border-radius: 1px; background: #f3f1ea; }
   /* Album art as the right reel's hub, with a small spindle hole in the middle. */
@@ -355,6 +381,8 @@
   .track { flex: 1; width: 100%; max-width: 74px; border-radius: 999px; position: relative; overflow: hidden; touch-action: none; cursor: ns-resize;
     background: rgba(255,255,255,0.10); box-shadow: var(--rim); }
   .track .fill { position: absolute; left: 0; right: 0; bottom: 0; background: #f5f6f7; box-shadow: inset 0 1px 0 #fff; }
+  /* Low values: the fill sits below the glyph, so the glyph turns white on the glass. */
+  .track.low i { color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.4); }
   .track i { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); font-size: 28px; color: #2a2e35; text-shadow: none; pointer-events: none; }
 
   /* Controls: slides out from the rail over a dimmed home screen. Tap outside or X to close. */
@@ -471,6 +499,16 @@
   #screen.fx-transparent .glass { backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
     background: linear-gradient(160deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02) 48%), rgba(10, 14, 20, 0.5); }
   #screen.fx-transparent .cc { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; background: #171b22; }
+
+  /* Baked glass (bakeGlass()): the wallpaper is blurred once into --glass-img, and each panel paints its own slice of it
+     (--gx/--gy = minus its offset in the wallpaper layer, which starts 20px outside the screen and is 1380x840). Same look
+     as the live blur, but nothing is re-blurred when something moves. Gradient wallpapers have nothing to blur, so the
+     panels just let them show through (see-through). The live backdrop-filter stays only as the fallback. */
+  #screen.baked .glass:not(.cc) { backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+    background: linear-gradient(160deg, rgba(255,255,255,0.10), rgba(255,255,255,0.03) 48%, rgba(255,255,255,0.07)),
+      linear-gradient(rgba(8,12,18,0.14), rgba(8,12,18,0.14)), var(--glass-img) var(--gx, 0) var(--gy, 0) / 1380px 840px no-repeat; }
+  #screen.see-through .glass:not(.cc) { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+  #screen.baked .cc, #screen.see-through .cc { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; background: rgba(18, 22, 28, 0.95); }
   #screen.night.fx-transparent .glass { background: rgba(6, 8, 12, 0.62); }
   #screen.night.fx-transparent .cc { background: #101318; }
 
@@ -516,13 +554,14 @@
         <div class="map-shade"></div>
         <div class="puck"></div>
         <div class="glass maneuver">
-          <div class="arrow"><i class="ph-bold ph-arrow-bend-up-right"></i></div>
-          <div><div class="dist">300 m</div><div class="street">Jl. Jend. Sudirman</div></div>
+          <div class="arrow" id="navArrow"><i class="ph-bold ph-arrow-bend-up-right"></i></div>
+          <div><div class="dist" id="navDist">300 m</div><div class="street" id="navStreet">Jl. Jend. Sudirman</div></div>
         </div>
+        <div class="map-hint" id="mapHint">Tap for Waze</div>
         <div class="eta">
           <div><b id="arrive">08:47</b><span>arrival</span></div>
-          <div><b>17 min</b><span>left</span></div>
-          <div><b>6.4 km</b><span>to go</span></div>
+          <div><b id="etaLeft">17 min</b><span>left</span></div>
+          <div><b id="etaDist">6.4 km</b><span>to go</span></div>
         </div>
       </div>
     </section>
@@ -593,9 +632,9 @@
         </div>
 
         <div class="bridge">
-          <button class="press skip" aria-label="Previous"><i class="ph-fill ph-skip-back"></i></button>
+          <button class="press skip" id="prev" aria-label="Previous"><i class="ph-fill ph-skip-back"></i></button>
           <button class="play press" id="play" aria-label="Pause"><i class="ph-fill ph-pause"></i></button>
-          <button class="press skip" aria-label="Next"><i class="ph-fill ph-skip-forward"></i></button>
+          <button class="press skip" id="next" aria-label="Next"><i class="ph-fill ph-skip-forward"></i></button>
         </div>
       </section>
 
@@ -654,12 +693,12 @@
       <div class="card s2">
         <div class="lbl">Navigation app</div>
         <div class="seg" data-seg="nav">
-          <button data-v="waze"><img src="https://cdn.simpleicons.org/waze/ffffff" alt="">Waze</button>
-          <button data-v="maps"><img src="https://cdn.simpleicons.org/googlemaps/ffffff" alt="">Google Maps</button>
+          <button data-v="waze"><img src="vendor/simpleicons/waze.svg" alt="">Waze</button>
+          <button data-v="maps"><img src="vendor/simpleicons/googlemaps.svg" alt="">Google Maps</button>
         </div>
         <small class="hint">Map tap and turn info use this app</small>
       </div>
-      <button class="card s2 tog wide press" data-t="autoOpen"><span class="disc"><i class="ph-fill ph-car-simple"></i></span><span><b id="autoOpenTitle">Show Waze in the map panel</b><small>When the car starts; expand for full screen</small></span><span class="sw" aria-hidden="true"></span></button>
+      <button class="card s2 tog wide press" data-t="autoOpen"><span class="disc"><i class="ph-fill ph-car-simple"></i></span><span><b id="autoOpenTitle">Open Waze when the car starts</b><small>Full screen as soon as the car starts</small></span><span class="sw" aria-hidden="true"></span></button>
 
       <button class="card tog press" data-t="dnd"><span class="disc"><i class="ph-fill ph-moon"></i></span><span><b>Do Not Disturb</b><small></small></span></button>
       <button class="card tog press" data-t="autoBri"><span class="disc"><i class="ph-fill ph-sun-dim"></i></span><span><b>Auto brightness</b><small></small></span></button>
@@ -687,7 +726,8 @@
   const wall = $('wall');   // wallpaper: see "Wallpaper" below, once the settings are loaded
 
   const tiles = $('tiles');
-  for (let y = 16949; y <= 16952; y++)
+  // Prototype: a fixed patch of Jakarta. The app draws a live map around the GPS position instead (setMap).
+  if (!window.Android) for (let y = 16949; y <= 16952; y++)
     for (let x = 26105; x <= 26108; x++) {
       const img = new Image(); img.src = `https://tile.openstreetmap.org/15/${x}/${y}.png`; img.alt = ''; tiles.appendChild(img);
     }
@@ -696,31 +736,43 @@
   const S = Object.assign(
     { side: 'right', night: 'auto', glass: true, wall: 'hills', nav: 'waze', pins: ['waze', 'spotify'], autoOpen: true, wifi: true, bt: true, data: true, hotspot: false, dnd: true, autoBri: true, obd: true },
     JSON.parse(localStorage.getItem('carhome') || '{}'));
-  const save = () => localStorage.setItem('carhome', JSON.stringify(S));
+  // In the Android app the page runs with window.Android (android/src/.../Bridge.java): real apps, battery, GPS, music,
+  // volume and brightness. Without it (a browser) everything below keeps its sample data, as a prototype.
+  const NATIVE = !!window.Android;
+  const NET = { ssid: '' };   // the connected Wi-Fi name, from the tablet
+  if (NATIVE || new URLSearchParams(location.search).has('calm')) document.getElementById('screen').classList.add('calm');
+  const save = () => {
+    localStorage.setItem('carhome', JSON.stringify(S));
+    if (NATIVE) Android.setPrefs(JSON.stringify({ autoOpen: S.autoOpen, navPkg: (byId[S.nav] || {}).pkg }));
+  };
 
   // Installed apps. One list drives the rail, the all-apps page and the navigation setting.
-  const si = slug => `<img src="https://cdn.simpleicons.org/${slug}/ffffff" alt="">`;
+  const si = slug => `<img src="vendor/simpleicons/${slug}.svg" alt="">`;   // white brand icons, bundled
   const ph = name => `<i class="ph-fill ph-${name}"></i>`;
   const APPS = [
-    { id: 'waze', name: 'Waze', bg: '#33ccff', icon: si('waze') },
-    { id: 'maps', name: 'Google Maps', bg: '#34a853', icon: si('googlemaps') },
-    { id: 'spotify', name: 'Spotify', bg: '#1db954', icon: si('spotify') },
-    { id: 'ytmusic', name: 'YT Music', bg: '#ff0033', icon: si('youtubemusic') },
-    { id: 'applemusic', name: 'Apple Music', bg: '#fa243c', icon: si('applemusic') },
-    { id: 'prambors', name: 'Prambors', bg: '#f2711c', icon: ph('radio') },
-    { id: 'phone', name: 'Phone', bg: '#2fbf5b', icon: ph('phone') },
-    { id: 'whatsapp', name: 'WhatsApp', bg: '#25d366', icon: si('whatsapp') },
-    { id: 'carbitlink', name: 'CarbitLink', bg: '#2c6bed', icon: ph('car-profile') },
-    { id: 'youtube', name: 'YouTube', bg: '#ff0033', icon: si('youtube') },
-    { id: 'chrome', name: 'Chrome', bg: '#f2f4f7', icon: '<img src="https://cdn.simpleicons.org/googlechrome" alt="">' },
-    { id: 'settings', name: 'Settings', bg: '#59606d', icon: ph('gear-six') },
+    { id: 'waze', pkg: 'com.waze', name: 'Waze', bg: '#33ccff', icon: si('waze') },
+    { id: 'maps', pkg: 'com.google.android.apps.maps', name: 'Google Maps', bg: '#34a853', icon: si('googlemaps') },
+    { id: 'spotify', pkg: 'com.spotify.music', name: 'Spotify', bg: '#1db954', icon: si('spotify') },
+    { id: 'ytmusic', pkg: 'com.google.android.apps.youtube.music', name: 'YT Music', bg: '#ff0033', icon: si('youtubemusic') },
+    { id: 'applemusic', pkg: 'com.apple.android.music', name: 'Apple Music', bg: '#fa243c', icon: si('applemusic') },
+    { id: 'prambors', pkg: 'com.pandacode.prambors.prambors', name: 'Prambors', bg: '#f2711c', icon: ph('radio') },
+    { id: 'phone', pkg: 'com.samsung.android.dialer', name: 'Phone', bg: '#2fbf5b', icon: ph('phone') },
+    { id: 'whatsapp', pkg: 'com.whatsapp', name: 'WhatsApp', bg: '#25d366', icon: si('whatsapp') },
+    { id: 'carbitlink', pkg: 'net.easyconn.carman.wws', name: 'CarbitLink', bg: '#2c6bed', icon: ph('car-profile') },
+    { id: 'youtube', pkg: 'com.google.android.youtube', name: 'YouTube', bg: '#ff0033', icon: si('youtube') },
+    { id: 'chrome', pkg: 'com.android.chrome', name: 'Chrome', bg: '#f2f4f7', icon: '<img src="vendor/simpleicons/googlechrome.svg" alt="">' },
+    { id: 'settings', pkg: 'com.android.settings', name: 'Settings', bg: '#59606d', icon: ph('gear-six') },
   ];
+  // In the app: only the apps that are installed (the nav app always stays, so the map panel has something to open).
+  if (NATIVE) for (let i = APPS.length - 1; i >= 0; i--) if (APPS[i].id !== S.nav && !Android.has(APPS[i].pkg)) APPS.splice(i, 1);
   const byId = Object.fromEntries(APPS.map(a => [a.id, a]));
+  const appByPkg = pkg => APPS.find(a => a.pkg === pkg);
 
   // Rail slots: pinned apps first (in the order they were pinned, kept in S.pins), then the most recent other apps.
   // recents is newest first; its first entry is the app that is open now.
   const RAIL_MAX = 4;
-  let recents = ['waze', 'prambors', 'whatsapp', 'spotify', 'ytmusic'];
+  let recents = ['waze', 'prambors', 'whatsapp', 'spotify', 'ytmusic'].filter(id => byId[id]);
+  S.pins = S.pins.filter(id => byId[id]);
   const PIN = '<span class="pin" aria-hidden="true"><i class="ph-fill ph-push-pin"></i></span>';
   function renderDock() {
     const pins = S.pins.slice(0, RAIL_MAX);
@@ -768,23 +820,38 @@
   homeBtn.addEventListener('click', () => showApps(!screen.classList.contains('show-apps')));
 
   function openApp(id) {
+    if (!byId[id]) return;
     recents = [id, ...recents.filter(r => r !== id)].slice(0, 8);   // more than the rail shows, so recents still fill it after pins
     renderDock(); showApps(false); showCC(false);
-    say(`Opens ${byId[id].name}`);
+    if (NATIVE) Android.openApp(byId[id].pkg); else say(`Opens ${byId[id].name}`);
   }
+
   screen.addEventListener('click', e => {
     const el = e.target.closest('[data-app]'); if (!el) return;
     if (held) { held = false; return; }
     openApp(el.dataset.app);
   });
 
-  // Screensaver on demand. Prototype: fade to black, then open screensaver.html (its Home button comes back here).
-  // In the app: the launcher shows the screensaver activity (same WebView files as the DreamService) straight away.
-  $('saverBtn').addEventListener('click', () => {
+  // Screensaver: the eyes button, or by itself after IDLE_MIN minutes with no touch while home is showing and the car is
+  // not moving (driving keeps the dashboard). Fades to black, then opens screensaver.html; a tap there comes back here,
+  // and so do moving off or the car starting. In the app only (a browser prototype can try it with glass.html?idle=<sec>).
+  // Built into the launcher rather than Android's screen saver (DreamService): that one only starts when the screen would
+  // turn off while charging, and this tablet is set to stay on while charging.
+  function goSaver() {
     screen.classList.add('to-saver');
     setTimeout(() => { location.href = 'screensaver.html?from=home'; }, 420);
-  });
+  }
+  $('saverBtn').addEventListener('click', goSaver);
   addEventListener('pageshow', () => screen.classList.remove('to-saver'));
+  const IDLE_MIN = 5, idleParam = new URLSearchParams(location.search).get('idle');
+  const IDLE_MS = idleParam ? +idleParam * 1000 : IDLE_MIN * 60000;
+  let lastTouch = Date.now();
+  ['pointerdown', 'keydown', 'wheel'].forEach(ev => addEventListener(ev, () => { lastTouch = Date.now(); }, true));
+  if (NATIVE || idleParam) setInterval(() => {
+    if (document.hidden || screen.classList.contains('wp-preview')) return;   // not showing, or trying a wallpaper
+    if (speed > 3) { lastTouch = Date.now(); return; }                        // driving: keep the dashboard
+    if (Date.now() - lastTouch > IDLE_MS) { lastTouch = Date.now(); goSaver(); }
+  }, idleParam ? 1000 : 15000);
 
   // Controls panel.
   const showCC = on => screen.classList.toggle('show-cc', on);
@@ -792,7 +859,7 @@
   $('ccClose').addEventListener('click', () => showCC(false));
   $('ccScrim').addEventListener('click', () => showCC(false));
 
-  // ---- Wallpaper. A built-in set of photos (Picsum here; bundled in the app, screen-sized, so they work offline), six CSS
+  // ---- Wallpaper. A built-in set of photos (vendor/walls, from Unsplash via Picsum, bundled so they work offline), six CSS
   //      gradients, and one photo from
   //      the gallery. A gallery photo is cropped to the screen's 1340x800 and shrunk once, on pick, then kept (localStorage
   //      here, the app's files on Android, where the same <input type=file> opens the system photo picker).
@@ -818,7 +885,7 @@
   // One size / repeat per layer: the grain tiles at 160px, every gradient layer fills the box.
   const gradFit = g => { const n = (g.css.match(/gradient\(/g) || []).length;
     return { size: ['160px 160px', ...Array(n).fill('100% 100%')].join(', '), repeat: ['repeat', ...Array(n).fill('no-repeat')].join(', ') }; };
-  const picUrl = (n, w, h) => `https://picsum.photos/id/${n}/${w}/${h}`;
+  const picUrl = (n, w) => `vendor/walls/${n}${w >= 1000 ? '' : '-t'}.jpg`;   // bundled: full size, or the picker thumbnail
   const loadCustom = () => { try { return localStorage.getItem('carhome-wall'); } catch (e) { return null; } };
   const srcOf = id => id === 'custom' ? loadCustom() : GRADS.some(g => g.id === id) ? 'grad:' + id : picUrl((WALLS.find(w => w.id === id) || WALLS[0]).pic, 1600, 1000);
   const dimCache = new Map();
@@ -843,14 +910,61 @@
   }
   function showWall(src) {
     if (!src) return;
+    wallSrc = src;
     if (src.startsWith('grad:')) {                     // gradients are all dark: no extra shade, grain tiles, glows cover
       const g = GRADS.find(x => 'grad:' + x.id === src), fit = gradFit(g);
       wall.style.backgroundImage = gradBg(g); wall.style.backgroundSize = fit.size; wall.style.backgroundRepeat = fit.repeat;
       wall.style.setProperty('--dim', 0);
+      bakeGlass();
       return;
     }
     wall.style.backgroundImage = `url("${src}")`; wall.style.backgroundSize = ''; wall.style.backgroundRepeat = '';
-    measureDim(src).then(d => wall.style.setProperty('--dim', d.toFixed(3)));
+    measureDim(src).then(d => { wall.style.setProperty('--dim', d.toFixed(3)); bakeGlass(); });
+  }
+
+  // ---- Baked glass: blur the wallpaper once (and again only when the wallpaper, night mode or the Glass toggle changes)
+  //      into a half-size JPEG, then let each panel show its slice. Replaces the live backdrop-filter, which on this
+  //      tablet cost a full core and dropped home to 13 fps. ----
+  let wallSrc = null, bakeKey = '', bakeUrl = null;
+  function glassSlices() {
+    document.querySelectorAll('#screen .glass').forEach(el => {
+      let x = 0, y = 0, n = el;
+      while (n && n !== screen) { x += n.offsetLeft; y += n.offsetTop; n = n.offsetParent; }
+      el.style.setProperty('--gx', -(x + 20) + 'px'); el.style.setProperty('--gy', -(y + 20) + 'px');
+    });
+  }
+  function bakeGlass() {
+    const night = screen.classList.contains('night');
+    const key = [S.glass, wallSrc, night, wall.style.getPropertyValue('--dim')].join('|');
+    if (key === bakeKey) return;
+    bakeKey = key;
+    screen.classList.remove('see-through');
+    if (!S.glass || !wallSrc) { screen.classList.remove('baked'); return; }
+    if (wallSrc.startsWith('grad:')) { screen.classList.remove('baked'); screen.classList.add('see-through'); return; }
+    const img = new Image(); img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      try {
+        const CW = 690, CH = 420, c = document.createElement('canvas');   // half of the 1380x840 layer: it is blurred anyway
+        c.width = CW; c.height = CH;
+        const g = c.getContext('2d'), m = 10;                              // draw 10px past the edges so the blur has no dark rim
+        const k = Math.max((CW + 2 * m) / img.naturalWidth, (CH + 2 * m) / img.naturalHeight), w = img.naturalWidth * k, h = img.naturalHeight * k;
+        g.filter = `${night ? 'brightness(0.38) saturate(0.6) ' : ''}blur(3.5px) saturate(1.9) brightness(0.8)`;   // = .wall night filter + glass
+        g.drawImage(img, (CW - w) / 2, (CH - h) / 2, w, h);
+        g.filter = 'none';
+        const dim = +wall.style.getPropertyValue('--dim') || 0, shade = g.createLinearGradient(0, 0, 0, CH);   // = .wall::after
+        shade.addColorStop(0, `rgba(5,7,10,${((0.15 + dim) * 0.8).toFixed(3)})`); shade.addColorStop(1, `rgba(5,7,10,${((0.45 + dim) * 0.8).toFixed(3)})`);
+        g.fillStyle = shade; g.fillRect(0, 0, CW, CH);
+        c.toBlob(b => {
+          if (!b) return;
+          if (bakeUrl) URL.revokeObjectURL(bakeUrl);
+          bakeUrl = URL.createObjectURL(b);
+          screen.style.setProperty('--glass-img', `url(${bakeUrl})`);
+          glassSlices(); screen.classList.add('baked');
+        }, 'image/jpeg', 0.9);
+      } catch (e) { screen.classList.remove('baked'); }   // a photo without CORS cannot be read: keep the live blur
+    };
+    img.onerror = () => screen.classList.remove('baked');
+    img.src = wallSrc;
   }
   showWall(srcOf(S.wall) || srcOf('hills'));
 
@@ -910,11 +1024,17 @@
   }
 
   const SUB = {
-    wifi: on => on ? 'Faizal iPhone' : 'Off', bt: on => on ? 'Car audio' : 'Off', data: on => on ? 'Telkomsel LTE' : 'Off',
+    wifi: on => on ? (NATIVE ? NET.ssid || 'Connected' : 'Faizal iPhone') : 'Off', bt: on => on ? (NATIVE ? 'On' : 'Car audio') : 'Off',
+    data: on => on ? (NATIVE ? 'In use' : 'Telkomsel LTE') : (NATIVE && S.wifi ? 'Standby' : 'Off'),
     hotspot: on => on ? 'On' : 'Off', glass: on => on ? 'On' : 'Off, clear panels', dnd: on => on ? 'On while driving' : 'Off', autoBri: on => on ? 'On' : 'Off',
   };
+  // In the app, connectivity and Do Not Disturb open the system panel (Android 10+ does not let apps switch them);
+  // their state comes back from the tablet. Auto brightness switches directly once "Modify system settings" is allowed.
+  const PANEL = ['wifi', 'bt', 'data', 'hotspot', 'dnd'];
   $('cc').addEventListener('click', e => {
     const t = e.target.closest('[data-t]'), sb = e.target.closest('[data-seg] button');
+    if (t && NATIVE && PANEL.includes(t.dataset.t)) { Android.openPanel(t.dataset.t); return; }
+    if (t && NATIVE && t.dataset.t === 'autoBri' && !Android.setAutoBrightness(!S.autoBri)) return;
     if (t) S[t.dataset.t] = !S[t.dataset.t];
     else if (sb) S[sb.closest('[data-seg]').dataset.seg] = sb.dataset.v;
     else return;
@@ -926,6 +1046,7 @@
     screen.classList.toggle('side-left', S.side === 'left');
     screen.classList.toggle('night', isNight());
     screen.classList.toggle('fx-transparent', !S.glass);
+    if (wallSrc) { bakeGlass(); requestAnimationFrame(glassSlices); }   // night / glass changes re-bake; sidebar side moves panels
     $('nightHint').textContent = S.night === 'auto' ? 'Switches to Night at sunset' : S.night === 'night' ? 'Night until you change it' : 'Day until you change it';
     document.querySelectorAll('[data-t]').forEach(el => {
       el.classList.toggle('on', !!S[el.dataset.t]);
@@ -934,14 +1055,17 @@
     document.querySelectorAll('[data-seg]').forEach(seg =>
       seg.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === S[seg.dataset.seg])));
     $('mapPanel').dataset.app = S.nav;
-    $('autoOpenTitle').textContent = `Show ${byId[S.nav].name} in the map panel`;
+    $('autoOpenTitle').textContent = `Open ${byId[S.nav].name} when the car starts`;
+    $('mapHint').textContent = `Tap for ${byId[S.nav].name}`;
     renderStatus(); renderCar();
   }
 
   // Tablet health. Prototype only: tap the cards to preview the warning states.
   let charging = true, level = 84, temp = 36;
-  $('batCard').addEventListener('click', () => { charging = !charging; apply(); });
-  $('tempCard').addEventListener('click', () => { temp = temp >= 45 ? 36 : 47; apply(); });
+  if (!NATIVE) {
+    $('batCard').addEventListener('click', () => { charging = !charging; apply(); });
+    $('tempCard').addEventListener('click', () => { temp = temp >= 45 ? 36 : 47; apply(); });
+  }
   function renderStatus() {
     const hot = temp >= 45;
     // Signal shows Wi-Fi when it is the active connection, otherwise mobile; dimmed icons mean off.
@@ -973,7 +1097,7 @@
   const ticks = [...document.querySelectorAll('.gauge .tk')];
 
   // Trip counters (GPS). Distance adds up while moving; drive time counts only above 3 km/h.
-  let speed = 48, tripKm = 12.4, driveS = 38 * 60;
+  let speed = 48, tripKm = 12.4, driveS = 38 * 60, heading = 42;
   const TICK_S = 1.5;
   function renderCar() {
     $('needle').style.transform = `rotate(${150 + 240 * speed / GMAX}deg)`;
@@ -986,15 +1110,16 @@
     const avg = driveS > 0 ? Math.round(tripKm / (driveS / 3600)) : 0;
     $('stats').innerHTML = S.obd
       ? stat('gauge', 'Engine', (800 + speed * 36).toLocaleString('en'), 'rpm') + stat('thermometer-simple', 'Coolant', '88°', 'C') + stat('gas-pump', 'Fuel', '62%', '~410 km') + stat('car-battery', 'Battery', '14.2', 'V')
-      : stat('compass', 'Heading', 'NE', '42°') + stat('path', 'Trip', tripKm.toFixed(1), 'km') + stat('timer', 'Drive time', `${Math.floor(driveS / 3600)}:${String(Math.floor(driveS / 60) % 60).padStart(2, '0')}`) + stat('gauge', 'Average', avg, 'km/h');
+      : stat('compass', 'Heading', ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'][Math.round(heading / 45) % 8], `${Math.round(heading)}°`) + stat('path', 'Trip', tripKm.toFixed(1), 'km') + stat('timer', 'Drive time', `${Math.floor(driveS / 3600)}:${String(Math.floor(driveS / 60) % 60).padStart(2, '0')}`) + stat('gauge', 'Average', avg, 'km/h');
   }
-  $('srcChip').addEventListener('click', () => { S.obd = !S.obd; save(); renderCar(); });
+  if (NATIVE) { S.obd = false; speed = 0; heading = 0; tripKm = 0; driveS = 0; }   // no OBD adapter support yet in the app: tablet GPS
+  else $('srcChip').addEventListener('click', () => { S.obd = !S.obd; save(); renderCar(); });
   // Hold the reset button for 0.6 s so a stray touch cannot clear a trip.
   let holdT;
   $('resetBtn').addEventListener('pointerdown', () => { holdT = setTimeout(() => { tripKm = 0; driveS = 0; renderCar(); say('Trip reset'); }, 600); });
   ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => $('resetBtn').addEventListener(ev, () => clearTimeout(holdT)));
-  // Prototype only: simulated driving.
-  setInterval(() => {
+  // Prototype only: simulated driving. In the app, onGps() below drives the panel.
+  if (!NATIVE) setInterval(() => {
     speed = Math.max(0, Math.min(72, speed + Math.round((Math.random() - 0.5) * 6)));
     if (speed > 3) { driveS += TICK_S; tripKm += speed / 3600 * TICK_S; }
     renderCar();
@@ -1025,8 +1150,8 @@
     if (!$('cH').dataset.v) { build($('cH'), h); build($('cM'), m); } else { flipTo($('cH'), h); flipTo($('cM'), m); }
     $('day').textContent = d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric' });
     const a = new Date(d.getTime() + 17 * 60000);
-    $('arrive').textContent = `${pad(a.getHours())}:${pad(a.getMinutes())}`;
-    if (S.night === 'auto') screen.classList.toggle('night', isNight());
+    if (!NATIVE) $('arrive').textContent = `${pad(a.getHours())}:${pad(a.getMinutes())}`;
+    if (S.night === 'auto') { screen.classList.toggle('night', isNight()); if (wallSrc) bakeGlass(); }
   }
 
   // ---- Weather icon (Weatherglass TV glass icons, vendor/weatherglass, MIT). Same mapping and animation as weather.html. ----
@@ -1062,12 +1187,15 @@
   const WX_TEXT = { 0: 'Clear', 1: 'Mostly clear', 2: 'Partly cloudy', 3: 'Cloudy', 45: 'Fog', 48: 'Fog', 51: 'Drizzle', 53: 'Drizzle', 55: 'Drizzle',
                     61: 'Rain', 63: 'Rain', 65: 'Heavy rain', 80: 'Showers', 81: 'Showers', 82: 'Heavy showers', 95: 'Thunderstorm', 96: 'Thunderstorm', 99: 'Thunderstorm' };
   const kindOf = c => c <= 1 ? 'clear' : c === 2 ? 'partly' : c <= 48 ? 'cloudy' : c >= 95 ? 'storm' : 'rain';
-  fetch(`https://api.open-meteo.com/v1/forecast?latitude=${WX_AT.lat}&longitude=${WX_AT.lon}&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min&forecast_days=1&timezone=auto`)
-    .then(r => r.json())
-    .then(j => { const c = j.current.weather_code;
-      show({ kind: kindOf(c), temp: Math.round(j.current.temperature_2m), cond: WX_TEXT[c] || 'Cloudy',
-             hi: Math.round(j.daily.temperature_2m_max[0]), lo: Math.round(j.daily.temperature_2m_min[0]) }); })
-    .catch(() => {});
+  function fetchWx(lat, lon) {
+    fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min&forecast_days=1&timezone=auto`)
+      .then(r => r.json())
+      .then(j => { const c = j.current.weather_code;
+        show({ kind: kindOf(c), temp: Math.round(j.current.temperature_2m), cond: WX_TEXT[c] || 'Cloudy',
+               hi: Math.round(j.daily.temperature_2m_max[0]), lo: Math.round(j.daily.temperature_2m_min[0]) }); })
+      .catch(() => {});
+  }
+  fetchWx(WX_AT.lat, WX_AT.lon);   // the app refetches at the GPS position (onGps)
 
   // ---- Location. On Android, Geocoder gives the district (locality, e.g. "Sumedang Utara") and the regency or city
   //      (subAdminArea, e.g. "Kabupaten Sumedang"). The slab shows the regency/city without its prefix; the footer shows both. ----
@@ -1158,18 +1286,22 @@
     if (!playing) titleAnim.pause();
   }
   document.fonts && document.fonts.ready.then(fitTitle);
-  function setSource(i) {
-    cur = SOURCES[i];
+  function setSource(i) { applySource(SOURCES[i]); }
+  function applySource(src) {
+    cur = src;
     const np = $('np'), art = $('art');
     np.classList.toggle('live', cur.len == null);
     np.classList.toggle('no-skip', !cur.skip);
+    np.classList.toggle('idle', !!cur.idle);
+    if (cur.idle) np.classList.remove('live');
     $('appPill').innerHTML = `${cur.icon}<span>${cur.app}</span>`; $('appPill').dataset.app = cur.id; $('tapeWin').dataset.app = cur.id;
     $('appPill').setAttribute('aria-label', `Open ${cur.app}`);
     const t = cur.title.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
     $('title').innerHTML = `<span class="run">${t}<i></i><span aria-hidden="true">${t}<i></i></span></span>`;   // second copy: seamless loop
     fitTitle();
     $('artist').textContent = cur.artist;
-    if (cur.logo) { art.classList.add('logo'); art.style.background = cur.logo.bg; art.innerHTML = `<i class="ph-fill ph-${cur.logo.icon}"></i>`; }
+    if (cur.idle) { art.classList.add('logo'); art.style.background = 'rgba(255,255,255,0.12)'; art.innerHTML = '<i class="ph-fill ph-music-notes"></i>'; }
+    else if (cur.logo) { art.classList.add('logo'); art.style.background = cur.logo.bg; art.innerHTML = `<i class="ph-fill ph-${cur.logo.icon}"></i>`; }
     else { art.classList.remove('logo'); art.innerHTML = ''; art.style.background = `#333 url(${cur.art}) center / cover`; }
     if (cur.len != null) $('tLen').textContent = fmt(cur.len);
     renderProgress();
@@ -1178,29 +1310,46 @@
   // Prototype only: glass.html?src=spotify|ytmusic|prambors previews another app (default YT Music),
   // and holding the app pill moves to the next one (a plain tap still opens the app).
   let srcI = Math.max(0, SOURCES.findIndex(x => x.id === new URLSearchParams(location.search).get('src')));
-  setSource(srcI);
+  if (!NATIVE) setSource(srcI);
   let pillT, pillHeld = false;
-  $('appPill').addEventListener('pointerdown', () => {
+  if (!NATIVE) $('appPill').addEventListener('pointerdown', () => {
     pillHeld = false; clearTimeout(pillT);
     pillT = setTimeout(() => { pillHeld = true; setSource(srcI = (srcI + 1) % SOURCES.length); say(`Now playing from ${cur.app}`); }, 550);
   });
   ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => $('appPill').addEventListener(ev, () => clearTimeout(pillT)));
   $('appPill').addEventListener('click', e => { if (pillHeld) { pillHeld = false; e.stopPropagation(); } });
 
+  $('prev').onclick = () => { if (NATIVE) Android.media('prev'); };
+  $('next').onclick = () => { if (NATIVE) Android.media('next'); };
   $('play').onclick = () => {
-    playing = !playing;
+    if (NATIVE) { Android.media('toggle'); return; }   // the new state comes back from the music app
+    setPlaying(!playing);
+  };
+  function setPlaying(on) {
+    playing = on;
     $('np').classList.toggle('paused', !playing);
     titleAnim && (playing ? titleAnim.play() : titleAnim.pause());
     $('play').innerHTML = `<i class="ph-fill ph-${playing ? 'pause' : 'play'}"></i>`;
     $('play').setAttribute('aria-label', playing ? 'Pause' : 'Play');
-  };
-  setInterval(() => { if (playing && cur.len != null) { cur.pos = (cur.pos + 1) % cur.len; renderProgress(); } }, 1000);
+  }
+  // One tick a second: progress, and in calm mode the reels turn a step (they spin smoothly only in the browser prototype).
+  const calm = screen.classList.contains('calm'), hubs = document.querySelectorAll('.np .hub');
+  let reelAngle = 0;
+  setInterval(() => {
+    if (!playing) return;
+    if (cur.len != null) { cur.pos = (cur.pos + 1) % cur.len; renderProgress(); }
+    if (calm && !cur.idle) { reelAngle = (reelAngle + 40) % 360; hubs.forEach(h => { h.style.transform = `rotate(${reelAngle}deg)`; }); }
+  }, 1000);
 
   document.querySelectorAll('.track').forEach(t => {
     const fill = t.querySelector('.fill'), out = $(t.dataset.k);
-    const set = val => { val = Math.max(0, Math.min(100, Math.round(val))); t.dataset.v = val; fill.style.height = val + '%'; out.textContent = val + '%'; };
-    set(+t.dataset.v);
-    const move = e => { const r = t.getBoundingClientRect(); set((r.bottom - e.clientY) / r.height * 100); };
+    const set = (val, fromUser) => {
+      val = Math.max(0, Math.min(100, Math.round(val))); t.dataset.v = val; fill.style.height = val + '%'; out.textContent = val + '%';
+      t.classList.toggle('low', val < 20);
+      if (NATIVE && fromUser) t.dataset.k === 'vol' ? Android.setVolume(val) : Android.setBrightness(val);
+    };
+    set(NATIVE ? (t.dataset.k === 'vol' ? Android.volume() : Android.brightness()) : +t.dataset.v);
+    const move = e => { const r = t.getBoundingClientRect(); set((r.bottom - e.clientY) / r.height * 100, true); };
     t.addEventListener('pointerdown', e => { t.setPointerCapture(e.pointerId); move(e); t.onpointermove = move; });
     t.addEventListener('pointerup', () => { t.onpointermove = null; });
   });
@@ -1238,6 +1387,110 @@
       el.style.backdropFilter = `url(#lens${i}) blur(7px) saturate(1.9) brightness(0.8)`;
     });
   })();
+
+  // ---- The tablet (Android app only). Bridge.java calls host.on(type, data); ready() asks it to send what it has. ----
+  if (NATIVE) {
+    // Trip rules (see CLAUDE.md "Car panel"): distance from fixes with accuracy <= 20 m, drive time only above 3 km/h,
+    // auto reset after 20 min stationary, counters kept across restarts and saved once a minute.
+    try { const t = JSON.parse(localStorage.getItem('carhome-trip') || 'null'); if (t) { tripKm = t.tripKm; driveS = t.driveS; } } catch (e) { }
+    setInterval(() => localStorage.setItem('carhome-trip', JSON.stringify({ tripKm, driveS })), 60000);
+    let lastFix = null, stillSince = Date.now(), wxAt = 0;
+    const toRad = x => x * Math.PI / 180;
+    const km = (a, b) => { const dLat = toRad(b.lat - a.lat), dLon = toRad(b.lon - a.lon);
+      const h = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLon / 2) ** 2;
+      return 12742 * Math.asin(Math.sqrt(h)); };
+    function onGps(f) {
+      const kmh = Math.round((f.speed || 0) * 3.6);
+      speed = Math.min(GMAX, kmh);
+      if (f.heading != null && kmh > 3) heading = f.heading;
+      if (f.accuracy <= 20) {
+        if (lastFix) { const dt = (f.t - lastFix.t) / 1000; if (dt > 0 && dt < 10 && kmh > 3) { driveS += dt; tripKm += km(lastFix, f); } }
+        lastFix = f;
+      }
+      if (kmh > 3) stillSince = Date.now();
+      else if (Date.now() - stillSince > 20 * 60000 && (tripKm || driveS)) { tripKm = 0; driveS = 0; }
+      renderCar();
+      if (Date.now() - wxAt > 20 * 60000) { wxAt = Date.now(); fetchWx(f.lat, f.lon); }   // weather where the car is
+    }
+    function onMedia(m) {
+      if (!m.pkg || !m.title) {   // nothing playing (or a paused app with no song loaded), or no Notification access yet
+        const access = Android.mediaAccess(), app = (m.pkg && appByPkg(m.pkg)) || byId.ytmusic || APPS[0];
+        applySource({ idle: true, id: access ? app.id : null, app: access ? app.name : 'Allow music access', icon: access ? app.icon : '<i class="ph-fill ph-lock-key"></i>',
+          title: 'Nothing playing', artist: access ? `Open ${app.name} to start` : 'Car Home needs Notification access', len: null, skip: false });
+        if (!access) { $('appPill').removeAttribute('data-app'); $('appPill').onclick = () => Android.openPanel('media'); }
+        setPlaying(false);
+        return;
+      }
+      $('appPill').onclick = null;
+      const app = appByPkg(m.pkg);
+      const same = cur && !cur.idle && cur.pkg === m.pkg && cur.title === m.title;
+      if (same) { cur.pos = m.pos || 0; cur.len = m.len; renderProgress(); }
+      else applySource({ id: app ? app.id : null, pkg: m.pkg, app: app ? app.name : m.app, icon: app ? app.icon : '<i class="ph-fill ph-music-notes"></i>',
+        title: m.title || m.app, artist: m.artist || '', art: m.art || '', logo: m.art ? null : { bg: 'rgba(255,255,255,0.12)', icon: 'music-notes' },
+        len: m.len, pos: m.pos || 0, skip: m.skip !== false });
+      if (!app) { $('appPill').removeAttribute('data-app'); $('tapeWin').removeAttribute('data-app'); }
+      setPlaying(!!m.playing);
+    }
+    // Live map: OpenStreetMap tiles at zoom 16 around the GPS position, which sits under the puck (50%, 66% of the panel).
+    // North up. Tiles are re-requested only when the position crosses a tile; in between the grid just moves.
+    const Z = 16, TS = 256;
+    $('mapPanel').classList.add('live', 'no-nav');
+    tiles.innerHTML = '';
+    let tileKey = '';
+    function setMap(lat, lon) {
+      const n = 2 ** Z, r = lat * Math.PI / 180;
+      const x = (lon + 180) / 360 * n, y = (1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2 * n;
+      const box = tiles.parentElement, W = box.clientWidth, H = box.clientHeight, px = W * 0.5, py = H * 0.66;
+      const cols = Math.ceil(W / TS) + 1, rows = Math.ceil(H / TS) + 1;
+      const x0 = Math.floor(x - px / TS), y0 = Math.floor(y - py / TS), key = `${x0},${y0}`;
+      if (key !== tileKey) {
+        tileKey = key;
+        tiles.style.gridTemplateColumns = `repeat(${cols}, ${TS}px)`;
+        let html = '';
+        for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) html += `<img alt="" src="https://tile.openstreetmap.org/${Z}/${x0 + i}/${y0 + j}.png">`;
+        tiles.innerHTML = html;
+      }
+      tiles.style.setProperty('--tx', (px - (x - x0) * TS).toFixed(1) + 'px');
+      tiles.style.setProperty('--ty', (py - (y - y0) * TS).toFixed(1) + 'px');
+    }
+    // Turn card and ETA from the nav app's notification. Google Maps: title "300 m", text "toward Jl. ...", sub/big
+    // "17 min · 6.4 km · 14:49 ETA"; Waze's wording varies, so the card shows title/text as they come and the ETA row
+    // only what it can recognise.
+    const ARROWS = [[/u-?turn|putar balik/i, 'arrow-u-up-left'], [/roundabout|bundaran/i, 'arrows-clockwise'], [/left|kiri/i, 'arrow-bend-up-left'],
+                    [/right|kanan/i, 'arrow-bend-up-right'], [/arriv|destination|tujuan|tiba/i, 'flag-checkered']];
+    function onNav(n) {
+      const has = !!(n && (n.title || n.text));
+      $('mapPanel').classList.toggle('no-nav', !has);
+      if (!has) return;
+      const words = `${n.title} ${n.text} ${n.big}`;
+      $('navDist').textContent = n.title || n.text;
+      $('navStreet').textContent = n.title ? (n.text || '') : '';
+      const icon = (ARROWS.find(([re]) => re.test(words)) || [0, 'navigation-arrow'])[1];
+      $('navArrow').innerHTML = `<i class="ph-bold ph-${icon}"></i>`;
+      const line = `${n.sub} ${n.big} ${n.text}`;
+      const left = line.match(/(\d+\s*(?:h|jam)\s*)?\d+\s*(?:min|mnt|menit)/i), dist = line.match(/[\d.,]+\s*km\b|\d+\s*m\b/i), at = line.match(/\b\d{1,2}[:.]\d{2}\b/);
+      $('etaLeft').textContent = left ? left[0] : '';
+      $('etaDist').textContent = dist ? dist[0] : '';
+      $('arrive').textContent = at ? at[0].replace('.', ':') : '';
+      document.querySelector('#mapPanel .eta').style.visibility = left || dist || at ? '' : 'hidden';
+    }
+    window.host = {
+      on(type, d) {
+        if (type === 'battery') { level = d.level; charging = d.charging; temp = d.temp; renderStatus(); }
+        else if (type === 'net') { S.wifi = d.wifi; S.data = d.data; S.bt = d.bt; NET.ssid = d.ssid; apply(); }
+        else if (type === 'gps') { onGps(d); setMap(d.lat, d.lon); }
+        else if (type === 'place' && (d.district || d.area)) setLocation(d.district, d.area);
+        else if (type === 'media') onMedia(d);
+        else if (type === 'car-start') { if (S.autoOpen) openApp(S.nav); }
+        else if (type === 'nav') onNav(d);
+        else if (type === 'home') { showCC(false); showApps(false); showWp(false); screen.classList.remove('wp-preview'); }
+      },
+    };
+    save();            // hand the auto-open setting and nav app to the app side
+    Android.ready();
+    // Back from the screensaver because the car started: show the nav app now (see screensaver.html).
+    if (location.hash === '#carstart') { history.replaceState(null, '', location.pathname); if (S.autoOpen) setTimeout(() => openApp(S.nav), 600); }
+  }
 </script>
 </body>
 </html>

@@ -13,6 +13,11 @@ Driven over ADB from a computer on the same Wi-Fi (Wireless debugging; pair once
   Smart Launcher (current home app), Android-side telephony/IMS (LTE model).
 
 ## Custom launcher (in progress)
+- ADB (2026-10-27): this Mac is paired; the tablet connects as `adb-R9RRC0242QX-1GVz2Z._adb-tls-connect._tcp` (192.168.1.115).
+  Screen 800x1340 portrait-native, density 213 (so the WebView's CSS viewport is about 1006x601; the page scales to fit).
+  Installed apps for the APPS list: Waze com.waze, YT Music com.google.android.apps.youtube.music, Spotify com.spotify.music,
+  Apple Music com.apple.android.music, Prambors com.pandacode.prambors.prambors, CarbitLink net.easyconn.carman.wws (likely),
+  Smart Launcher ginlemon.flowerfree. Google Maps is a system app. WhatsApp is not installed. Freeform support is off.
 - `launcher-prototype/glass.html` is the chosen design (option B, Liquid Glass over a photo wallpaper). `index.html` is option A (dark).
   `wireframe.html` is the flat mid-fidelity mockup of the same layout, used to settle changes cheaply before they go into glass.html.
 - Canvas is 1340x800 landscape. Sections: Rail, Map, Today (HTC Sense style flip clock + current weather, see today.html), Car (speedometer + 4 stats),
@@ -59,7 +64,7 @@ Driven over ADB from a computer on the same Wi-Fi (Wireless debugging; pair once
   dark grey speaker / sun glyphs.
   Wallpaper (Controls header > Wallpaper): picker page in the home cell; "From gallery" (an <input type=file>: the browser's
   file chooser here, the Android photo picker via WebChromeClient.onShowFileChooser in the app), the user's photo, then
-  8 built-in photos (Picsum ids here; bundled screen-sized in the app), then 6 CSS gradients (Midnight, Ember, Deep forest,
+  8 built-in photos (vendor/walls: 1600x1000 + 480x288 thumbnails, Unsplash via Picsum), then 6 CSS gradients (Midnight, Ember, Deep forest,
   Ocean, Dusk rose, Graphite: dark layered glows + a faint grain against banding; no files, no shade added). Tap = preview on the real home screen with a
   Set / Cancel bar. Gallery photos are centre-cropped to 1340x800 JPEG once (~200 KB; localStorage 'carhome-wall', app
   files on Android). Each wallpaper's brightness is measured once; brighter photos get extra shade (--dim on .wall::after).
@@ -75,19 +80,139 @@ Driven over ADB from a computer on the same Wi-Fi (Wireless debugging; pair once
   heading, trip km, drive time, average. Trip rules: distance summed from fixes with accuracy <= 20 m, drive time counts only
   while speed > 3 km/h, average = trip / drive time. Trip auto-resets after 20 min stationary; manual reset = long-press the
   reset button next to the source chip. Persist counters once a minute.
-- Navigation: Controls has "Navigation app: Waze / Google Maps" (default Waze). The map panel tap and the turn-card
-  notification parser follow it. "Show <nav app> in the map panel" (default on), decided 2026-10-27:
-  1. Preferred: on ACTION_POWER_CONNECTED / wake with the launcher in front, start the nav app as a Samsung pop-up
-     (freeform) window with launch bounds = the map panel's screen rect, so the rest of home stays visible. An expand
-     control makes it full screen; Home returns to the panel. Android cannot embed another app's UI, this is the closest.
-     Needs freeform enabled once over ADB (settings global enable_freeform_support 1, force_resizable_activities 1);
-     test first with `am start --windowingMode 5` + `am task resize <task> l t r b` before building it.
-  2. Fallback (freeform refused, or the nav app looks wrong at that size): the panel keeps the OSM map with live position,
-     turn card and ETA parsed from the nav app's notification; tap opens the nav app full screen.
-  If the user leaves the nav app within 10 s, don't reopen it that trip.
+- Navigation: Controls has "Navigation app: Waze / Google Maps" (default Waze). Decided 2026-10-27 after testing the
+  pop-up idea on the tablet (see "Pop-up limit" below): the map panel is our own live map, and the nav app opens full screen.
+  - Map (app): OSM tiles at zoom 16 around the GPS fix, position under the puck, north up, dark-filtered; tiles reload
+    only when the position crosses a tile. No route line (nav apps do not share it).
+  - Turn card + ETA (app): from the nav app's notification via MediaListener (title / text / sub / big text): card shows
+    title + text, arrow guessed from the words (EN + ID), ETA row from "12 mnt", "4,2 km", "17:31" patterns. Hidden when
+    not navigating; then the panel says "Tap for Waze". Real Waze notification wording still to be checked on a drive.
+  - Map tap and "Open <nav app> when the car starts" (ACTION_POWER_CONNECTED, default on) open the nav app full screen;
+    Home returns to the dashboard. Still to add: if the user leaves it within 10 s, don't reopen it that trip.
 - Performance goal: the launcher must feel faster than stock One UI on this tablet. Animate only transform/opacity,
   no per-frame timers, no live blur, keep idle CPU at zero between events.
 - Preview: `python3 -m http.server 8765 --bind 0.0.0.0 --directory launcher-prototype`, open `http://<computer-ip>:8765/glass.html` on the tablet.
+
+## Car Home Lite (launcher-prototype/lite.html, added 2026-10-27)
+- 2026-10-27 (user): Car Home (Lite) is the Home app; Smart Launcher, Easy Slider, Volume Button, Brightness Dimmer
+  and Muviz Edge are force-stopped (still installed; Muviz Edge's notification access withdrawn) because their features
+  will move into Car Home: volume/brightness over any app, an on-screen volume button, dimming below minimum
+  brightness, and the music visualiser/screensaver. Back to Smart Launcher:
+  cmd package set-home-activity ginlemon.flowerfree/ginlemon.flower.HomeScreen.
+- Same features, Android bridge and settings key as glass.html, on a UI the tablet draws cheaply: solid dark surfaces only
+  (no wallpaper, glass, blur, filters, shadows or translucency), no CSS animation or transition, fluid layout at the real
+  screen size (no scaled 1340x800 canvas), plain text clock, still weather icon, music title with an ellipsis (no
+  marquee), horizontal volume/brightness bars, instant pages for All apps and Controls, one accent (#5aa7ff).
+- Tried and reverted 2026-10-27 (user didn't like it): hiding the map column unless a route runs. The map column stays.
+- Home grid (2026-10-27): one grid, areas "map today car car" / "map music music sliders", columns 0.95 / 1.15 /
+  0.5 / 0.4 fr, rows 1fr / auto (the cassette is as tall as its content; the clock and car panels take the rest).
+  The .col wrappers are display: contents. The sliders column is narrow so the cassette gets the width.
+- Map: OSM tiles darkened once per tile into a canvas (CARTO dark tiles now need an API key); no live filter.
+  Controls > Map: Dark / OpenStreetMap / Waze live / Google (default Dark, 2026-10-27).
+  Dark: openmaptiles/dark-matter-gl-style (BSD, sprites in vendor/dark-matter) on OpenFreeMap's free OpenMapTiles
+  vector tiles (tiles.openfreemap.org/planet, no key), fonts swapped to OpenFreeMap's Noto Sans (no Metropolis there),
+  drawn by MapLibre GL JS 4.7.1 (vendor/maplibre, loaded only when chosen; removed when switching away). Car tuning in
+  lite.html lifts road and label colours (the stock style is too faint to read while driving). No gestures, 1x pixel
+  ratio, no fades, jumpTo once per GPS fix, top padding 28% so the fix sits under the puck. MapLibre's CSS sets
+  position: relative on the container, hence `.map .vmap`. Measured on the tablet: parked ~4%, moving (1 Hz) ~18%.
+  Waze live: embed.waze.com/iframe?zoom=16&lat=&lon=&ct=livemap (no key; Waze roads, traffic, reports; light theme
+  only). It is a web map, not the Waze app: no route or guidance. Waze tiles share the OSM grid and scale (z16, 256 px),
+  so the iframe is the panel + 360 px a side (its search box, buttons and footer fall outside the panel), centred under
+  the puck at load, and slides with the car by transform; it reloads after ~600 m (old frame kept until the new one
+  loads; a load not done in 20 s is dropped). Switching away removes the iframe. Measured on the tablet: OSM parked 3%,
+  Waze live parked ~22% (its own page keeps running), driving (1 Hz moves, simulated) ~33%.
+  Turn card sources (checked on the tablet 2026-10-27 with a real route): Google Maps' notification has title "110 m",
+  text = street, sub text "7 min · 3.4 km · 21:52 ETA" and the turn arrow as its large icon (MediaListener sends it
+  as a PNG data URL, "icon"; the card shows it instead of guessing). Waze's notification stays "Running. Tap to open."
+  while navigating: no turn data at all, so with Waze the card stays hidden. Google Maps goes picture-in-picture
+  over Car Home when you leave it mid-route (stays on top). Turned off on the tablet 2026-10-27:
+  cmd appops set com.google.android.apps.maps PICTURE_IN_PICTURE ignore (undo: ... allow).
+  Turn card: only a nav notification with route details counts (turn word, distance, time); Waze's plain
+  "Running. Tap to open." no longer shows as a card. The ETA row hides when it has nothing.
+  Google: Google = Maps JavaScript API, loaded only when
+  chosen, raster rendering (not the WebGL vector map), dark JSON style, no UI/gestures (a tap still opens the nav app),
+  centre set 14% of the panel height north of the fix so the car sits under the puck; following is setCenter (free).
+  Key: window.GOOGLE_MAPS_KEY in launcher-prototype/maps-key.js (git-ignored; maps-key.example.js is the template),
+  copied into the APK by build.sh when present. No key, bad key or offline: falls back to OSM (toast). Billing: one
+  "map load" per page load (also each return from the screensaver); 10,000/month free; cap the quota at 300/day.
+  It still shows only our position + turn card; the nav app's route is not available to us.
+- Screensaver: screensaver.html?from=home&home=lite.html&lite: the bbot face in burst mode, clock + weather top-left,
+  song and controls; returns to lite.html. `home=` picks the page to return to (default glass.html).
+  Burst mode (2026-10-27): the face draws (at 30 fps) only while it has something to do: a mood change (every 16-26 s in
+  lite), a reaction or glance (every 12-22 s) or a touch; otherwise its frame loop is parked and nothing redraws. Burn-in
+  drift moves every 10 s, the clock is written only when the minute changes. Measured on the tablet (app + engine):
+  face nonstop 60 fps ~175%, 30 fps ~130%, 20 fps ~98%; burst mode 17-26% averaged over a minute (about 1-3% between
+  bursts); no face ~3%. `&nonstop` = face animating all the time (30 fps), `&fps=<n>`, `&noface` = old large still clock.
+  Lite music controls: flat, plain white skip icons and a solid light circle for play/pause (no glass rim).
+  Lite song line: the same nonstop CSS marquee as the full screensaver (user's choice 2026-10-27, over cheaper passes).
+  Any moving line costs: CSS marquee nonstop ~120%, JS-stepped 30 fps ~150% (main thread), 10 fps ~76%, 5 fps ~40%;
+  the fade mask made no difference. Tried and dropped: one pass every 30 s (face + passes averaged 66% over 2 min). The face's frame
+  loop runs through one shared timer (lite requestAnimationFrame wrapper) so things woken together draw in the same frame.
+- Added back in Lite form (2026-10-27): HTC-style flip cards (static: digits change once a minute, no flip animation),
+  a flat cassette music card (still reels, album art as the right reel, progress between them, controls on a trapezoid
+  bridge), vertical volume / brightness bars. Measured on the tablet after: idle 2-17% CPU.
+- Dropped on purpose: wallpaper picker and Glass toggle (nothing to show through solid panels), flip animation, smooth
+  spinning reels. Instead (2026-10-27) the left reel steps 20deg (a third of its 60deg spoke gap, so it reads as turning
+  forward) on the existing one-second progress tick while playing, live radio included. Measured: playing 12% CPU with
+  the step, 9% without.
+- Switching: Controls > "Switch to the full version (glass)" links to glass.html. The app still starts on glass.html;
+  The app now starts on lite.html (MainActivity.START_PAGE).
+- Measured on the tablet 2026-10-27 (CPU = app + WebView engine, 10 s averages; song faked in the page, no audio):
+  Lite idle 14%, song playing 23-31%, memory ~121 MB + 74 MB engine. Glass (Glass effect off) idle 23-34%, short title
+  playing 40%, long title playing 164-195% (the YouTube-style title scroll is a continuous animation), ~163 MB + 91 MB.
+  Both 61 fps at rest. Open item for glass: in calm mode, show a long title with an ellipsis instead of scrolling.
+
+## Android app (android/, WebView shell, v1.1 = versionName 1.1 / versionCode 2; see CHANGELOG.md)
+- `android/build.sh [install]`: no Gradle (aapt2, javac --release 17, d8, zipalign, apksigner). Copies glass.html, screensaver.html
+  and vendor/ into assets/www. Signing key android/carhome.keystore + keystore.properties are git-ignored: back them up, a
+  build signed with another key cannot install over this one. targetSdk 28 on purpose (see the manifest).
+- MainActivity: full-screen immersive WebView, Home + Launcher intent filters, pages served from https://carhome.app/ (assets),
+  photo picker for the wallpaper input, Back leaves the screensaver, Home closes drawers. Remote debugging is on
+  (adb forward tcp:9333 localabstract:webview_devtools_remote_<pid>, then CDP; see the measuring notes below).
+- Bridge (window.Android): has/openApp, openPanel (pop-ups over Car Home, checked on the tablet 2026-10-27: Wi-Fi =
+  Settings.Panel.ACTION_WIFI, data = the internet panel, Bluetooth = One UI's BluetoothScanDialog via action
+  com.samsung.settings.bluetooth.scandialog.LAUNCH (paired devices + scan; falls back to Bluetooth settings);
+  hotspot and DND pull down the quick settings drawer via StatusBarManager.expandSettingsPanel (hidden API allowed at
+  targetSdk 28, EXPAND_STATUS_BAR). Not reachable: One UI's quick settings tile details (the tile name is ignored, also
+  Samsung's names Wifi/Bluetooth/Hotspot/Dnd; SystemUI's indexsearch DetailPanelLaunchActivity is not exported) and
+  its WifiPickerDialog (closes at once when another app opens it). "media" opens Notification access),
+  volume/brightness, media
+  transport, setPrefs. Pushes host.on(type, data): battery, net, gps (1 Hz), place (Geocoder), media (MediaSessionManager via
+  the MediaListener notification-listener), nav (Waze / Maps notification), car-start (ACTION_POWER_CONNECTED), home. Pages call Android.ready() when loaded.
+- Pages: NATIVE = !!window.Android. In the app, sample data is off: apps filtered to installed, trip from GPS (starts at 0,
+  saved in localStorage carhome-trip), weather at the GPS fix, idle player shows "Nothing playing" (or asks for
+  Notification access), Wi-Fi/BT/data/hotspot/DND toggles open system panels, map = live OSM, map tap = nav app full screen.
+- Screensaver by itself (glass.html goSaver): after 5 min with no touch while home is showing and speed <= 3 km/h
+  (glass.html?idle=<sec> to test). It goes back home on a tap, on moving off (> 10 km/h), or on car start
+  (glass.html#carstart, which then opens the nav app full screen). Built into the launcher, not a DreamService: Android
+  only starts those when the screen would sleep while charging, and stay_on_while_plugged_in keeps it on.
+- Nav app in the panel (built, then dropped): One UI added its caption (23 px) above the requested rect; a rect 17.3 dp
+  shorter fitted the panel exactly. Removed because the pop-up stays above every app (below). Freeform settings are off again.
+- Pop-up limit (tested 2026-10-27): a One UI freeform window stays above everything, other full-screen apps included,
+  and an app cannot demote it. `am start --windowingMode 1` (also with NEW_TASK|CLEAR_TASK) on the existing Waze task
+  leaves it freeform; removing/moving another app's task needs signature permissions. Only the user (pop-up handle:
+  minimise / maximise / close) or an AccessibilityService pressing those buttons can.
+- Not done yet: OBD, checking the turn card against real Waze notifications on a drive, the 10 s "left the nav app" rule, trip counting while Car Home is hidden. Default Home since 2026-10-27
+  (cmd package set-home-activity me.faizal.carhome/.MainActivity; back to Smart Launcher: ginlemon.flowerfree/ginlemon.flower.HomeScreen).
+- First measurements on the tablet (Waze pop-up open, no music): Glass on 13 fps (worst frame 132 ms), app 217 MB PSS
+  (137 MB of it GPU) + WebView renderer ~81 MB. Glass off 30 fps (53 ms), 155 MB (76 MB GPU) + ~74 MB. For reference
+  Smart Launcher 102 MB, One UI Home 89 MB. First paint 9.4 s on a cold start (network fonts/icons). Idle it used 128% CPU,
+  which slowed the whole tablet.
+- Smoothness pass (same day), re-measured: Glass on 58 fps, Glass off 61 fps; app 170 MB PSS (96 MB GPU) + renderer ~74 MB;
+  idle CPU ~11% app + ~6% renderer; opens in 1.8 s. What did it:
+  1. Baked glass (glass.html bakeGlass): wallpaper blurred once into a half-size JPEG, each .glass shows its slice
+     (--gx/--gy); gradients are see-through; live backdrop-filter only as a fallback.
+  2. Calm mode (#screen.calm, always on in the app): no decorative loops (weather bob/glow/rain, warning and LIVE pulses);
+     reels stop when nothing plays.
+  3. WebView onPause while Car Home is not visible (stops drawing and animations). Never WebView.pauseTimers(): it is
+     process-wide, and a second Car Home instance going to the background froze the screensaver page half-loaded.
+  5. Cost model measured on the tablet: every screen update costs roughly 10% CPU per update per second, wherever it is
+     (a weak PowerVR GPU recompositing the whole WebView). Anything animating every frame costs 150%+ of CPU: spinning reels
+     or easing spools alone 170%, both still 24%. So in calm mode nothing eases or spins: the needle steps, the spools and
+     reels move on the one-second progress tick (music playing 54% instead of 174%). The live map costs little (~7%).
+     Rule for new UI: no CSS animation/transition that runs continuously in the app; batch changes into existing ticks.
+  4. Fonts (Geist, Sofia Sans Extra Condensed), Phosphor (woff2 only), brand icons and the 8 wallpapers bundled in
+     launcher-prototype/vendor; only weather (Open-Meteo) and map tiles still use the network. APK 2.8 MB.
 
 ## Screensaver prototype
 - `launcher-prototype/screensaver.html`: bbot face screensaver. bbot (github.com/bwndapp/bbot, MIT) is SVG + springs, no WebGL;
@@ -110,7 +235,16 @@ Driven over ADB from a computer on the same Wi-Fi (Wireless debugging; pair once
   the Android Geocoder, district + city; the browser has no geocoder, so after a GPS fix it hides the place instead of showing the fallback).
   Browser build keeps a local-file queue ("add songs", ID3 title/artist) through the analyser; face nods on bass onsets while music-play is on.
   Android side: MediaSessionManager -> active MediaController metadata/playback state -> player.set().
-- Look: eyes only (mouth off, no head ring), off-black background. Published test page (same file, debug bar always on): https://claude.ai/artifact/9XmBNmuNQU7BJHVGpu4E5T
+- Face reactions in the app (screensaver host.on, 2026-10-27): media play/pause -> music-play (happy + ~10 nods) /
+  music-pause (bored), also when a song is already playing as the screensaver opens; battery charging changes ->
+  charging (relieved) / unplugged (sleepy); level <= 15% and not charging -> battery-low (sleepy), once until > 20% or
+  charging. Plugging in is also car-start, which leaves the screensaver when "Open nav app when the car starts" is on.
+  Not wired yet: turns (Google Maps gives the arrow only as an image), call, message.
+- Look: eyes only (mouth off, no head ring), off-black background. Lids are filled with the background, so shut eyes
+  (sleep at night, blinks) used to vanish. Since 2026-10-27 the lids stop 0.6 face units short of meeting (screensaver
+  patches SVGRectElement.setAttribute for .bwf-lid transforms), so a thin slit of eye stays: shut eyes read as two
+  closed-eye lines. (A lid stroke was tried first: it drew a ledge and cap on half-closed eyes.) Lite burst mode never pauses with the eyes shut unless
+  the mood is sleep (window.faceMood). Published test page (same file, debug bar always on): https://claude.ai/artifact/9XmBNmuNQU7BJHVGpu4E5T
 
 ## Not decided / parked
 - Combined replacement for Easy Slider + Muviz Edge (2-finger volume / 3-finger brightness edge zone + screensaver). User paused it.

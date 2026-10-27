@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- App icon: a car on a blue rounded square (the launcher's accent, #5aa7ff). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <path android:fillColor="#5AA7FF" android:pathData="M30,14h48a16,16 0,0 1,16 16v48a16,16 0,0 1,-16 16h-48a16,16 0,0 1,-16 -16v-48a16,16 0,0 1,16 -16z" />
+    <path android:fillColor="#FFFFFF" android:pathData="M38,44l5,-11h22l5,11h3a3,3 0,0 1,3 3v17a3,3 0,0 1,-3 3h-3v5a3,3 0,0 1,-3 3h-3a3,3 0,0 1,-3 -3v-5h-16v5a3,3 0,0 1,-3 3h-3a3,3 0,0 1,-3 -3v-5h-3a3,3 0,0 1,-3 -3v-17a3,3 0,0 1,3 -3zM46,37l-3,7h22l-3,-7zM41,52a3.5,3.5 0,1 0,0 7a3.5,3.5 0,1 0,0 -7zM67,52a3.5,3.5 0,1 0,0 7a3.5,3.5 0,1 0,0 -7z" />
+</vector>

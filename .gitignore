@@ -3,3 +3,12 @@
 # Tablet screenshots can show personal tabs and notifications
 launcher-prototype/on-tablet*.png
 .DS_Store
+
+# Android build output and signing key (keep the key backed up somewhere safe)
+android/build/
+android/carhome.keystore
+android/keystore.properties
+insites-tools.log
+
+# Google Maps API key for the Lite map (see launcher-prototype/maps-key.example.js)
+launcher-prototype/maps-key.js
