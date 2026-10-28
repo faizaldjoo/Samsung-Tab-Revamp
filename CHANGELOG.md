@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased (fixes for issues #1 to #5, not yet tested on the tablet)
+
+- Unplugging the charger (car off) now pauses the music, opens the screensaver at once (whatever app is in front)
+  and puts the tablet to sleep 2 minutes later; plugging back in before then cancels the sleep. (#3)
+- Plugging the charger in (car on) resumes the music that played last, about 3 seconds later, so the car's Bluetooth
+  has time to connect. (#4)
+- The screensaver starts again after 5 minutes idle: a GPS reading left over from the last drive, or a single noisy
+  one while parked, no longer counts as driving. Moving now means 3 good fixes in a row over 5 km/h. (#1)
+- Swiping to the screensaver no longer bounces back home: it returns on moving off only after 3 fixes in a row over
+  10 km/h, not on the old fix sent as the page opens. (#2)
+- The network icon shows "no network" (crossed-out Wi-Fi or signal) when the connection doesn't reach the internet,
+  for example a hotspot without data. (#5)
+- Unplug and plug-in actions need Car Home's accessibility service on (Settings > Accessibility > Installed apps).
+  Without it, the home page still opens the screensaver and pauses the music when unplugged.
+
 ## v1.2 (2026-10-28)
 
 ### Apps

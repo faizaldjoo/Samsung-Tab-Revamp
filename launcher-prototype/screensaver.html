@@ -715,7 +715,7 @@
     // (the tablet sleeps); plugging in wakes it again (Assist.java).
     const awake = on => { if (Android.keepAwake) Android.keepAwake(on); };
     const strip = n => (n || '').replace(/^(Kabupaten|Kab\.|Kota|Kecamatan|Kec\.)\s+/i, '');
-    let gotFix = false, wasPlaying = null, wasCharging = null, lowShown = false;
+    let gotFix = false, wasPlaying = null, wasCharging = null, lowShown = false, fastRun = 0;
     player.onControl = cmd => Android.media(cmd);
     window.host = {
       on(type, d) {
@@ -732,7 +732,11 @@
           awake(!!d.charging);
           if (d.charging || d.level > 20) lowShown = false;
         } else if (type === 'gps') {
-          if (fromHome && (d.speed || 0) * 3.6 > 10) { location.href = HOME; return; }   // moving off: back to the dashboard
+          // Moving off: back to the dashboard, but only after 3 fixes in a row over 10 km/h with good accuracy. One fix
+          // is not enough: Bridge.ready() re-sends the cached last fix as the page opens, and that bounced the
+          // screensaver straight back home (#2).
+          fastRun = (d.speed || 0) * 3.6 > 10 && d.accuracy <= 25 ? fastRun + 1 : 0;
+          if (fromHome && fastRun >= 3) { location.href = HOME; return; }
           gpsFix(d);
           if (!gotFix) { gotFix = true; weather.refresh(); }   // weather where the car is, not the fallback
         } else if (type === 'place') {

@@ -187,6 +187,20 @@ Driven over ADB from a computer on the same Wi-Fi (Wireless debugging; pair once
   volume/brightness, media
   transport, setPrefs. Pushes host.on(type, data): battery, net, gps (1 Hz), place (Geocoder), media (MediaSessionManager via
   the MediaListener notification-listener), nav (Waze / Maps notification), home. Pages call Android.ready() when loaded.
+- Unplug / plug in (2026-10-28, issues #3 #4, user): Assist listens for ACTION_POWER_DISCONNECTED too. Unplugged:
+  media key PAUSE if music is active (AudioManager.dispatchMediaKeyEvent, no Notification access needed), start
+  MainActivity with ACTION_SAVER (me.faizal.carhome.SAVER: fresh start loads saverPage(), otherwise Bridge.saver()
+  pushes 'saver' and the home page calls goSaver()), then after 120 s, if still unplugged,
+  performGlobalAction(GLOBAL_ACTION_LOCK_SCREEN) = screen off. Plugged in: cancel that, wake if the screen is off
+  (as before), and 3 s later media key PLAY unless music is already playing (Android routes it to the last media app).
+  Fallback without the accessibility service: Lite/Glass see charging go false and call Android.media('pause') +
+  goSaver(); sleep then comes from the screen timeout.
+- Moving (2026-10-28, issues #1 #2): GPS speed alone was trusted, so the last fix of a drive (kept when GPS goes quiet)
+  or one noisy fix blocked the idle screensaver, and the cached fix Bridge.ready() re-sends bounced a fresh screensaver
+  home. Now: home pages count "moving" only after 3 fixes in a row > 5 km/h with accuracy <= 25 m and the newest < 5 s
+  old (moveRun / fixAt / moving()); the screensaver goes home only after 3 such fixes > 10 km/h (fastRun).
+- Network icon (2026-10-28, issue #5): Bridge 'net' has online = NET_CAPABILITY_VALIDATED; when false the pill shows
+  wifi-slash (on Wi-Fi) or cell-signal-slash.
 - Sleep and wake (2026-10-28, user's request): unplugged, nothing keeps the screen on (keepAwake(charging) in Lite,
   Glass and the screensaver) and the screensaver doesn't start by itself, so the tablet sleeps after its 5-min screen
   timeout. Charging, stay_on_while_plugged_in (7) keeps it on. Plugging in with the screen off: Assist (bound, so it

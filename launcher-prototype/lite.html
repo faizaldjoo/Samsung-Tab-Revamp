@@ -588,7 +588,7 @@
   const setTheme = v => { if (v === THEME) return; S.theme = v; save(); location.href = v + '.html'; };
 
   // ---- Controls. In the app, connectivity and DND open the system panels (Android 10+ does not let apps switch them). ----
-  const NET = { ssid: '' };
+  const NET = { ssid: '', online: true };   // online: the network reaches the internet (Bridge, #5)
   const SUB = {
     wifi: on => on ? (NATIVE ? NET.ssid || 'Connected' : 'Faizal iPhone') : 'Off', bt: on => on ? 'On' : 'Off',
     data: on => on ? (NATIVE ? 'In use' : 'Telkomsel LTE') : 'Off', hotspot: on => on ? 'On' : 'Off',
@@ -624,7 +624,8 @@
   function renderStatus() {
     const hot = temp >= 45;
     $('stBat').textContent = `${level}%`;
-    $('stNet').className = 'ph-fill ' + (S.wifi ? 'ph-wifi-high' : S.data ? 'ph-cell-signal-high' : 'ph-cell-signal-slash off');
+    $('stNet').className = 'ph-fill ' + (!NET.online ? (S.wifi ? 'ph-wifi-slash off' : 'ph-cell-signal-slash off')
+      : S.wifi ? 'ph-wifi-high' : S.data ? 'ph-cell-signal-high' : 'ph-cell-signal-slash off');
     $('stBt').className = 'ph-fill ' + (S.bt ? 'ph-bluetooth' : 'ph-bluetooth-slash off');
     $('stWarn').innerHTML = (hot ? '<i class="ph-fill ph-thermometer-hot warn"></i>' : '') + (charging ? '' : '<i class="ph-fill ph-plugs warn"></i>');
     $('batCard').className = 'card health' + (charging ? '' : ' bad');
@@ -841,9 +842,13 @@
   const idleParam = new URLSearchParams(location.search).get('idle'), IDLE_MS = idleParam ? +idleParam * 1000 : 5 * 60000;
   let lastTouch = Date.now();
   document.addEventListener('pointerdown', () => { lastTouch = Date.now(); }, true);
+  // Driving = the last 3 GPS fixes in a row were over 5 km/h with good accuracy, and the newest is under 5 s old.
+  // A single noisy fix while parked, or the last fix of a drive kept when GPS goes quiet indoors, no longer counts (#1).
+  let moveRun = 0, fixAt = 0;
+  const moving = () => NATIVE ? moveRun >= 3 && Date.now() - fixAt < 5000 : speed > 3;
   if (NATIVE || idleParam) setInterval(() => {
     if (document.hidden) return;
-    if (speed > 3) { lastTouch = Date.now(); return; }
+    if (moving()) { lastTouch = Date.now(); return; }
     if (NATIVE && !charging) { lastTouch = Date.now(); return; }   // unplugged: no screensaver, the tablet goes to sleep
     if (Date.now() - lastTouch > IDLE_MS) { lastTouch = Date.now(); goSaver(); }
   }, idleParam ? 1000 : 15000);
@@ -866,6 +871,7 @@
     function onGps(f) {
       const kmh = Math.round((f.speed || 0) * 3.6);
       speed = Math.min(199, kmh);
+      fixAt = Date.now(); moveRun = kmh > 5 && f.accuracy <= 25 ? moveRun + 1 : 0;
       if (f.heading != null && kmh > 3) heading = f.heading;
       if (f.accuracy <= 20) {
         if (lastFix) { const dt = (f.t - lastFix.t) / 1000; if (dt > 0 && dt < 10 && kmh > 3) { driveS += dt; tripKm += km(lastFix, f); } }
@@ -892,8 +898,15 @@
     }
     window.host = {
       on(type, d) {
-        if (type === 'battery') { level = d.level; charging = d.charging; temp = d.temp; renderStatus(); awake(); }
-        else if (type === 'net') { S.wifi = d.wifi; S.data = d.data; S.bt = d.bt; NET.ssid = d.ssid; apply(); }
+        if (type === 'battery') {
+          const unplugged = charging && !d.charging;
+          level = d.level; charging = d.charging; temp = d.temp; renderStatus(); awake();
+          // Charger out (#3): Assist pauses the music and opens the screensaver ('saver' below). Without the
+          // accessibility service, do the same from here (sleep then comes from the screen timeout).
+          if (unplugged && !(Android.assistOn && Android.assistOn())) { Android.media('pause'); goSaver(); }
+        }
+        else if (type === 'saver') goSaver();
+        else if (type === 'net') { S.wifi = d.wifi; S.data = d.data; S.bt = d.bt; NET.ssid = d.ssid; NET.online = d.online !== false; apply(); }
         else if (type === 'gps') onGps(d);
         else if (type === 'place' && (d.district || d.area)) { const a = strip(d.area), di = strip(d.district); $('place').textContent = di && di !== a ? `${di}, ${a}` : a || di; }
         else if (type === 'media') onMedia(d);

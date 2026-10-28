@@ -5,9 +5,12 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.media.AudioManager;
+import android.os.BatteryManager;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.PowerManager;
+import android.view.KeyEvent;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
 
@@ -34,30 +37,75 @@ public class Assist extends AccessibilityService {
     protected void onServiceConnected() {
         current = this;
         strip = new EdgeStrip(this);
-        registerReceiver(power, new IntentFilter(Intent.ACTION_POWER_CONNECTED));
+        IntentFilter f = new IntentFilter(Intent.ACTION_POWER_CONNECTED);
+        f.addAction(Intent.ACTION_POWER_DISCONNECTED);
+        registerReceiver(power, f);
     }
 
     /**
-     * Charger in = the car has started. With the screen off (unplugged, the tablet sleeps after its screen timeout),
-     * wake it and bring up Car Home's home screen. This service keeps running while the screen is off. With the screen
-     * on, plugging in changes nothing.
+     * The charger is the car's ignition. This service keeps running in the background and while the screen is off.
+     * Charger out = the car is off (#3): pause the music, show Car Home's screensaver whatever app is in front, and put
+     * the tablet to sleep 2 minutes later unless the charger comes back.
+     * Charger in = the car has started (#4): with the screen off, wake it and bring up Car Home's home screen; either
+     * way, resume the music that played last, once the car's Bluetooth has had a moment to connect.
      */
+    static final long SLEEP_AFTER_MS = 120_000, RESUME_AFTER_MS = 3_000;
+
     private final BroadcastReceiver power = new BroadcastReceiver() {
         @Override
         public void onReceive(Context c, Intent i) {
-            PowerManager pm = getSystemService(PowerManager.class);
-            if (pm.isInteractive()) return;
+            if (Intent.ACTION_POWER_DISCONNECTED.equals(i.getAction())) unplugged();
+            else pluggedIn();
+        }
+    };
+
+    private void unplugged() {
+        main.removeCallbacks(resume);
+        if (getSystemService(AudioManager.class).isMusicActive()) mediaKey(KeyEvent.KEYCODE_MEDIA_PAUSE);
+        startActivity(new Intent(this, MainActivity.class).setAction(MainActivity.ACTION_SAVER).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+        main.removeCallbacks(sleep);
+        main.postDelayed(sleep, SLEEP_AFTER_MS);
+    }
+
+    private void pluggedIn() {
+        main.removeCallbacks(sleep);
+        PowerManager pm = getSystemService(PowerManager.class);
+        if (!pm.isInteractive()) {
             @SuppressWarnings("deprecation")
             PowerManager.WakeLock wl = pm.newWakeLock(PowerManager.SCREEN_BRIGHT_WAKE_LOCK | PowerManager.ACQUIRE_CAUSES_WAKEUP, "carhome:carstart");
             wl.acquire(3000);
-            startActivity(new Intent(Assist.this, MainActivity.class).setAction(Intent.ACTION_MAIN)
-                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+            startActivity(new Intent(this, MainActivity.class).setAction(Intent.ACTION_MAIN).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
         }
+        main.removeCallbacks(resume);
+        main.postDelayed(resume, RESUME_AFTER_MS);
+    }
+
+    /** Still unplugged after 2 minutes: screen off (this tablet has no lock screen, so "lock" just means sleep). */
+    private final Runnable sleep = () -> {
+        if (!plugged()) performGlobalAction(GLOBAL_ACTION_LOCK_SCREEN);
     };
+
+    /** Play: Android hands the key to the app that played last (YT Music, Spotify, radio) and restarts it if needed. */
+    private final Runnable resume = () -> {
+        if (plugged() && !getSystemService(AudioManager.class).isMusicActive()) mediaKey(KeyEvent.KEYCODE_MEDIA_PLAY);
+    };
+
+    private boolean plugged() {
+        Intent b = registerReceiver(null, new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
+        return b != null && b.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0) != 0;
+    }
+
+    private void mediaKey(int code) {
+        AudioManager am = getSystemService(AudioManager.class);
+        am.dispatchMediaKeyEvent(new KeyEvent(KeyEvent.ACTION_DOWN, code));
+        am.dispatchMediaKeyEvent(new KeyEvent(KeyEvent.ACTION_UP, code));
+    }
 
     @Override
     public boolean onUnbind(Intent i) {
         current = null;
+        main.removeCallbacks(sleep);
+        main.removeCallbacks(resume);
         if (strip != null) strip.destroy();
         try { unregisterReceiver(power); } catch (Exception ignored) { }
         return super.onUnbind(i);

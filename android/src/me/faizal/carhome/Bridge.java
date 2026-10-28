@@ -45,7 +45,7 @@ import java.util.List;
 /**
  * window.Android in the pages. Calls from JS arrive on a binder thread, so anything touching views or starting
  * activities is posted to the main thread. Pushes go the other way as host.on(type, data) in the page:
- * battery, net, gps, place, media, home.
+ * battery, net, gps, place, media, home, saver.
  */
 public class Bridge {
     private final MainActivity act;
@@ -99,6 +99,9 @@ public class Bridge {
     }
 
     void home() { push("home", new JSONObject()); }
+
+    /** Charger out (Assist): the home pages open the screensaver; the screensaver stays. */
+    void saver() { push("saver", new JSONObject()); }
 
     /** Run JS host.on(type, data) on the main thread. */
     private void push(String type, JSONObject data) {
@@ -390,8 +393,11 @@ public class Bridge {
                 if (w != null && w.getSSID() != null) ssid = w.getSSID().replace("\"", "");
                 if (ssid.startsWith("<")) ssid = "";       // <unknown ssid> without location permission
             }
+            // online: Android has checked this network really reaches the internet (a hotspot without data, or used-up
+            // data, is connected but not validated). The pages show "no network" when it is false (#5).
+            boolean online = caps != null && caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED);
             BluetoothAdapter bt = BluetoothAdapter.getDefaultAdapter();
-            net = new JSONObject().put("wifi", wifi).put("ssid", ssid).put("data", cell)
+            net = new JSONObject().put("wifi", wifi).put("ssid", ssid).put("data", cell).put("online", online)
                     .put("bt", bt != null && bt.isEnabled());
             push("net", net);
         } catch (Exception ignored) { }
@@ -553,7 +559,7 @@ public class Bridge {
         return "data:image/jpeg;base64," + Base64.encodeToString(out.toByteArray(), Base64.NO_WRAP);
     }
 
-    /** Transport controls for the player buttons: prev / toggle / next. */
+    /** Transport controls for the player buttons: prev / toggle / next; pause when the charger is pulled (#3). */
     @JavascriptInterface
     public void media(String cmd) {
         main.post(() -> {
@@ -563,6 +569,7 @@ public class Bridge {
             switch (cmd) {
                 case "prev": t.skipToPrevious(); break;
                 case "next": t.skipToNext(); break;
+                case "pause": t.pause(); break;
                 case "toggle":
                     if (s != null && s.getState() == PlaybackState.STATE_PLAYING) t.pause(); else t.play();
                     break;

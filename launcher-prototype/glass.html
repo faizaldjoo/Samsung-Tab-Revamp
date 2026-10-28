@@ -842,7 +842,7 @@
   // In the Android app the page runs with window.Android (android/src/.../Bridge.java): real apps, battery, GPS, music,
   // volume and brightness. Without it (a browser) everything below keeps its sample data, as a prototype.
   const NATIVE = !!window.Android;
-  const NET = { ssid: '' };   // the connected Wi-Fi name, from the tablet
+  const NET = { ssid: '', online: true };   // the connected Wi-Fi name, and whether the network reaches the internet (#5)
   if (NATIVE || new URLSearchParams(location.search).has('calm')) document.getElementById('screen').classList.add('calm');
   const save = () => {
     localStorage.setItem('carhome', JSON.stringify(S));
@@ -1047,9 +1047,13 @@
   const IDLE_MS = idleParam ? +idleParam * 1000 : IDLE_MIN * 60000;
   let lastTouch = Date.now();
   ['pointerdown', 'keydown', 'wheel'].forEach(ev => addEventListener(ev, () => { lastTouch = Date.now(); }, true));
+  // Driving = the last 3 GPS fixes in a row were over 5 km/h with good accuracy, and the newest is under 5 s old.
+  // A single noisy fix while parked, or the last fix of a drive kept when GPS goes quiet indoors, no longer counts (#1).
+  let moveRun = 0, fixAt = 0;
+  const moving = () => NATIVE ? moveRun >= 3 && Date.now() - fixAt < 5000 : speed > 3;
   if (NATIVE || idleParam) setInterval(() => {
     if (document.hidden || screen.classList.contains('wp-preview')) return;   // not showing, or trying a wallpaper
-    if (speed > 3) { lastTouch = Date.now(); return; }                        // driving: keep the dashboard
+    if (moving()) { lastTouch = Date.now(); return; }                         // driving: keep the dashboard
     if (NATIVE && !charging) { lastTouch = Date.now(); return; }              // unplugged: no screensaver, the tablet sleeps
     if (Date.now() - lastTouch > IDLE_MS) { lastTouch = Date.now(); goSaver(); }
   }, idleParam ? 1000 : 15000);
@@ -1330,7 +1334,8 @@
   function renderStatus() {
     const hot = temp >= 45;
     // Signal shows Wi-Fi when it is the active connection, otherwise mobile; dimmed icons mean off.
-    $('stNet').innerHTML = S.wifi ? `<i class="ph-bold ph-wifi-high"></i>` : S.data ? `<i class="ph-fill ph-cell-signal-high"></i>` : `<i class="ph-fill ph-cell-signal-slash off"></i>`;
+    $('stNet').innerHTML = !NET.online ? (S.wifi ? `<i class="ph-bold ph-wifi-slash off"></i>` : `<i class="ph-fill ph-cell-signal-slash off"></i>`)
+      : S.wifi ? `<i class="ph-bold ph-wifi-high"></i>` : S.data ? `<i class="ph-fill ph-cell-signal-high"></i>` : `<i class="ph-fill ph-cell-signal-slash off"></i>`;
     $('stBt').innerHTML = S.bt ? `<i class="ph-fill ph-bluetooth-connected"></i>` : `<i class="ph-fill ph-bluetooth-slash off"></i>`;
     $('stBat').textContent = `${level}%`;   // number only; "not charging" and "too hot" show as warning icons below
     $('stWarn').innerHTML = (hot ? `<i class="ph-fill ph-thermometer-hot"></i>` : '') + (charging ? '' : `<i class="ph-fill ph-plugs"></i>`);
@@ -1666,6 +1671,7 @@
     function onGps(f) {
       const kmh = Math.round((f.speed || 0) * 3.6);
       speed = Math.min(GMAX, kmh);
+      fixAt = Date.now(); moveRun = kmh > 5 && f.accuracy <= 25 ? moveRun + 1 : 0;
       if (f.heading != null && kmh > 3) heading = f.heading;
       if (f.accuracy <= 20) {
         if (lastFix) { const dt = (f.t - lastFix.t) / 1000; if (dt > 0 && dt < 10 && kmh > 3) { driveS += dt; tripKm += km(lastFix, f); } }
@@ -1743,8 +1749,15 @@
     }
     window.host = {
       on(type, d) {
-        if (type === 'battery') { level = d.level; charging = d.charging; temp = d.temp; renderStatus(); awake(); }
-        else if (type === 'net') { S.wifi = d.wifi; S.data = d.data; S.bt = d.bt; NET.ssid = d.ssid; apply(); }
+        if (type === 'battery') {
+          const unplugged = charging && !d.charging;
+          level = d.level; charging = d.charging; temp = d.temp; renderStatus(); awake();
+          // Charger out (#3): Assist pauses the music and opens the screensaver ('saver' below). Without the
+          // accessibility service, do the same from here (sleep then comes from the screen timeout).
+          if (unplugged && !(Android.assistOn && Android.assistOn())) { Android.media('pause'); goSaver(); }
+        }
+        else if (type === 'saver') goSaver();
+        else if (type === 'net') { S.wifi = d.wifi; S.data = d.data; S.bt = d.bt; NET.ssid = d.ssid; NET.online = d.online !== false; apply(); }
         else if (type === 'gps') { onGps(d); setMap(d.lat, d.lon); }
         else if (type === 'place' && (d.district || d.area)) setLocation(d.district, d.area);
         else if (type === 'media') onMedia(d);
