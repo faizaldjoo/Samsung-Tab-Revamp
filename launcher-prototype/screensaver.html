@@ -22,6 +22,7 @@
   html, body { height: 100%; background: #33363c; color: var(--text); font-family: "Geist", system-ui, sans-serif; overflow: hidden; -webkit-font-smoothing: antialiased; }
 
   #screen { width: 1340px; height: 800px; position: absolute; left: 50%; top: 50%; overflow: hidden; transform-origin: center center; background: var(--bg); box-shadow: 0 0 0 1px rgba(255,255,255,0.08), 0 24px 60px rgba(0,0,0,0.45); }
+  #screen { touch-action: none; }   /* swipes and rubs reach the page (the browser cancels them otherwise) */
 
   /* --face-skin must match what sits behind the head, or the lids seam (see bbot README). */
   #bot { position: absolute; left: 50%; top: 50%; width: 660px; height: 660px; margin: -330px 0 0 -330px;
@@ -35,13 +36,13 @@
      Time + date on the left, a hairline, then the weather to their right. */
   .clock { position: absolute; left: 56px; top: 48px; display: flex; align-items: center; gap: 28px; color: var(--text); pointer-events: none; }
   .clock .t { font: 700 112px/0.82 "Sofia Sans Extra Condensed", "Geist", sans-serif; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
-  .clock .d { font-size: 19px; margin-top: 12px; color: var(--muted); }
+  .clock .d { font-size: 24px; margin-top: 14px; color: var(--muted); }
   .clock .rule { width: 1px; align-self: stretch; margin: 6px 0; background: var(--faint); }
   /* Weather: static glass icon (no animation, so the screensaver stays idle), temperature + condition, place underneath. */
-  .clock .wx { display: flex; align-items: center; gap: 12px; }
-  .clock .wx img { width: 52px; height: 52px; object-fit: contain; flex: none; }
-  .clock .wx .now { font-size: 19px; color: var(--text); font-variant-numeric: tabular-nums; }
-  .clock .wx .loc { font-size: 15px; color: var(--muted); margin-top: 3px; max-width: 360px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .clock .wx { display: flex; align-items: center; gap: 16px; }
+  .clock .wx img { width: 76px; height: 76px; object-fit: contain; flex: none; }
+  .clock .wx .now { font-size: 30px; font-weight: 500; color: var(--text); font-variant-numeric: tabular-nums; }
+  .clock .wx .loc { font-size: 23px; color: var(--muted); margin-top: 5px; max-width: 460px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
   /* Lite: with &noface the face is off and the clock and weather sit large in the middle. */
   /* Lite: flat controls like Car Home Lite's player: plain white skip icons, a solid light circle for play/pause.
@@ -55,7 +56,7 @@
   #screen.noface .clock { left: 50%; top: 50%; transform: translate(-50%, -62%); flex-direction: column; gap: 22px; text-align: center; }
   #screen.noface .clock .t { font-size: 220px; }
   #screen.noface .clock .rule { display: none; }
-  .song { position: absolute; left: 50%; bottom: 72px; width: 640px; margin-left: -320px; overflow: hidden; white-space: nowrap; font-size: 17px; color: var(--muted);
+  .song { position: absolute; left: 50%; bottom: 56px; width: 900px; margin-left: -450px; overflow: hidden; white-space: nowrap; font-size: 27px; color: var(--muted);
     -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
     opacity: 0; transition: opacity 0.5s; pointer-events: none; }
   .song.on { opacity: 1; }
@@ -66,7 +67,7 @@
   /* Music controls above the song: three big round glass buttons, sized for a thumb at arm's length (64 / 80 / 64 px,
      32px apart). Same lit rim as the launcher's glass controls. They drift with the rest of the screen (burn-in) and only
      show while there is a song. Presses never reach the face gestures or tap-to-home. */
-  .media { position: absolute; left: 50%; bottom: 136px; transform: translateX(-50%); display: flex; align-items: center; gap: 32px;
+  .media { position: absolute; left: 50%; bottom: 150px; transform: translateX(-50%); display: flex; align-items: center; gap: 32px;
     opacity: 0; pointer-events: none; transition: opacity 0.5s; }
   .media.on { opacity: 1; pointer-events: auto; }
   .media button { width: 64px; height: 64px; border-radius: 999px; display: grid; place-items: center; border: 0; cursor: pointer;
@@ -170,8 +171,12 @@
   // Lite burst mode: whatever the face is told to do (mood, reaction, glance) wakes it long enough to play out.
   if (window.wakeFace) for (const k of ['setExpression', 'react', 'look']) {
     const fn = face[k].bind(face);
-    face[k] = (...args) => { wakeFace(k === 'look' ? (args[2] || 1500) + 800 : 2500); return fn(...args); };
+    face[k] = (...args) => { wakeFace(k === 'look' ? (args[2] || 1500) + 800 : args[0] === 'blink' ? 500 : 2500); return fn(...args); };
   }
+  // Lite burst mode: a blink every 4-7 s while the face rests, so it never looks frozen (each wakes it for 0.5 s).
+  if (window.wakeFace && !new URLSearchParams(location.search).has('nonstop')) (function blink() {
+    setTimeout(() => { if (window.faceMood !== 'sleep') face.react('blink'); blink(); }, 4000 + Math.random() * 3000);
+  })();
 
   // ---- Director: weighted mood cycling, mostly calm. Each entry is [mood, weight]. ----
   const DAY = [['idle', 6], ['content', 4], ['happy', 3], ['curious', 3], ['thinking', 2], ['relieved', 2],
@@ -251,11 +256,13 @@
   // ---- Touch gestures. bbot's eyes already follow the finger on their own.
   //      tap: happy (startled awake if asleep), or back home when opened from the launcher · double tap: surprised → joy · 3+ quick taps: annoyed
   //      long press: love · rub back and forth: content, then relieved · fast swipe: spin → dizzy
+  //      swipe right to left: back home when opened from the launcher
   //      (Android DreamService needs setInteractive(true) for this, otherwise a touch closes the screensaver.) ----
   let down = null, taps = 0, tapTimer, pressTimer;
   const HOLD = 600, MOVE = 14;
 
   screenEl.addEventListener('pointerdown', e => {
+    if (!e.isPrimary) { down = null; clearTimeout(pressTimer); return; }   // two fingers: the volume swipe
     down = { x: e.clientX, y: e.clientY, t: performance.now(), lastX: e.clientX, dir: 0, flips: 0, path: 0, long: false };
     clearTimeout(pressTimer);
     pressTimer = setTimeout(() => {
@@ -285,6 +292,8 @@
     const d = down; down = null;
     const dt = performance.now() - d.t, dx = e.clientX - d.x, dy = e.clientY - d.y;
     if (d.long || d.flips >= 3) return;
+    // Swipe right to left: back home (the mirror of home's swipe right, which opens this screensaver).
+    if (fromHome && dt < 700 && dx < -120 && Math.abs(dy) < -dx * 0.6) { location.href = HOME; return; }
     // Swipe: a quick, mostly straight drag.
     if (dt < 350 && Math.hypot(dx, dy) > 160) { show('dizzy', ['spin'], 3500); return; }
     if (d.path > MOVE) return;
@@ -299,6 +308,21 @@
       taps = 0;
     }, 280);
   });
+
+  // ---- Two fingers up / down: volume up / down, a step every 50 px, with One UI's volume indicator. ----
+  (() => {
+    let y0 = null;
+    const midY = t => (t[0].clientY + t[1].clientY) / 2;
+    addEventListener('touchstart', e => { y0 = e.touches.length === 2 ? midY(e.touches) : null; }, { passive: true });
+    addEventListener('touchmove', e => {
+      if (y0 == null || e.touches.length !== 2) return;
+      const dy = midY(e.touches) - y0;
+      if (Math.abs(dy) < 50) return;
+      y0 += Math.sign(dy) * 50;
+      if (window.Android) Android.volumeStep(dy < 0 ? 1 : -1);
+    }, { passive: true });
+    addEventListener('touchend', e => { if (e.touches.length < 2) y0 = null; }, { passive: true });
+  })();
 
   // ---- Car events. The Android app calls these from its listeners via WebView.evaluateJavascript("bbot.event('turn-left')").
   //      Open screensaver.html?debug to get buttons for them. ----
@@ -687,6 +711,9 @@
   //      through Android.media), GPS fixes for the drive reactions and the weather, the place name, and the battery
   //      (plugged in / unplugged / low). Plugging in is also "car start", which goes home when that setting is on. ----
   if (window.Android) {
+    // Keep the screen on while the screensaver shows and the tablet charges. Unplugged, the screen times out as normal
+    // (the tablet sleeps); plugging in wakes it again (Assist.java).
+    const awake = on => { if (Android.keepAwake) Android.keepAwake(on); };
     const strip = n => (n || '').replace(/^(Kabupaten|Kab\.|Kota|Kecamatan|Kec\.)\s+/i, '');
     let gotFix = false, wasPlaying = null, wasCharging = null, lowShown = false;
     player.onControl = cmd => Android.media(cmd);
@@ -702,6 +729,7 @@
           if (wasCharging !== null && wasCharging !== !!d.charging) bbot.event(d.charging ? 'charging' : 'unplugged');
           wasCharging = !!d.charging;
           if (!d.charging && d.level <= 15 && !lowShown) { lowShown = true; bbot.event('battery-low'); }
+          awake(!!d.charging);
           if (d.charging || d.level > 20) lowShown = false;
         } else if (type === 'gps') {
           if (fromHome && (d.speed || 0) * 3.6 > 10) { location.href = HOME; return; }   // moving off: back to the dashboard
@@ -711,7 +739,6 @@
           const area = strip(d.area), district = strip(d.district);
           if (area || district) weather.place(district && district !== area ? `${district}, ${area}` : area || district);
         } else if (type === 'home') location.href = HOME;
-        else if (type === 'car-start') location.href = HOME + '#carstart';   // home opens the nav app
       },
     };
     Android.ready();

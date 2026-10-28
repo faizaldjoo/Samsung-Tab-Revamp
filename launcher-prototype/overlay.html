@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Car Home Overlay</title>
+<link rel="stylesheet" href="vendor/fonts/fonts.css">
+<link rel="stylesheet" href="vendor/phosphor/fill/style.css">
+<style>
+  /* Prototype of the volume / brightness controls Car Home would float over a full-screen app (Waze, YT Music...),
+     drawn in the app by its accessibility service (Assist.java) as an overlay window. Chosen (2026-10-28): option B,
+     a strip of two sliders the full height of the screen on one edge. Opening it: a thin pill on that edge (the handle);
+     tap it or drag it inward and the strip slides in. It hides 4 s after the last touch or on a tap outside it, unless
+     pinned (the pin at its top keeps it on screen). The handle sits mid-height, clear of One UI's back gesture only where
+     the system allows; to be checked on the tablet.
+     The background is a stand-in for the running app (OpenStreetMap tiles, a Waze-like search bar). Same 1340x800
+     canvas, scaled to fit, as screensaver.html. Lite colours. */
+  :root { --panel: rgba(23,26,31,0.92); --raised: #2a2f37; --text: #f1f3f5; --muted: #aab1bb; --accent: #5aa7ff; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; background: #33363c; color: var(--text); font-family: "Geist", system-ui, sans-serif; overflow: hidden;
+    -webkit-font-smoothing: antialiased; -webkit-tap-highlight-color: transparent; user-select: none; }
+  button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+  i[class^="ph"] { line-height: 1; }
+
+  /* Prototype bar (not part of the design): side. */
+  .proto { position: fixed; left: 50%; top: 10px; transform: translateX(-50%); z-index: 10; display: flex; gap: 6px; padding: 5px;
+    border-radius: 999px; background: #111; box-shadow: 0 4px 16px rgba(0,0,0,0.4); }
+  .proto button { height: 34px; padding: 0 14px; border-radius: 999px; font-size: 13px; font-weight: 600; color: #aaa; }
+  .proto button[aria-pressed="true"] { background: #fff; color: #111; }
+  .proto span { width: 1px; background: #333; margin: 6px 2px; }
+
+  #screen { width: 1340px; height: 800px; position: absolute; left: 50%; top: 50%; overflow: hidden; transform-origin: center; background: #1b1e23; }
+
+  /* Stand-in app: map tiles and a search bar. */
+  .tiles { position: absolute; left: -120px; top: -150px; display: grid; grid-template-columns: repeat(7, 256px); filter: invert(1) hue-rotate(180deg) brightness(1.15) contrast(0.85) saturate(0.5); }
+  .tiles img { width: 256px; height: 256px; display: block; }
+  .fake-search { position: absolute; left: 24px; bottom: 24px; width: 600px; height: 64px; border-radius: 18px; background: #2a2d33;
+    display: flex; align-items: center; gap: 14px; padding: 0 22px; font-size: 22px; color: #9aa0a8; }
+  .fake-puck { position: absolute; left: 640px; top: 470px; width: 40px; height: 40px; margin: -20px; border-radius: 50%; background: #33ccff; border: 4px solid #fff; }
+  .fake-label { position: absolute; left: 24px; top: 24px; padding: 8px 14px; border-radius: 12px; background: rgba(0,0,0,0.55); font-size: 15px; color: #ddd; }
+
+  /* Brightness preview: a black layer whose opacity drops as brightness rises (the real one sets the screen brightness). */
+  .dim { position: absolute; inset: 0; background: #000; pointer-events: none; z-index: 4; }
+
+  /* ---- Overlay ---- */
+  .ov { position: absolute; top: 0; bottom: 0; z-index: 5; width: 0; }
+  .ov.right { right: 0; } .ov.left { left: 0; }
+
+  /* Handle: a 10 x 140 pill, 6 px off the edge, in a 44 px wide touch area. */
+  .handle { position: absolute; top: 50%; margin-top: -80px; width: 44px; height: 160px; display: grid; align-items: center; touch-action: none; }
+  .handle::after { content: ""; width: 10px; height: 140px; border-radius: 5px; background: rgba(255,255,255,0.7);
+    box-shadow: 0 0 0 1px rgba(0,0,0,0.35), 0 2px 8px rgba(0,0,0,0.4); }
+  .ov.right .handle { right: 0; justify-items: end; padding-right: 6px; } .ov.left .handle { left: 0; justify-items: start; padding-left: 6px; }
+  .ov.open .handle { display: none; }
+
+  /* Strip: full height (10 px from the top and bottom), 96 px wide; pin on top, then volume and brightness sharing the height. */
+  .strip { position: absolute; top: 10px; bottom: 10px; width: 96px; display: grid; grid-template-rows: auto 1fr 1fr; gap: 12px;
+    padding: 10px 10px 12px; border-radius: 26px; background: rgba(23,26,31,0.9); border: 1px solid rgba(255,255,255,0.12);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.45); transition: transform 0.18s ease, opacity 0.18s ease; }
+  .ov.right .strip { right: 10px; } .ov.left .strip { left: 10px; }
+  .ov.right:not(.open) .strip { transform: translateX(40px); opacity: 0; pointer-events: none; }
+  .ov.left:not(.open) .strip { transform: translateX(-40px); opacity: 0; pointer-events: none; }
+  .pin { height: 44px; border-radius: 14px; display: grid; place-items: center; font-size: 22px; color: var(--muted); background: #20242b; }
+  .ov.pinned .pin { background: var(--text); color: #0e1013; }
+  .slider { display: grid; grid-template-rows: 1fr auto; justify-items: center; gap: 6px; min-height: 0; }
+  .track { position: relative; width: 100%; height: 100%; border-radius: 20px; background: var(--raised); overflow: hidden; touch-action: none; }
+  .track .fill { position: absolute; left: 0; right: 0; bottom: 0; background: var(--text); }
+  .track i { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); font-size: 28px; color: #2a2e35; }
+  .track.low i { color: var(--text); }
+  .val { font-size: 15px; font-weight: 600; color: var(--muted); font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body>
+<div class="proto">
+  <button data-side="left">Left</button><button data-side="right">Right</button>
+</div>
+
+<div id="screen">
+  <div class="tiles" id="tiles"></div>
+  <div class="fake-puck"></div>
+  <div class="fake-label">Stand-in for Waze, full screen</div>
+  <div class="fake-search"><i class="ph-fill ph-magnifying-glass"></i>Where to?</div>
+  <div class="dim" id="dim"></div>
+
+  <div class="ov right" id="ov">
+    <div class="handle" id="handle" role="button" aria-label="Volume and brightness"></div>
+    <div class="strip" id="strip">
+      <button class="pin" id="pin" aria-label="Keep on screen"><i class="ph-fill ph-push-pin"></i></button>
+      <div class="slider"><div class="track" data-k="vol"><div class="fill"></div><i class="ph-fill ph-speaker-high"></i></div><span class="val" data-v="vol"></span></div>
+      <div class="slider"><div class="track" data-k="bri"><div class="fill"></div><i class="ph-fill ph-sun"></i></div><span class="val" data-v="bri"></span></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const $ = id => document.getElementById(id), screenEl = $('screen'), ov = $('ov');
+  const W = 1340, H = 800;
+  function fit() { const s = Math.min(innerWidth / W, innerHeight / H); screenEl.style.transform = `translate(-50%, -50%) scale(${s})`; }
+  addEventListener('resize', fit); fit();
+
+  // Stand-in map: OSM zoom 16 around Sumedang.
+  const z = 16, x0 = 52411, y0 = 34014;
+  for (let j = 0; j < 5; j++) for (let i = 0; i < 7; i++) $('tiles').insertAdjacentHTML('beforeend', `<img alt="" src="https://tile.openstreetmap.org/${z}/${x0 + i}/${y0 + j}.png">`);
+
+  // Prototype bar: which edge.
+  let side = 'right';
+  function applySide() {
+    ov.classList.toggle('right', side === 'right'); ov.classList.toggle('left', side === 'left');
+    document.querySelectorAll('.proto button').forEach(b => b.setAttribute('aria-pressed', b.dataset.side === side));
+  }
+  document.querySelector('.proto').addEventListener('click', e => { const b = e.target.closest('button'); if (b) { side = b.dataset.side; applySide(); } });
+  applySide();
+
+  // Values, like the real volume and brightness.
+  const V = { vol: 62, bri: 45 };
+  function render() {
+    document.querySelectorAll('.track').forEach(t => {
+      const v = V[t.dataset.k]; t.querySelector('.fill').style.height = v + '%'; t.classList.toggle('low', v < 18);
+    });
+    document.querySelectorAll('[data-v]').forEach(el => { el.textContent = V[el.dataset.v] + '%'; });
+    $('dim').style.opacity = ((100 - V.bri) / 100 * 0.4).toFixed(2);
+  }
+  render();
+
+  // Open / hide: tap the handle or drag it inward; hidden 4 s after the last touch or on a tap outside, unless pinned.
+  let hideT, pinned = false;
+  function open(on) {
+    ov.classList.toggle('open', on); clearTimeout(hideT);
+    if (on && !pinned) hideT = setTimeout(() => open(false), 4000);
+  }
+  let hd = null;
+  $('handle').addEventListener('pointerdown', e => { hd = e.clientX; $('handle').setPointerCapture(e.pointerId); });
+  $('handle').addEventListener('pointermove', e => {
+    if (hd == null) return;
+    const inward = side === 'right' ? hd - e.clientX : e.clientX - hd;
+    if (inward > 24) { hd = null; open(true); }
+  });
+  $('handle').addEventListener('pointerup', () => { if (hd != null) open(true); hd = null; });   // a tap
+  screenEl.addEventListener('pointerdown', e => { if (!pinned && ov.classList.contains('open') && !e.target.closest('.strip, .handle')) open(false); });
+  $('pin').onclick = () => { pinned = !pinned; ov.classList.toggle('pinned', pinned); open(true); };
+
+  // Drag along a bar to set it.
+  document.querySelectorAll('.track').forEach(t => {
+    const move = e => {
+      const r = t.getBoundingClientRect();
+      V[t.dataset.k] = Math.max(0, Math.min(100, Math.round((r.bottom - e.clientY) / r.height * 100)));
+      render(); open(true);
+    };
+    t.addEventListener('pointerdown', e => { t.setPointerCapture(e.pointerId); move(e); t.onpointermove = move; });
+    t.addEventListener('pointerup', () => { t.onpointermove = null; });
+  });
+</script>
+</body>
+</html>

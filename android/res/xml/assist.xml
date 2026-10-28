@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Car Home's accessibility service (Assist.java): the recent apps screen, split screen by tapping through One UI's own
+     recent apps menu, and the volume / brightness strip over full-screen apps (EdgeStrip.java). Window events tell it
+     which app is in front (package name only); it reads screen content only in One UI's launcher, during a split. -->
+<accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/assist_desc"
+    android:accessibilityEventTypes="typeWindowStateChanged|typeWindowsChanged"
+    android:accessibilityFeedbackType="feedbackGeneric"
+    android:accessibilityFlags="flagRetrieveInteractiveWindows"
+    android:notificationTimeout="300"
+    android:canRetrieveWindowContent="true" />

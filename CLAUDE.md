@@ -82,13 +82,14 @@ Driven over ADB from a computer on the same Wi-Fi (Wireless debugging; pair once
   reset button next to the source chip. Persist counters once a minute.
 - Navigation: Controls has "Navigation app: Waze / Google Maps" (default Waze). Decided 2026-10-27 after testing the
   pop-up idea on the tablet (see "Pop-up limit" below): the map panel is our own live map, and the nav app opens full screen.
-  - Map (app): OSM tiles at zoom 16 around the GPS fix, position under the puck, north up, dark-filtered; tiles reload
-    only when the position crosses a tile. No route line (nav apps do not share it).
+  - Map (app): the Dark map, the same as Lite's (glass.html vmUse / vmMove since 2026-10-28; puck at 66%, so top
+    padding 32%), following the GPS fix. Darkened OSM tiles at zoom 16 only as the fallback. No route line (nav apps do
+    not share it); the browser prototype keeps its sample route over Semanggi, Jakarta.
   - Turn card + ETA (app): from the nav app's notification via MediaListener (title / text / sub / big text): card shows
     title + text, arrow guessed from the words (EN + ID), ETA row from "12 mnt", "4,2 km", "17:31" patterns. Hidden when
     not navigating; then the panel says "Tap for Waze". Real Waze notification wording still to be checked on a drive.
-  - Map tap and "Open <nav app> when the car starts" (ACTION_POWER_CONNECTED, default on) open the nav app full screen;
-    Home returns to the dashboard. Still to add: if the user leaves it within 10 s, don't reopen it that trip.
+  - Map tap opens the nav app full screen; Home returns to the dashboard. "Open <nav app> when the car starts" was
+    removed 2026-10-28 (user): plugging in only ever shows home.
 - Performance goal: the launcher must feel faster than stock One UI on this tablet. Animate only transform/opacity,
   no per-frame timers, no live blur, keep idle CPU at zero between events.
 - Preview: `python3 -m http.server 8765 --bind 0.0.0.0 --directory launcher-prototype`, open `http://<computer-ip>:8765/glass.html` on the tablet.
@@ -107,20 +108,16 @@ Driven over ADB from a computer on the same Wi-Fi (Wireless debugging; pair once
 - Home grid (2026-10-27): one grid, areas "map today car car" / "map music music sliders", columns 0.95 / 1.15 /
   0.5 / 0.4 fr, rows 1fr / auto (the cassette is as tall as its content; the clock and car panels take the rest).
   The .col wrappers are display: contents. The sliders column is narrow so the cassette gets the width.
-- Map: OSM tiles darkened once per tile into a canvas (CARTO dark tiles now need an API key); no live filter.
-  Controls > Map: Dark / OpenStreetMap / Waze live / Google (default Dark, 2026-10-27).
+- Map: the Dark map only (2026-10-28, user's choice; the Controls > Map choice is gone, old S.mapSrc is deleted).
+  OSM tiles darkened once per tile into a canvas are only the fallback when the Dark map can't load.
   Dark: openmaptiles/dark-matter-gl-style (BSD, sprites in vendor/dark-matter) on OpenFreeMap's free OpenMapTiles
   vector tiles (tiles.openfreemap.org/planet, no key), fonts swapped to OpenFreeMap's Noto Sans (no Metropolis there),
-  drawn by MapLibre GL JS 4.7.1 (vendor/maplibre, loaded only when chosen; removed when switching away). Car tuning in
+  drawn by MapLibre GL JS 4.7.1 (vendor/maplibre). Car tuning in
   lite.html lifts road and label colours (the stock style is too faint to read while driving). No gestures, 1x pixel
   ratio, no fades, jumpTo once per GPS fix, top padding 28% so the fix sits under the puck. MapLibre's CSS sets
   position: relative on the container, hence `.map .vmap`. Measured on the tablet: parked ~4%, moving (1 Hz) ~18%.
-  Waze live: embed.waze.com/iframe?zoom=16&lat=&lon=&ct=livemap (no key; Waze roads, traffic, reports; light theme
-  only). It is a web map, not the Waze app: no route or guidance. Waze tiles share the OSM grid and scale (z16, 256 px),
-  so the iframe is the panel + 360 px a side (its search box, buttons and footer fall outside the panel), centred under
-  the puck at load, and slides with the car by transform; it reloads after ~600 m (old frame kept until the new one
-  loads; a load not done in 20 s is dropped). Switching away removes the iframe. Measured on the tablet: OSM parked 3%,
-  Waze live parked ~22% (its own page keeps running), driving (1 Hz moves, simulated) ~33%.
+  Dropped 2026-10-28: Waze live (embed.waze.com/iframe in the panel, ~22% CPU parked, 33% moving) and Google (Maps
+  JavaScript API, needed a billed key the user didn't set up). See git history before that date for both.
   Turn card sources (checked on the tablet 2026-10-27 with a real route): Google Maps' notification has title "110 m",
   text = street, sub text "7 min · 3.4 km · 21:52 ETA" and the turn arrow as its large icon (MediaListener sends it
   as a PNG data URL, "icon"; the card shows it instead of guessing). Waze's notification stays "Running. Tap to open."
@@ -129,13 +126,6 @@ Driven over ADB from a computer on the same Wi-Fi (Wireless debugging; pair once
   cmd appops set com.google.android.apps.maps PICTURE_IN_PICTURE ignore (undo: ... allow).
   Turn card: only a nav notification with route details counts (turn word, distance, time); Waze's plain
   "Running. Tap to open." no longer shows as a card. The ETA row hides when it has nothing.
-  Google: Google = Maps JavaScript API, loaded only when
-  chosen, raster rendering (not the WebGL vector map), dark JSON style, no UI/gestures (a tap still opens the nav app),
-  centre set 14% of the panel height north of the fix so the car sits under the puck; following is setCenter (free).
-  Key: window.GOOGLE_MAPS_KEY in launcher-prototype/maps-key.js (git-ignored; maps-key.example.js is the template),
-  copied into the APK by build.sh when present. No key, bad key or offline: falls back to OSM (toast). Billing: one
-  "map load" per page load (also each return from the screensaver); 10,000/month free; cap the quota at 300/day.
-  It still shows only our position + turn card; the nav app's route is not available to us.
 - Screensaver: screensaver.html?from=home&home=lite.html&lite: the bbot face in burst mode, clock + weather top-left,
   song and controls; returns to lite.html. `home=` picks the page to return to (default glass.html).
   Burst mode (2026-10-27): the face draws (at 30 fps) only while it has something to do: a mood change (every 16-26 s in
@@ -143,6 +133,12 @@ Driven over ADB from a computer on the same Wi-Fi (Wireless debugging; pair once
   drift moves every 10 s, the clock is written only when the minute changes. Measured on the tablet (app + engine):
   face nonstop 60 fps ~175%, 30 fps ~130%, 20 fps ~98%; burst mode 17-26% averaged over a minute (about 1-3% between
   bursts); no face ~3%. `&nonstop` = face animating all the time (30 fps), `&fps=<n>`, `&noface` = old large still clock.
+  Blinks (2026-10-28): during the rest a blink every 4-7 s (face.react('blink'), wakes 0.5 s), so the face never looks
+  frozen; rest cost rises from ~2% to ~20% (face only, song stopped; 39% averaged over a minute).
+  Screen stays on while any Car Home page shows (Android.keepAwake -> FLAG_KEEP_SCREEN_ON; lite/glass/screensaver
+  call it, home pages again on every battery update), so idle on home leads to the screensaver, not a blank screen;
+  unplugged with battery <= 20% it lets the screen time out. Other apps (Waze, Maps) keep their own screen rules. Before this, unplugged, the 5-min screen
+  timeout dimmed then blanked the screensaver (stay_on_while_plugged_in only works on power).
   Lite music controls: flat, plain white skip icons and a solid light circle for play/pause (no glass rim).
   Lite song line: the same nonstop CSS marquee as the full screensaver (user's choice 2026-10-27, over cheaper passes).
   Any moving line costs: CSS marquee nonstop ~120%, JS-stepped 30 fps ~150% (main thread), 10 fps ~76%, 5 fps ~40%;
@@ -155,21 +151,33 @@ Driven over ADB from a computer on the same Wi-Fi (Wireless debugging; pair once
   spinning reels. Instead (2026-10-27) the left reel steps 20deg (a third of its 60deg spoke gap, so it reads as turning
   forward) on the existing one-second progress tick while playing, live radio included. Measured: playing 12% CPU with
   the step, 9% without.
-- Switching: Controls > "Switch to the full version (glass)" links to glass.html. The app still starts on glass.html;
-  The app now starts on lite.html (MainActivity.START_PAGE).
+- Theme (2026-10-28): Controls > Theme: Lite / Glass, in both pages (data-seg="theme", handled before the generic
+  segment code). Lite: a card next to the health cards. Glass: in the Controls header beside Wallpaper, because the
+  Glass card grid has exactly four rows (a fifth squeezed the first row and the cards overlapped). Switching navigates to the other page, so only one is ever loaded: with Lite chosen nothing of Glass
+  runs. Each page sets S.theme to itself on load and sends it with setPrefs; MainActivity.startPage() reads it
+  (SharedPreferences "carhome", default lite). Lite's note class is .note (.hint is the map pill).
 - Measured on the tablet 2026-10-27 (CPU = app + WebView engine, 10 s averages; song faked in the page, no audio):
   Lite idle 14%, song playing 23-31%, memory ~121 MB + 74 MB engine. Glass (Glass effect off) idle 23-34%, short title
   playing 40%, long title playing 164-195% (the YouTube-style title scroll is a continuous animation), ~163 MB + 91 MB.
   Both 61 fps at rest. Open item for glass: in calm mode, show a long title with an ellipsis instead of scrolling.
 
-## Android app (android/, WebView shell, v1.1 = versionName 1.1 / versionCode 2; see CHANGELOG.md)
+## Android app (android/, WebView shell, v1.2 = versionName 1.2 / versionCode 3; see CHANGELOG.md)
 - `android/build.sh [install]`: no Gradle (aapt2, javac --release 17, d8, zipalign, apksigner). Copies glass.html, screensaver.html
   and vendor/ into assets/www. Signing key android/carhome.keystore + keystore.properties are git-ignored: back them up, a
   build signed with another key cannot install over this one. targetSdk 28 on purpose (see the manifest).
 - MainActivity: full-screen immersive WebView, Home + Launcher intent filters, pages served from https://carhome.app/ (assets),
   photo picker for the wallpaper input, Back leaves the screensaver, Home closes drawers. Remote debugging is on
   (adb forward tcp:9333 localabstract:webview_devtools_remote_<pid>, then CDP; see the measuring notes below).
-- Bridge (window.Android): has/openApp, openPanel (pop-ups over Car Home, checked on the tablet 2026-10-27: Wi-Fi =
+- Installed apps (2026-10-28): the 12 curated APPS tiles (brand colours) come first, then every other app with a
+  launcher icon from Android.apps() ([{pkg, name}], A to Z, not Car Home), drawn with its own icon from
+  https://carhome.app/icon/<pkg>.png (MainActivity renders getApplicationIcon to a 96 px PNG once, cached in memory).
+  AdaptiveIconDrawable: background + foreground layers drawn unmasked at (-24,-24,120,120) (the visible middle 72 of
+  108 dp) so the PNG is a full square and the tile's border-radius shapes it (img.appicon border-radius: inherit;
+  Glass drops the sheen / inner rim on these tiles via :has). Legacy icons keep their own shape (Camera, DiPlay,
+  CarWebGuru on this tablet).
+  Their id is the package name. All apps pages scroll sideways (Lite and Glass). A newly installed app shows on the next page
+  load (returning home or reopening Car Home). Browser prototype: curated list only.
+- Bridge (window.Android): has/apps/openApp, openPanel (pop-ups over Car Home, checked on the tablet 2026-10-27: Wi-Fi =
   Settings.Panel.ACTION_WIFI, data = the internet panel, Bluetooth = One UI's BluetoothScanDialog via action
   com.samsung.settings.bluetooth.scandialog.LAUNCH (paired devices + scan; falls back to Bluetooth settings);
   hotspot and DND pull down the quick settings drawer via StatusBarManager.expandSettingsPanel (hidden API allowed at
@@ -178,13 +186,75 @@ Driven over ADB from a computer on the same Wi-Fi (Wireless debugging; pair once
   its WifiPickerDialog (closes at once when another app opens it). "media" opens Notification access),
   volume/brightness, media
   transport, setPrefs. Pushes host.on(type, data): battery, net, gps (1 Hz), place (Geocoder), media (MediaSessionManager via
-  the MediaListener notification-listener), nav (Waze / Maps notification), car-start (ACTION_POWER_CONNECTED), home. Pages call Android.ready() when loaded.
+  the MediaListener notification-listener), nav (Waze / Maps notification), home. Pages call Android.ready() when loaded.
+- Sleep and wake (2026-10-28, user's request): unplugged, nothing keeps the screen on (keepAwake(charging) in Lite,
+  Glass and the screensaver) and the screensaver doesn't start by itself, so the tablet sleeps after its 5-min screen
+  timeout. Charging, stay_on_while_plugged_in (7) keeps it on. Plugging in with the screen off: Assist (bound, so it
+  runs while the screen is off) gets ACTION_POWER_CONNECTED, takes a SCREEN_BRIGHT | ACQUIRE_CAUSES_WAKEUP wake lock
+  and starts MainActivity with ACTION_MAIN (setShowWhenLocked / setTurnScreenOn; this tablet has no lock screen), so
+  onNewIntent -> Bridge.home(). With the screen on, plugging in does nothing. The car-start nav app option (autoOpen,
+  car-start push, #carstart, CAR_START extra) was removed 2026-10-28 at the user's request. Tested with
+  `dumpsys battery unplug` / `set ac 1` (then `dumpsys battery reset`), Waze in front before sleep: woke to Car Home's
+  home screen. Needs the accessibility service on.
+- Split screen and recent apps (2026-10-28): Assist.java, an AccessibilityService (Settings > Accessibility > Installed
+  apps > Car Home; the user turns it on, never set it from adb). One UI 6.1 gives apps no way into split screen:
+  FLAG_ACTIVITY_LAUNCH_ADJACENT and `am start --windowingMode 6` open the app full screen, and
+  GLOBAL_ACTION_TOGGLE_SPLIT_SCREEN returns false. So Assist taps One UI's own route: first app full screen ->
+  GLOBAL_ACTION_RECENTS -> the card's icon (content-desc "Advanced options, <label>, Button") -> "Open in split screen
+  view" -> the "Select app" picker in the other half -> the second app by its launcher label (activity label, e.g.
+  "YT Music", not the app label "YouTube Music"), else the picker's "All apps Button" and scrolling. Launching the second
+  app directly at the picker cancels the split. Only the One UI launcher's windows are searched (others' trees are slow
+  over binder). About 7 s end to end. Bridge: assistOn, openAssistSettings, recents, split(pkgA, pkgB) -> push
+  'split' {ok}. Pages: All apps header has Split screen (pick left, then right; last pair S.split as a one-tap button)
+  and Recent apps (GLOBAL_ACTION_RECENTS: One UI's recents, swipe apps away there). The rail's former screensaver
+  (eyes) button is now #splitRail = lastSplit() (2026-10-28, user; it briefly opened One UI's own picker with the last
+  app, replaced the same day): the last pair S.split, or with none All apps in pick mode. Assist.find() polls the
+  picker's All apps list up to 3 s before giving up (missed once at 600 ms); any failed split step = GLOBAL_ACTION_HOME.
+- All apps layout (2026-10-28, user): title on top, then #appsGrid as horizontal pages (.apps-pg, 6 columns x as
+  many rows as fit, scroll-snap x; layoutApps() measures when All apps opens and moves the existing tiles into pages,
+  so pin / pick marks stay), page dots (#appsDots, updated on scrollend, tap = jump), then the toolbar at the bottom.
+  Labels are clamped to two lines and always two lines tall, so rows are equal. .apps-grid has touch-action: pan-x;
+  swipe right on the first page = home via touch events on the grid (the browser takes the drag, so the pointer
+  swipe never sees it). Tablet (Lite, 1006x601 CSS): 3 rows = 18 apps a page, 2 pages.
+- All apps toolbar (2026-10-28, user asked to improve the three pills): .tools, one grouped bar (Lite: --panel with
+  --line border; Glass: clear glass with --rim) of .tool buttons = icon chip + two lines (name, then what it does or
+  its state). Pair button: the two apps' tiles as tall halves of a split screen. While picking, only the split tool
+  (Cancel) and the pair stay. Clean up (#cleanBtn, "N MB free" from Bridge.memory(), refreshed when All apps opens):
+  Bridge.cleanUp() = ActivityManager.killBackgroundProcesses for every launcher app but Car Home
+  (KILL_BACKGROUND_PROCESSES; foreground services, i.e. playing music or navigation, are untouched) + Assist.closeAll()
+  (recents, tap "Close all"; none = go home, ok false), then 1.5 s later push 'clean' {ok, freed, free} in MB.
+  Tested 2026-10-28: 8 recent tasks -> 4 (the rest are Car Home / system), 810 -> 873 MB free, back on Car Home. Third-party apps can't list or close
+  other apps' tasks themselves.
+- Volume / brightness strip over full-screen apps (EdgeStrip.java, 2026-10-28; design: launcher-prototype/overlay.html,
+  option B full height). Two TYPE_ACCESSIBILITY_OVERLAY windows from Assist (no draw-over-apps permission): a handle
+  (10 x 140 dp pill mid-height on the sidebar's side, prefs "side" from setPrefs) and the strip (96 dp wide, full
+  height: pin, volume, brightness). Tap the handle to open; it hides 4 s after the last touch or on a tap outside,
+  unless pinned (prefs "stripPinned"). Shown only while the front TYPE_APPLICATION window isn't Car Home or the One UI
+  launcher; checked 300 ms after the last window event (the list is not settled at the event). Waze's window root is
+  null to accessibility, which counts as another app. Dragging in from the very edge is One UI's Back gesture
+  (setSystemGestureExclusionRects is ignored for overlays). Icons: android/fonts/phosphor-fill.ttf -> assets/fonts.
+  The home pages re-read volume and brightness on visibilitychange.
+- Swipes on Car Home (Lite and Glass, 2026-10-28): on home, left = All apps, right = the screensaver (goSaver; was
+  the last app opened, changed the same day at the user's request); on a page or Controls, right or up from the bottom edge = home. Not on the volume / brightness bars;
+  the page and the All apps grid have touch-action: pan-y so horizontal drags arrive as pointer events (the
+  grid scrolls, and the browser checks touch-action only up to the nearest scroller: without it on .apps-grid a
+  drag there ended in pointercancel). Screensaver (opened from home): swipe right to left = home; its #screen has
+  touch-action: none for the same reason.
+- Two-finger volume swipe (2026-10-28, user): on home (not All apps / Controls / wallpaper) and the screensaver, two
+  fingers up = volume up, down = down, a step per 50 px of the fingers' midpoint. Home also has two fingers right =
+  openRecents(), left = lastSplit(); the first 24 px decide horizontal or vertical, then it sticks (> 100 px to act).
+  Swipe up from the bottom edge in any app = One UI's gesture navigation (navigation_mode 2) Home, which is Car Home:
+  checked from Waze, Chrome, YT Music, Spotify. Touch events (touchstart/move with
+  two touches, passive), not pointer events: pan-y would cancel those. Bridge.volumeStep(dir) =
+  adjustStreamVolume(MUSIC, RAISE/LOWER, FLAG_SHOW_UI), so One UI's own indicator shows; home's bar re-reads on a
+  'carhome-levels' event. A second finger (!isPrimary) cancels the one-finger swipe / screensaver gestures. Tested
+  with CDP Input.dispatchTouchEvent (two points), since adb input has one finger only. Inside other apps the bottom swipe is
+  One UI's own gesture navigation.
 - Pages: NATIVE = !!window.Android. In the app, sample data is off: apps filtered to installed, trip from GPS (starts at 0,
   saved in localStorage carhome-trip), weather at the GPS fix, idle player shows "Nothing playing" (or asks for
   Notification access), Wi-Fi/BT/data/hotspot/DND toggles open system panels, map = live OSM, map tap = nav app full screen.
 - Screensaver by itself (glass.html goSaver): after 5 min with no touch while home is showing and speed <= 3 km/h
-  (glass.html?idle=<sec> to test). It goes back home on a tap, on moving off (> 10 km/h), or on car start
-  (glass.html#carstart, which then opens the nav app full screen). Built into the launcher, not a DreamService: Android
+  (glass.html?idle=<sec> to test). It goes back home on a tap, a swipe left, or on moving off (> 10 km/h). Built into the launcher, not a DreamService: Android
   only starts those when the screen would sleep while charging, and stay_on_while_plugged_in keeps it on.
 - Nav app in the panel (built, then dropped): One UI added its caption (23 px) above the requested rect; a rect 17.3 dp
   shorter fitted the panel exactly. Removed because the pop-up stays above every app (below). Freeform settings are off again.
@@ -238,7 +308,6 @@ Driven over ADB from a computer on the same Wi-Fi (Wireless debugging; pair once
 - Face reactions in the app (screensaver host.on, 2026-10-27): media play/pause -> music-play (happy + ~10 nods) /
   music-pause (bored), also when a song is already playing as the screensaver opens; battery charging changes ->
   charging (relieved) / unplugged (sleepy); level <= 15% and not charging -> battery-low (sleepy), once until > 20% or
-  charging. Plugging in is also car-start, which leaves the screensaver when "Open nav app when the car starts" is on.
   Not wired yet: turns (Google Maps gives the arrow only as an image), call, message.
 - Look: eyes only (mouth off, no head ring), off-black background. Lids are filled with the background, so shut eyes
   (sleep at night, blinks) used to vanish. Since 2026-10-27 the lids stop 0.6 face units short of meeting (screensaver

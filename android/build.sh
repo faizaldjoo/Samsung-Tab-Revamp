@@ -20,8 +20,8 @@ mkdir -p "$OUT/res" "$OUT/classes" "$OUT/dex" "$OUT/assets/www"
 # Pages and their local files. The prototype keeps working in a browser; this copy is what ships.
 cp "$ROOT/launcher-prototype/glass.html" "$ROOT/launcher-prototype/lite.html" "$ROOT/launcher-prototype/screensaver.html" "$OUT/assets/www/"
 cp -R "$ROOT/launcher-prototype/vendor" "$OUT/assets/www/"
-# Optional Google Maps key (git-ignored); without it the map stays on OpenStreetMap.
-if [ -f "$ROOT/launcher-prototype/maps-key.js" ]; then cp "$ROOT/launcher-prototype/maps-key.js" "$OUT/assets/www/"; fi
+# Icon font for the native overlay (EdgeStrip): Phosphor Fill as TTF (Android can't load woff2).
+mkdir -p "$OUT/assets/fonts" && cp "$HERE/fonts/phosphor-fill.ttf" "$OUT/assets/fonts/"
 
 echo "== aapt2"
 "$BT/aapt2" compile --dir "$HERE/res" -o "$OUT/res/res.zip"

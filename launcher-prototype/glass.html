@@ -143,6 +143,12 @@
   .map-tiles .grid { position: absolute; display: grid; grid-template-columns: repeat(4, 256px); left: 50%; top: 50%; transform: translate(-46%, -52%) scale(1.15);
     filter: invert(1) hue-rotate(180deg) brightness(0.82) contrast(0.9) saturate(0.4); }
   .map-tiles img { width: 256px; height: 256px; display: block; }
+  /* The Dark map (as in Lite): Dark Matter vector tiles drawn by MapLibre, no gestures, so a tap still opens the nav
+     app. The OSM grid is only the fallback when it can't load. .map-tiles .vmap beats MapLibre's position: relative. */
+  .map-tiles .vmap { position: absolute; inset: 0; pointer-events: none; }
+  #mapPanel.vector .map-tiles .grid { display: none; }
+  #mapPanel:not(.vector) .vmap { display: none; }
+  .attrib { position: absolute; right: 14px; top: 6px; font-size: 10px; color: rgba(255,255,255,0.45); pointer-events: none; }
   .map-shade { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(10,13,18,0.45) 0%, rgba(10,13,18,0) 28%, rgba(10,13,18,0) 60%, rgba(10,13,18,0.85) 100%); }
   .route { position: absolute; inset: 0; width: 100%; height: 100%; }
   /* App: live map, no route line (nav apps do not share it). Turn card and ETA only while the nav app is navigating;
@@ -361,14 +367,53 @@
     box-shadow: inset 0 1.5px 0 rgba(255,255,255,0.45), inset 0 -2px 6px rgba(0,0,0,0.12), 0 8px 18px rgba(0,0,0,0.28); }
   .tile::after { content: ""; position: absolute; inset: 0; border-radius: inherit; background: linear-gradient(180deg, rgba(255,255,255,0.28), rgba(255,255,255,0) 50%); pointer-events: none; }
   .tile img { width: 44%; height: 44%; }
+  .tile img.appicon, .dock .tile img.appicon { width: 100%; height: 100%; border-radius: inherit; display: block; }   /* an installed app's own icon fills the tile, cut to its corners */
+  /* An installed app's icon is its own artwork: no glass sheen or inner rim over it, only the drop shadow. */
+  .tile:has(> img.appicon) { box-shadow: 0 8px 18px rgba(0,0,0,0.28); }
+  .tile:has(> img.appicon)::after { display: none; }
   .tile i { font-size: 44px; color: #fff; }
 
   /* All apps page */
-  .apps-page { padding: 34px 40px; display: flex; flex-direction: column; }
+  .apps-page { padding: 34px 40px 24px; display: flex; flex-direction: column; gap: 18px; }
   .apps-page h1 { font-size: 34px; font-weight: 600; letter-spacing: -0.02em; }
   .apps-sub { font-size: 16px; color: var(--muted); margin-top: 6px; }
-  .apps-grid { flex: 1; display: grid; grid-template-columns: repeat(6, 1fr); align-content: center; row-gap: 40px; }
+  /* All installed apps in pages of 6 columns, as many rows as fit (layoutApps), side by side: swipe sideways through
+     them, one page at a time. The dots under them show the page; tap one to jump there. */
+  .apps-grid { flex: 1; display: flex; min-height: 0; overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory;
+    scrollbar-width: none; overscroll-behavior: contain; }
+  .apps-pg { flex: 0 0 100%; scroll-snap-align: start; display: grid; grid-template-columns: repeat(6, 1fr);
+    grid-auto-rows: max-content; align-content: start; row-gap: 28px; padding-top: 6px; }
+  /* Labels: up to two lines, always two lines tall, so every row of a page is the same height. */
+  #appsGrid .app > span { width: 100%; height: 2.5em; line-height: 1.25; text-align: center; overflow: hidden;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; padding: 0 6px; }
+  .dots { display: flex; justify-content: center; gap: 10px; height: 10px; }
+  .dots i { width: 10px; height: 10px; border-radius: 5px; background: rgba(255,255,255,0.3); }
+  .dots i.on { width: 28px; background: #fff; }
   .app { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+  /* All apps: title on top, the app pages, then the tools (last split pair, Split screen, Recent apps, Clean up) in a
+     clear-glass toolbar along the bottom, under the thumb: each tool an icon chip and a two-line label (what it does, then its state). The last
+     split pair shows its two apps' own tiles as the two halves of a split screen. */
+  .apps-head { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+  .tools { display: flex; gap: 4px; padding: 5px; border-radius: 26px; background: rgba(255,255,255,0.1); box-shadow: var(--rim); }
+  .tool { display: flex; align-items: center; gap: 12px; height: 64px; padding: 0 20px 0 8px; border-radius: 21px; text-align: left; white-space: nowrap; }
+  .tool[hidden] { display: none; }
+  .tool .ic { width: 48px; height: 48px; border-radius: 15px; background: rgba(255,255,255,0.14); display: grid; place-items: center; font-size: 24px; flex: none; }
+  .tool b { display: block; font-size: 16px; font-weight: 600; max-width: 210px; overflow: hidden; text-overflow: ellipsis; }
+  .tool small { display: block; font-size: 14px; font-weight: 500; color: var(--muted); margin-top: 1px; }
+  .tool.on { background: var(--accent, #0a84ff); color: #fff; }
+  .tool.on small { color: rgba(255,255,255,0.85); }
+  .tool .ic.pair { width: 60px; background: none; display: flex; gap: 4px; }
+  .tool .ic.pair .tile { width: 28px; height: 48px; border-radius: 10px; box-shadow: none; }
+  .tool .ic.pair .tile::after { display: none; }
+  .tool .ic.pair .tile i { font-size: 18px; }
+  .tool .ic.pair .tile img { width: 18px; height: 18px; }
+  .tool .ic.pair .tile img.appicon { width: 28px; height: 28px; border-radius: 7px; }
+  #screen.picking #recentsBtn, #screen.picking #cleanBtn { display: none; }
+  #screen.picking .app.picked .tile { outline: 4px solid #fff; outline-offset: 4px; }
+  /* Horizontal swipes reach the page (see "Swipes"); vertical drags still scroll All apps. */
+  #screen { touch-action: pan-y; }
+  .apps-grid { touch-action: pan-x; }   /* the pages scroll sideways (the browser checks touch-action only up to the scroller) */
+  .tools .tool { flex: 1; }
   .app span { font-size: 16px; font-weight: 500; text-shadow: 0 1px 2px rgba(0,0,0,0.35); }
   #screen.show-apps .app { animation: slot-in 0.4s var(--ease) both; animation-delay: calc(var(--i) * 22ms); }
 
@@ -405,6 +450,9 @@
   .cc-head { display: flex; justify-content: space-between; align-items: center; }
   .cc-head h2 { font-size: 28px; font-weight: 600; letter-spacing: -0.02em; }
   .cc-head-r { display: flex; gap: 10px; align-items: center; }
+  .theme-lbl { font-size: 13px; font-weight: 600; color: var(--muted); }
+  .theme-seg { width: 200px; margin-right: 8px; }
+  .theme-seg button { height: 40px; }
   .pill-btn { height: 48px; padding: 0 20px 0 16px; border-radius: 999px; display: inline-flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 600;
     background: rgba(255,255,255,0.12); box-shadow: var(--rim); }
   .pill-btn i { font-size: 20px; }
@@ -437,7 +485,7 @@
   .wp-bar .wp-cancel { background: rgba(255,255,255,0.12); box-shadow: var(--rim); }
   .round { width: 48px; height: 48px; border-radius: 999px; display: grid; place-items: center; font-size: 22px; background: rgba(255,255,255,0.12); box-shadow: var(--rim); }
   .cc-grid { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(12, 1fr); grid-template-rows: minmax(0, 1fr) auto auto minmax(0, 1fr); gap: 14px; }
-  /* 12 columns: toggles and health cards a quarter each (Glass effect lines up under Hotspot), navigation and auto-open in halves. */
+  /* 12 columns: toggles a quarter each (Glass effect lines up under Hotspot), navigation and the two health cards in halves. */
   .cc-grid > * { grid-column: span 3; }
   .card { border-radius: var(--r-tile); background: var(--card); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.1); padding: 16px; min-width: 0; }
   .cc-grid > .s2 { grid-column: span 6; }
@@ -539,7 +587,7 @@
       <div class="row warn" id="stWarn"></div>
     </button>
     <button class="gear press" id="gearBtn" aria-label="Settings"><i class="ph-fill ph-gear-six"></i></button>
-    <button class="saver press" id="saverBtn" aria-label="Start screensaver"><i class="ph-fill ph-eyes"></i></button>
+    <button class="saver press" id="splitRail" aria-label="Split screen"><i class="ph-fill ph-square-split-horizontal"></i></button>
     <nav class="dock" id="dock" aria-label="Pinned and recent apps"></nav>
     <button class="home-btn press" id="homeBtn" aria-label="All apps"><i class="ph-bold ph-dots-nine"></i></button>
   </aside>
@@ -547,7 +595,7 @@
   <main class="main">
     <section class="glass map press" id="mapPanel" data-app="waze">
       <div class="map-inner">
-        <div class="map-tiles"><div class="grid" id="tiles"></div></div>
+        <div class="map-tiles"><div class="grid" id="tiles"></div><div class="vmap" id="vmap"></div></div>
         <svg class="route" viewBox="0 0 400 760" preserveAspectRatio="none" aria-hidden="true">
           <path d="M200 520 L200 420 Q200 380 240 360 L300 330 Q330 315 330 280 L330 120" fill="none" stroke="#5aa7ff" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
@@ -558,6 +606,7 @@
           <div><div class="dist" id="navDist">300 m</div><div class="street" id="navStreet">Jl. Jend. Sudirman</div></div>
         </div>
         <div class="map-hint" id="mapHint">Tap for Waze</div>
+        <div class="attrib" id="attrib"></div>
         <div class="eta">
           <div><b id="arrive">08:47</b><span>arrival</span></div>
           <div><b id="etaLeft">17 min</b><span>left</span></div>
@@ -647,9 +696,12 @@
   </main>
 
   <section class="glass apps-page" id="appsPage" aria-label="All apps">
-    <h1>All apps</h1>
-    <p class="apps-sub">Hold an app to pin it to the rail</p>
+    <div class="apps-head"><div><h1 id="appsTitle">All apps</h1><p class="apps-sub" id="appsSub"></p></div></div>
     <div class="apps-grid" id="appsGrid"></div>
+    <div class="dots" id="appsDots"></div>
+    <div class="tools"><button class="tool press" id="pairBtn" hidden></button><button class="tool press" id="splitBtn"></button>
+        <button class="tool press" id="recentsBtn"><span class="ic"><i class="ph-fill ph-cards"></i></span><span><b>Recent apps</b><small>Swipe to close</small></span></button>
+        <button class="tool press" id="cleanBtn"><span class="ic"><i class="ph-fill ph-broom"></i></span><span><b>Clean up</b><small id="memTxt">Free memory</small></span></button></div>
   </section>
 
   <section class="glass wp-page" id="wpPage" aria-label="Wallpaper">
@@ -666,6 +718,9 @@
     <div class="cc-head">
       <h2>Controls</h2>
       <div class="cc-head-r">
+        <!-- Theme switch in the header: the card grid has exactly four rows. -->
+        <span class="theme-lbl">Theme</span>
+        <div class="seg theme-seg" data-seg="theme"><button data-v="lite">Lite</button><button data-v="glass">Glass</button></div>
         <button class="pill-btn press" id="wpBtn"><i class="ph-fill ph-image"></i>Wallpaper</button>
         <button class="round press" id="ccClose" aria-label="Close controls"><i class="ph-bold ph-x"></i></button>
       </div>
@@ -698,13 +753,12 @@
         </div>
         <small class="hint">Map tap and turn info use this app</small>
       </div>
-      <button class="card s2 tog wide press" data-t="autoOpen"><span class="disc"><i class="ph-fill ph-car-simple"></i></span><span><b id="autoOpenTitle">Open Waze when the car starts</b><small>Full screen as soon as the car starts</small></span><span class="sw" aria-hidden="true"></span></button>
 
       <button class="card tog press" data-t="dnd"><span class="disc"><i class="ph-fill ph-moon"></i></span><span><b>Do Not Disturb</b><small></small></span></button>
       <button class="card tog press" data-t="autoBri"><span class="disc"><i class="ph-fill ph-sun-dim"></i></span><span><b>Auto brightness</b><small></small></span></button>
       <!-- Prototype only: tap these two cards to preview the warning states. -->
-      <button class="card health press" id="batCard"><i></i><span><b></b><small></small></span></button>
-      <button class="card health press" id="tempCard"><i></i><span><b></b><small></small></span></button>
+      <button class="card s2 health press" id="batCard"><i></i><span><b></b><small></small></span></button>
+      <button class="card s2 health press" id="tempCard"><i></i><span><b></b><small></small></span></button>
     </div>
   </section>
 
@@ -732,10 +786,59 @@
       const img = new Image(); img.src = `https://tile.openstreetmap.org/15/${x}/${y}.png`; img.alt = ''; tiles.appendChild(img);
     }
 
+  // ---- The Dark map, the same as lite.html's (2026-10-28, user): the Dark Matter style (openmaptiles/dark-matter-gl-style,
+  //      sprites in vendor/dark-matter) on OpenFreeMap's free OpenMapTiles vector tiles (no key), drawn by MapLibre GL
+  //      (vendor/maplibre). It draws only when something changes: following the car is one jumpTo a second, no easing.
+  //      MapLibre zoom 15 = the 256 px zoom 16 OSM view; 1x pixel ratio, no fades; top padding puts the position at 66%
+  //      of the height, under the puck. If it can't load, the OSM tiles below take over. Prototype: Semanggi, Jakarta,
+  //      under the sample route. ----
+  let pos = window.Android ? null : { lat: -6.2196, lon: 106.8124 }, vm = null, vmState = '';
+  function vmUse() {
+    $('mapPanel').classList.toggle('vector', vmState !== 'failed');
+    $('attrib').innerHTML = vmState !== 'failed' ? '&copy; OpenMapTiles &copy; OpenStreetMap' : '&copy; OpenStreetMap contributors';
+    if (vmState) return;
+    vmState = 'loading';
+    const css = document.createElement('link'); css.rel = 'stylesheet'; css.href = 'vendor/maplibre/maplibre-gl.css';
+    const sc = document.createElement('script'); sc.src = 'vendor/maplibre/maplibre-gl.js';
+    sc.onload = async () => {
+      try {
+        const style = await (await fetch('vendor/dark-matter/style.json')).json();
+        style.sprite = new URL(style.sprite, location.href).href;
+        // Car tuning: Dark Matter is a quiet backdrop for data; lift roads and labels so streets read at a glance.
+        const CAR = {
+          highway_path: { 'line-color': '#24272c' }, highway_minor: { 'line-color': '#30343a' },
+          highway_major_casing: { 'line-color': 'rgba(105,110,118,0.9)' }, highway_major_inner: { 'line-color': '#25282d' },
+          highway_motorway_casing: { 'line-color': 'rgba(120,126,134,0.9)' }, highway_motorway_inner: { 'line-color': '#282b31' },
+          highway_name_other: { 'text-color': '#8d929a' }, highway_name_motorway: { 'text-color': '#9aa0a8' },
+        };
+        for (const l of style.layers) {
+          Object.assign(l.paint || {}, CAR[l.id]);
+          if (l.id.startsWith('place_')) l.paint['text-color'] = '#8d929a';
+        }
+        vm = new maplibregl.Map({
+          container: 'vmap', style, zoom: 15, center: pos ? [pos.lon, pos.lat] : [107.921, -6.842],
+          interactive: false, attributionControl: false, fadeDuration: 0, antialias: false, pixelRatio: 1,
+          renderWorldCopies: false, maxPitch: 0,
+        });
+        vm.on('error', e => console.warn('map', e.error && e.error.message));
+        vmState = 'ready'; vmMove();
+      } catch (e) { vmFail(); }
+    };
+    sc.onerror = vmFail;
+    document.head.append(css, sc);
+  }
+  function vmFail() { vmState = 'failed'; vmUse(); if (pos && window.setMap) setMap(pos.lat, pos.lon); }
+  function vmMove() {
+    if (!vm || !pos) return;
+    vm.jumpTo({ center: [pos.lon, pos.lat], padding: { top: Math.round($('vmap').clientHeight * 0.32), bottom: 0, left: 0, right: 0 } });
+  }
+  vmUse();
+
   // Settings. Persisted so the prototype remembers them between reloads.
   const S = Object.assign(
-    { side: 'right', night: 'auto', glass: true, wall: 'hills', nav: 'waze', pins: ['waze', 'spotify'], autoOpen: true, wifi: true, bt: true, data: true, hotspot: false, dnd: true, autoBri: true, obd: true },
+    { side: 'right', night: 'auto', glass: true, wall: 'hills', nav: 'waze', pins: ['waze', 'spotify'], wifi: true, bt: true, data: true, hotspot: false, dnd: true, autoBri: true, obd: true },
     JSON.parse(localStorage.getItem('carhome') || '{}'));
+  delete S.autoOpen;   // "Open <nav app> when the car starts", removed 2026-10-28 (plugging in shows home)
   // In the Android app the page runs with window.Android (android/src/.../Bridge.java): real apps, battery, GPS, music,
   // volume and brightness. Without it (a browser) everything below keeps its sample data, as a prototype.
   const NATIVE = !!window.Android;
@@ -743,7 +846,7 @@
   if (NATIVE || new URLSearchParams(location.search).has('calm')) document.getElementById('screen').classList.add('calm');
   const save = () => {
     localStorage.setItem('carhome', JSON.stringify(S));
-    if (NATIVE) Android.setPrefs(JSON.stringify({ autoOpen: S.autoOpen, navPkg: (byId[S.nav] || {}).pkg }));
+    if (NATIVE) Android.setPrefs(JSON.stringify({ theme: S.theme, side: S.side }));
   };
 
   // Installed apps. One list drives the rail, the all-apps page and the navigation setting.
@@ -765,6 +868,9 @@
   ];
   // In the app: only the apps that are installed (the nav app always stays, so the map panel has something to open).
   if (NATIVE) for (let i = APPS.length - 1; i >= 0; i--) if (APPS[i].id !== S.nav && !Android.has(APPS[i].pkg)) APPS.splice(i, 1);
+  // ...and every other installed app, with its own launcher icon (served by the app at icon/<pkg>.png), A to Z.
+  if (NATIVE && Android.apps) for (const a of JSON.parse(Android.apps()))
+    if (!APPS.some(x => x.pkg === a.pkg)) APPS.push({ id: a.pkg, pkg: a.pkg, name: a.name, bg: 'transparent', icon: `<img class="appicon" src="icon/${a.pkg}.png" alt="">` });
   const byId = Object.fromEntries(APPS.map(a => [a.id, a]));
   const appByPkg = pkg => APPS.find(a => a.pkg === pkg);
 
@@ -792,6 +898,39 @@
   ).join('');
   renderDock();
 
+  // All apps pages: as many rows of 6 as fit the space (measured when All apps opens; again if the size changes). The
+  // existing tiles move into the pages, so their pinned / picked marks stay.
+  let appRows = 0;
+  function layoutApps() {
+    const grid = $('appsGrid'), apps = [...grid.querySelectorAll('.app')];
+    if (!grid.querySelector('.apps-pg')) { const pg = document.createElement('div'); pg.className = 'apps-pg'; pg.append(...apps); grid.replaceChildren(pg); }
+    const rowH = apps[0].offsetHeight + 28, rows = Math.max(1, Math.floor((grid.clientHeight - 6 + 28) / rowH));
+    if (rows === appRows) return;
+    appRows = rows;
+    const per = rows * 6, pages = [];
+    for (let i = 0; i < apps.length; i += per) {
+      const pg = document.createElement('div'); pg.className = 'apps-pg';
+      apps.slice(i, i + per).forEach((a, j) => { a.style.setProperty('--i', j); pg.appendChild(a); });
+      pages.push(pg);
+    }
+    grid.replaceChildren(...pages);
+    $('appsDots').innerHTML = pages.length > 1 ? pages.map((_, i) => `<i data-pg="${i}"></i>`).join('') : '';
+    dots();
+  }
+  const dots = () => {
+    const g = $('appsGrid'), n = Math.round(g.scrollLeft / (g.clientWidth || 1));
+    $('appsDots').querySelectorAll('i').forEach((d, i) => d.classList.toggle('on', i === n));
+  };
+  $('appsGrid').addEventListener('scrollend', dots);
+  $('appsDots').addEventListener('click', e => { const d = e.target.closest('[data-pg]'); if (d) $('appsGrid').scrollTo({ left: d.dataset.pg * $('appsGrid').clientWidth }); });
+  // Swipe right on the first page = home (the pages take sideways drags, so the page-wide swipe never sees this one).
+  let gt = null;
+  $('appsGrid').addEventListener('touchstart', e => { const t = e.touches[0]; gt = e.touches.length === 1 ? { x: t.clientX, y: t.clientY, at0: $('appsGrid').scrollLeft < 4 } : null; }, { passive: true });
+  $('appsGrid').addEventListener('touchend', e => {
+    const t = e.changedTouches[0], s = gt; gt = null;
+    if (s && s.at0 && t.clientX - s.x > 120 && Math.abs(t.clientY - s.y) < (t.clientX - s.x) * 0.6) showApps(false);
+  }, { passive: true });
+
   // Hold an app (rail or all-apps page) to pin or unpin it. The click that ends the hold does not open the app.
   function togglePin(id) {
     const name = byId[id].name;
@@ -802,7 +941,7 @@
   }
   let pinTimer, held = false;
   screen.addEventListener('pointerdown', e => {
-    const el = e.target.closest('.dock-item, #appsGrid .app'); if (!el) return;   // not the map or the music app icon
+    const el = e.target.closest('.dock-item, #appsGrid .app'); if (!el || pick) return;   // not the map or the music app icon
     held = false; clearTimeout(pinTimer);
     pinTimer = setTimeout(() => { held = true; togglePin(el.dataset.app); }, 550);
   });
@@ -812,12 +951,73 @@
   // The bottom rail button opens the all-apps page and turns into a Home button while it is open.
   const homeBtn = $('homeBtn');
   function showApps(on) {
-    if (on) screen.classList.remove('show-wp');
+    if (!on && pick) { pick = null; renderPick(); }
+    if (on) { screen.classList.remove('show-wp'); showCC(false); memText(); layoutApps(); $('appsGrid').scrollLeft = 0; dots(); }   // opens on the first page
     screen.classList.toggle('show-apps', on);
     homeBtn.innerHTML = `<i class="ph-bold ph-${on ? 'house' : 'dots-nine'}"></i>`;
     homeBtn.setAttribute('aria-label', on ? 'Home' : 'All apps');
   }
   homeBtn.addEventListener('click', () => showApps(!screen.classList.contains('show-apps')));
+
+  // ---- Split screen and recent apps, through Car Home's accessibility service (Assist.java): One UI lets no app start
+  //      split screen itself, so the service taps through One UI's recent apps menu (takes a few seconds). Split screen
+  //      on the All apps page: pick the left app, then the right one; the last pair stays as a one-tap button. ----
+  let pick = null;   // while choosing: [] or [left]
+  const assist = () => {
+    if (!NATIVE || (Android.assistOn && Android.assistOn())) return true;
+    say('Turn on Car Home in Accessibility first'); setTimeout(() => Android.openAssistSettings(), 900); return false;
+  };
+  function renderPick() {
+    screen.classList.toggle('picking', !!pick);
+    $('appsTitle').textContent = pick ? 'Split screen' : 'All apps';
+    $('appsSub').textContent = !pick ? 'Hold an app to pin it' : pick.length ? `Now the right side (left: ${byId[pick[0]].name})` : 'Pick the app for the left side';
+    $('splitBtn').innerHTML = pick ? '<span class="ic"><i class="ph-bold ph-x"></i></span><span><b>Cancel</b><small>Stop picking</small></span>'
+      : '<span class="ic"><i class="ph-fill ph-square-split-horizontal"></i></span><span><b>Split screen</b><small>Pick two apps</small></span>';
+    $('splitBtn').classList.toggle('on', !!pick);
+    const pair = (S.split || []).filter(id => byId[id]);
+    $('pairBtn').hidden = !!pick || pair.length !== 2;
+    const mini = a => `<div class="tile" style="background:${a.bg}">${a.icon}</div>`;
+    if (pair.length === 2) $('pairBtn').innerHTML = `<span class="ic pair">${mini(byId[pair[0]])}${mini(byId[pair[1]])}</span>`
+      + `<span><b>${byId[pair[0]].name} + ${byId[pair[1]].name}</b><small>Last split</small></span>`;
+    document.querySelectorAll('#appsGrid .app').forEach(el => el.classList.toggle('picked', !!pick && pick.includes(el.dataset.app)));
+  }
+  function split(a, b) {
+    if (!assist()) return;
+    S.split = [a, b]; save(); pick = null; renderPick(); showApps(false);
+    recents = [b, a, ...recents.filter(r => r !== a && r !== b)].slice(0, 8); renderDock();
+    if (!NATIVE) say(`Split screen: ${byId[a].name} + ${byId[b].name}`);
+    else if (!Android.split(byId[a].pkg, byId[b].pkg)) say('Could not open split screen');
+  }
+  function pickApp(id) {
+    if (pick.includes(id)) return;
+    pick.push(id);
+    if (pick.length === 2) split(pick[0], pick[1]); else renderPick();
+  }
+  $('splitBtn').addEventListener('click', () => { if (!pick && !assist()) return; pick = pick ? null : []; renderPick(); });
+  // The sidebar's split button and the two-finger swipe left: the last split screen pair; none yet, All apps to pick two.
+  function lastSplit() {
+    const pair = (S.split || []).filter(id => byId[id]);
+    if (pair.length === 2) return split(pair[0], pair[1]);
+    if (!assist()) return;
+    showCC(false); showApps(true); pick = []; renderPick();
+  }
+  function openRecents() { if (!assist()) return; showApps(false); if (NATIVE) Android.recents(); else say('Opens recent apps'); }
+  $('splitRail').addEventListener('click', lastSplit);
+  $('pairBtn').addEventListener('click', () => split(S.split[0], S.split[1]));
+  // Clean up: frees memory held by apps in the background and closes the recent apps (Close all in One UI's recents).
+  function memText() {
+    if (!NATIVE || !Android.memory) return;
+    const m = JSON.parse(Android.memory());
+    $('memTxt').textContent = (m.free >= 1024 ? (m.free / 1024).toFixed(1) + ' GB' : m.free + ' MB') + ' free';
+  }
+  $('cleanBtn').addEventListener('click', () => {
+    if (!assist()) return;
+    if (!NATIVE) return say('Closes recent apps and frees memory');
+    say('Cleaning up');
+    if (!Android.cleanUp()) say('Could not clean up');
+  });
+  $('recentsBtn').addEventListener('click', openRecents);
+  renderPick();
 
   function openApp(id) {
     if (!byId[id]) return;
@@ -829,10 +1029,11 @@
   screen.addEventListener('click', e => {
     const el = e.target.closest('[data-app]'); if (!el) return;
     if (held) { held = false; return; }
+    if (pick && el.closest('#appsGrid')) { pickApp(el.dataset.app); return; }
     openApp(el.dataset.app);
   });
 
-  // Screensaver: the eyes button, or by itself after IDLE_MIN minutes with no touch while home is showing and the car is
+  // Screensaver: swipe right on home, or by itself after IDLE_MIN minutes with no touch while home is showing and the car is
   // not moving (driving keeps the dashboard). Fades to black, then opens screensaver.html; a tap there comes back here,
   // and so do moving off or the car starting. In the app only (a browser prototype can try it with glass.html?idle=<sec>).
   // Built into the launcher rather than Android's screen saver (DreamService): that one only starts when the screen would
@@ -841,7 +1042,6 @@
     screen.classList.add('to-saver');
     setTimeout(() => { location.href = 'screensaver.html?from=home'; }, 420);
   }
-  $('saverBtn').addEventListener('click', goSaver);
   addEventListener('pageshow', () => screen.classList.remove('to-saver'));
   const IDLE_MIN = 5, idleParam = new URLSearchParams(location.search).get('idle');
   const IDLE_MS = idleParam ? +idleParam * 1000 : IDLE_MIN * 60000;
@@ -850,14 +1050,69 @@
   if (NATIVE || idleParam) setInterval(() => {
     if (document.hidden || screen.classList.contains('wp-preview')) return;   // not showing, or trying a wallpaper
     if (speed > 3) { lastTouch = Date.now(); return; }                        // driving: keep the dashboard
+    if (NATIVE && !charging) { lastTouch = Date.now(); return; }              // unplugged: no screensaver, the tablet sleeps
     if (Date.now() - lastTouch > IDLE_MS) { lastTouch = Date.now(); goSaver(); }
   }, idleParam ? 1000 : 15000);
 
   // Controls panel.
-  const showCC = on => screen.classList.toggle('show-cc', on);
+  // Controls and All apps are never open together: opening one closes the other.
+  const showCC = on => { if (on) showApps(false); screen.classList.toggle('show-cc', on); };
   ['statusBtn', 'gearBtn'].forEach(id => $(id).addEventListener('click', () => showCC(!screen.classList.contains('show-cc'))));
   $('ccClose').addEventListener('click', () => showCC(false));
   $('ccScrim').addEventListener('click', () => showCC(false));
+
+  // ---- Two-finger swipes on home. Up / down: volume up / down, a step every 50 px, with One UI's volume indicator.
+  //      Right: recent apps. Left: the last split screen pair (none yet: All apps, to pick two). The first 24 px of
+  //      movement decide which way the swipe goes; it then sticks to that. ----
+  (() => {
+    let s = null;
+    const mid = t => ({ x: (t[0].clientX + t[1].clientX) / 2, y: (t[0].clientY + t[1].clientY) / 2 });
+    addEventListener('touchstart', e => {
+      if (e.touches.length !== 2) return;
+      const m = mid(e.touches);
+      s = !['show-apps', 'show-cc', 'show-wp'].some(c => screen.classList.contains(c)) ? { x: m.x, y: m.y, y0: m.y, dx: 0, way: null } : null;
+    }, { passive: true });
+    addEventListener('touchmove', e => {
+      if (!s || e.touches.length !== 2) return;
+      const m = mid(e.touches), dx = m.x - s.x, dy = m.y - s.y;
+      if (!s.way && Math.max(Math.abs(dx), Math.abs(dy)) >= 24) s.way = Math.abs(dx) > Math.abs(dy) ? 'h' : 'v';
+      if (s.way === 'h') { s.dx = dx; return; }
+      if (s.way !== 'v') return;
+      const step = m.y - s.y0;
+      if (Math.abs(step) < 50) return;
+      s.y0 += Math.sign(step) * 50;
+      if (NATIVE) { Android.volumeStep(step < 0 ? 1 : -1); dispatchEvent(new Event('carhome-levels')); }
+      else say(step < 0 ? 'Volume up' : 'Volume down');
+    }, { passive: true });
+    addEventListener('touchend', e => {
+      if (!s || e.touches.length >= 2) return;
+      const done = s; s = null;
+      if (done.way === 'h' && Math.abs(done.dx) > 100) done.dx > 0 ? openRecents() : lastSplit();
+    }, { passive: true });
+  })();
+
+  // ---- Swipes on Car Home (like Smart Launcher's): on home, swipe left for All apps and right for the screensaver;
+  //      on a page or Controls, swipe right (or up from the bottom edge) for home. Not on the volume / brightness bars. ----
+  let sw = null, swiped = false;
+  screen.addEventListener('pointerdown', e => {
+    swiped = false;
+    if (!e.isPrimary) { sw = null; return; }   // a second finger: the two-finger volume swipe, not this
+    sw = e.target.closest('.track') ? null : { x: e.clientX, y: e.clientY, t: Date.now(), bottom: e.clientY > innerHeight - 50 };
+  }, true);
+  screen.addEventListener('pointerup', e => {
+    if (!sw) return;
+    const s = sw, dx = e.clientX - s.x, dy = e.clientY - s.y; sw = null;
+    if (Date.now() - s.t > 700) return;
+    const page = ['show-apps', 'show-cc', 'show-wp'].some(c => screen.classList.contains(c));
+    const home = () => { showCC(false); showApps(false); showWp(false); };
+    if (s.bottom && dy < -80 && Math.abs(dx) < -dy) { swiped = true; if (page) home(); return; }
+    if (Math.abs(dx) < 120 || Math.abs(dy) > Math.abs(dx) * 0.6) return;
+    swiped = true; clearTimeout(pinTimer);
+    if (page) { if (dx > 0) home(); }
+    else if (dx < 0) showApps(true);
+    else goSaver();
+  }, true);
+  screen.addEventListener('click', e => { if (swiped) { swiped = false; e.stopPropagation(); e.preventDefault(); } }, true);
 
   // ---- Wallpaper. A built-in set of photos (vendor/walls, from Unsplash via Picsum, bundled so they work offline), six CSS
   //      gradients, and one photo from
@@ -1031,8 +1286,15 @@
   // In the app, connectivity and Do Not Disturb open the system panel (Android 10+ does not let apps switch them);
   // their state comes back from the tablet. Auto brightness switches directly once "Modify system settings" is allowed.
   const PANEL = ['wifi', 'bt', 'data', 'hotspot', 'dnd'];
+  // Theme: only the chosen page is ever loaded; Lite opens lite.html and this page is gone. The app starts on the last
+  // one shown (Bridge setPrefs "theme").
+  const THEME = 'glass';
+  S.theme = THEME;
+  if (NATIVE) save();   // the app starts on this page next time
+  const setTheme = v => { if (v === THEME) return; S.theme = v; save(); location.href = v + '.html'; };
   $('cc').addEventListener('click', e => {
     const t = e.target.closest('[data-t]'), sb = e.target.closest('[data-seg] button');
+    if (sb && sb.closest('[data-seg]').dataset.seg === 'theme') { setTheme(sb.dataset.v); return; }
     if (t && NATIVE && PANEL.includes(t.dataset.t)) { Android.openPanel(t.dataset.t); return; }
     if (t && NATIVE && t.dataset.t === 'autoBri' && !Android.setAutoBrightness(!S.autoBri)) return;
     if (t) S[t.dataset.t] = !S[t.dataset.t];
@@ -1055,7 +1317,6 @@
     document.querySelectorAll('[data-seg]').forEach(seg =>
       seg.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === S[seg.dataset.seg])));
     $('mapPanel').dataset.app = S.nav;
-    $('autoOpenTitle').textContent = `Open ${byId[S.nav].name} when the car starts`;
     $('mapHint').textContent = `Tap for ${byId[S.nav].name}`;
     renderStatus(); renderCar();
   }
@@ -1349,6 +1610,9 @@
       if (NATIVE && fromUser) t.dataset.k === 'vol' ? Android.setVolume(val) : Android.setBrightness(val);
     };
     set(NATIVE ? (t.dataset.k === 'vol' ? Android.volume() : Android.brightness()) : +t.dataset.v);
+    // Back from another app: volume and brightness may have changed there (keys, the edge strip), so read them again.
+    if (NATIVE) document.addEventListener('visibilitychange', () => { if (!document.hidden) set(t.dataset.k === 'vol' ? Android.volume() : Android.brightness()); });
+    if (NATIVE && t.dataset.k === 'vol') addEventListener('carhome-levels', () => set(Android.volume()));   // two-finger swipe
     const move = e => { const r = t.getBoundingClientRect(); set((r.bottom - e.clientY) / r.height * 100, true); };
     t.addEventListener('pointerdown', e => { t.setPointerCapture(e.pointerId); move(e); t.onpointermove = move; });
     t.addEventListener('pointerup', () => { t.onpointermove = null; });
@@ -1431,13 +1695,16 @@
       if (!app) { $('appPill').removeAttribute('data-app'); $('tapeWin').removeAttribute('data-app'); }
       setPlaying(!!m.playing);
     }
-    // Live map: OpenStreetMap tiles at zoom 16 around the GPS position, which sits under the puck (50%, 66% of the panel).
-    // North up. Tiles are re-requested only when the position crosses a tile; in between the grid just moves.
+    // Live map: the Dark map above, following the GPS position under the puck (50%, 66% of the panel). Fallback:
+    // OpenStreetMap tiles at zoom 16, re-requested only when the position crosses a tile; in between the grid just moves.
     const Z = 16, TS = 256;
     $('mapPanel').classList.add('live', 'no-nav');
     tiles.innerHTML = '';
     let tileKey = '';
+    window.setMap = setMap;
     function setMap(lat, lon) {
+      pos = { lat, lon };
+      if (vmState !== 'failed') { vmMove(); return; }   // the Dark map; OSM tiles only as its fallback
       const n = 2 ** Z, r = lat * Math.PI / 180;
       const x = (lon + 180) / 360 * n, y = (1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2 * n;
       const box = tiles.parentElement, W = box.clientWidth, H = box.clientHeight, px = W * 0.5, py = H * 0.66;
@@ -1476,20 +1743,24 @@
     }
     window.host = {
       on(type, d) {
-        if (type === 'battery') { level = d.level; charging = d.charging; temp = d.temp; renderStatus(); }
+        if (type === 'battery') { level = d.level; charging = d.charging; temp = d.temp; renderStatus(); awake(); }
         else if (type === 'net') { S.wifi = d.wifi; S.data = d.data; S.bt = d.bt; NET.ssid = d.ssid; apply(); }
         else if (type === 'gps') { onGps(d); setMap(d.lat, d.lon); }
         else if (type === 'place' && (d.district || d.area)) setLocation(d.district, d.area);
         else if (type === 'media') onMedia(d);
-        else if (type === 'car-start') { if (S.autoOpen) openApp(S.nav); }
         else if (type === 'nav') onNav(d);
+        else if (type === 'split' && !d.ok) say('Split screen did not finish: try again');
+        else if (type === 'clean') { memText(); say((d.ok ? 'Recent apps closed' : 'No recent apps') + (d.freed ? `, ${d.freed} MB freed` : '')); }
         else if (type === 'home') { showCC(false); showApps(false); showWp(false); screen.classList.remove('wp-preview'); }
       },
     };
     save();            // hand the auto-open setting and nav app to the app side
+    // Keep the screen on only while charging (in the car). Unplugged, the tablet sleeps after its screen timeout
+    // (5 min); plugging in wakes it again (Assist.java).
+    function awake() { if (Android.keepAwake) Android.keepAwake(charging); }
+    awake();
     Android.ready();
     // Back from the screensaver because the car started: show the nav app now (see screensaver.html).
-    if (location.hash === '#carstart') { history.replaceState(null, '', location.pathname); if (S.autoOpen) setTimeout(() => openApp(S.nav), 600); }
   }
 </script>
 </body>

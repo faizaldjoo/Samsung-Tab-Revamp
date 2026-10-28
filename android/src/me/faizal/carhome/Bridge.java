@@ -1,5 +1,6 @@
 package me.faizal.carhome;
 
+import android.app.ActivityManager;
 import android.bluetooth.BluetoothAdapter;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
@@ -44,7 +45,7 @@ import java.util.List;
 /**
  * window.Android in the pages. Calls from JS arrive on a binder thread, so anything touching views or starting
  * activities is posted to the main thread. Pushes go the other way as host.on(type, data) in the page:
- * battery, net, gps, place, media, car-start, home.
+ * battery, net, gps, place, media, home.
  */
 public class Bridge {
     private final MainActivity act;
@@ -80,7 +81,6 @@ public class Bridge {
         if (started) return;
         started = true;
         IntentFilter f = new IntentFilter(Intent.ACTION_BATTERY_CHANGED);
-        f.addAction(Intent.ACTION_POWER_CONNECTED);
         f.addAction(BluetoothAdapter.ACTION_STATE_CHANGED);
         act.registerReceiver(receiver, f);
         ConnectivityManager cm = act.getSystemService(ConnectivityManager.class);
@@ -124,6 +124,23 @@ public class Bridge {
         return pkg != null && pm.getLaunchIntentForPackage(pkg) != null;
     }
 
+    /** Every app with a launcher icon (not Car Home itself), sorted by name: [{pkg, name}]. Icons: icon/<pkg>.png. */
+    @JavascriptInterface
+    public String apps() {
+        org.json.JSONArray out = new org.json.JSONArray();
+        java.util.TreeMap<String, String> byName = new java.util.TreeMap<>(String.CASE_INSENSITIVE_ORDER);
+        Intent q = new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER);
+        for (android.content.pm.ResolveInfo r : pm.queryIntentActivities(q, 0)) {
+            String pkg = r.activityInfo.packageName;
+            if (pkg.equals(act.getPackageName())) continue;
+            byName.put(String.valueOf(r.loadLabel(pm)) + "\u0000" + pkg, pkg);
+        }
+        for (java.util.Map.Entry<String, String> e : byName.entrySet()) {
+            try { out.put(new JSONObject().put("pkg", e.getValue()).put("name", e.getKey().split("\u0000")[0])); } catch (Exception ignored) { }
+        }
+        return out.toString();
+    }
+
     @JavascriptInterface
     public void openApp(String pkg) {
         main.post(() -> {
@@ -134,12 +151,87 @@ public class Bridge {
         });
     }
 
-    /** Settings the launcher needs outside the page (car start). */
+    // ---- split screen and recent apps: through Car Home's accessibility service (Assist), once the user turns it on
+
+    @JavascriptInterface
+    public boolean assistOn() { return Assist.on(); }
+
+    /** Accessibility settings, to turn Car Home on there (Android 14 first wants App info > Allow restricted settings). */
+    @JavascriptInterface
+    public void openAssistSettings() {
+        main.post(() -> act.startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)));
+    }
+
+    @JavascriptInterface
+    public boolean recents() {
+        Assist a = Assist.current;
+        if (a == null) return false;
+        main.post(a::recents);
+        return true;
+    }
+
+    /** Split screen with two apps; the page hears host.on('split', {ok}) when it is done or a step failed. */
+    @JavascriptInterface
+    public boolean split(String pkgA, String pkgB) {
+        Assist a = Assist.current;
+        Intent ia = pkgA == null ? null : pm.getLaunchIntentForPackage(pkgA);
+        if (a == null || ia == null || !has(pkgB)) return false;
+        main.post(() -> a.split(ia, label(pkgA), label(pkgB), ok -> {
+            try { push("split", new JSONObject().put("ok", ok)); } catch (Exception ignored) { }
+        }));
+        return true;
+    }
+
+    /** Free and total memory in MB, for the Clean up button. */
+    @JavascriptInterface
+    public String memory() {
+        ActivityManager.MemoryInfo mi = new ActivityManager.MemoryInfo();
+        act.getSystemService(ActivityManager.class).getMemoryInfo(mi);
+        return "{\"free\":" + (mi.availMem >> 20) + ",\"total\":" + (mi.totalMem >> 20) + "}";
+    }
+
+    /**
+     * Clean up: end every other app's cached background processes (an app playing music or navigating runs a
+     * foreground service, which this leaves alone), then One UI's recent apps > Close all (Assist). The page hears
+     * host.on('clean', {ok, freed, free}) in MB once memory has settled; ok = false when no recent apps were open.
+     */
+    @JavascriptInterface
+    public boolean cleanUp() {
+        Assist a = Assist.current;
+        if (a == null) return false;
+        ActivityManager am = act.getSystemService(ActivityManager.class);
+        ActivityManager.MemoryInfo mi = new ActivityManager.MemoryInfo();
+        am.getMemoryInfo(mi);
+        final long before = mi.availMem;
+        Intent launcher = new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER);
+        for (android.content.pm.ResolveInfo r : pm.queryIntentActivities(launcher, 0)) {
+            String p = r.activityInfo.packageName;
+            if (!p.equals(act.getPackageName())) am.killBackgroundProcesses(p);
+        }
+        main.post(() -> a.closeAll(ok -> main.postDelayed(() -> {
+            ActivityManager.MemoryInfo after = new ActivityManager.MemoryInfo();
+            am.getMemoryInfo(after);
+            try {
+                push("clean", new JSONObject().put("ok", ok).put("freed", Math.max(0, (after.availMem - before) >> 20))
+                        .put("free", after.availMem >> 20));
+            } catch (Exception ignored) { }
+        }, 1500)));
+        return true;
+    }
+
+    /** The name the launcher shows (the launcher activity's label: "YT Music", where the app's own is "YouTube Music"). */
+    private String label(String pkg) {
+        try { return pm.resolveActivity(pm.getLaunchIntentForPackage(pkg), 0).loadLabel(pm).toString(); } catch (Exception e) { return pkg; }
+    }
+
+    /** Settings the launcher needs outside the page (start page, the edge strip's side). */
     @JavascriptInterface
     public void setPrefs(String json) {
         try {
             JSONObject s = new JSONObject(json);
-            prefs.edit().putBoolean("autoOpen", s.optBoolean("autoOpen", true)).putString("navPkg", s.optString("navPkg", "com.waze")).apply();
+            prefs.edit().remove("autoOpen").remove("navPkg")   // the car-start nav app setting, removed 2026-10-28
+                    .putString("theme", "glass".equals(s.optString("theme")) ? "glass" : "lite")
+                    .putString("side", "left".equals(s.optString("side")) ? "left" : "right").apply();
         } catch (Exception ignored) { }
     }
 
@@ -190,6 +282,15 @@ public class Bridge {
         }
     }
 
+    /** Keep the screen on while the page asks (the screensaver), whatever the screen timeout; off again on false. */
+    @JavascriptInterface
+    public void keepAwake(boolean on) {
+        main.post(() -> {
+            if (on) act.getWindow().addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+            else act.getWindow().clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        });
+    }
+
     // ---- volume (music stream) and screen brightness, 0-100
 
     @JavascriptInterface
@@ -202,6 +303,13 @@ public class Bridge {
     public void setVolume(int pct) {
         AudioManager am = act.getSystemService(AudioManager.class);
         am.setStreamVolume(AudioManager.STREAM_MUSIC, Math.round(pct / 100f * am.getStreamMaxVolume(AudioManager.STREAM_MUSIC)), 0);
+    }
+
+    /** One volume step up (dir > 0) or down, showing One UI's volume indicator (the two-finger swipe). */
+    @JavascriptInterface
+    public void volumeStep(int dir) {
+        act.getSystemService(AudioManager.class).adjustStreamVolume(AudioManager.STREAM_MUSIC,
+                dir > 0 ? AudioManager.ADJUST_RAISE : AudioManager.ADJUST_LOWER, AudioManager.FLAG_SHOW_UI);
     }
 
     @JavascriptInterface
@@ -257,9 +365,6 @@ public class Bridge {
                             .put("temp", Math.round(i.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, 0) / 10f));
                     push("battery", battery);
                 } catch (Exception ignored) { }
-            } else if (Intent.ACTION_POWER_CONNECTED.equals(a)) {
-                // The car has started (the tablet charges from the car). The page decides how to show the nav app.
-                if (prefs.getBoolean("autoOpen", true)) push("car-start", new JSONObject());
             } else if (BluetoothAdapter.ACTION_STATE_CHANGED.equals(a)) {
                 pushNet();
             }

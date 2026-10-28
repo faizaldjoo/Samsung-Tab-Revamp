@@ -32,9 +32,11 @@ import java.io.InputStream;
 public class MainActivity extends Activity {
     static final String HOST = "carhome.app";
     static final String ORIGIN = "https://" + HOST + "/";
-    // Car Home Lite (lite.html) is the start page: same features as glass.html at a fraction of the drawing cost.
-    // Its Controls page links to the full glass version.
-    static final String START_PAGE = "lite.html";
+    // Start page: the theme last shown (Controls > Theme, saved by Bridge.setPrefs). Lite (lite.html, the default) has
+    // the same features as Glass (glass.html) at a fraction of the drawing cost; only one of them is ever loaded.
+    String startPage() {
+        return "glass".equals(getSharedPreferences("carhome", MODE_PRIVATE).getString("theme", "lite")) ? "glass.html" : "lite.html";
+    }
     private static final int PICK_IMAGE = 1, PERMS = 2;
 
     WebView web;
@@ -44,6 +46,8 @@ public class MainActivity extends Activity {
     @Override
     protected void onCreate(Bundle state) {
         super.onCreate(state);
+        setShowWhenLocked(true);   // woken by the charger: show over the lock screen and turn the screen on
+        setTurnScreenOn(true);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS);
         if (Build.VERSION.SDK_INT >= 28) {
             getWindow().getAttributes().layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
@@ -97,16 +101,55 @@ public class MainActivity extends Activity {
         bridge = new Bridge(this, web);
         web.addJavascriptInterface(bridge, "Android");
         setContentView(web);
-        web.loadUrl(ORIGIN + START_PAGE);
+        // Started by the charger (Assist, screen was off): the page opens the nav app once loaded.
+        web.loadUrl(ORIGIN + startPage());
 
         if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION}, PERMS);
         }
     }
 
-    /** Serve assets/www/<path> with the right content type. */
+    private final java.util.Map<String, byte[]> icons = new java.util.HashMap<>();
+
+    /**
+     * icon/<pkg>.png: that app's launcher icon as a 96 px PNG, drawn once and kept. Adaptive icons are drawn as a full
+     * square, without One UI's rounded mask, so the page's tile corners shape them (masked, they sat inside the tile
+     * with different corners). The visible part of an adaptive icon is the middle 72 of its 108 dp layers.
+     */
+    private WebResourceResponse icon(String pkg) {
+        byte[] png;
+        synchronized (icons) { png = icons.get(pkg); }
+        if (png == null) {
+            try {
+                android.graphics.drawable.Drawable d = getPackageManager().getApplicationIcon(pkg);
+                android.graphics.Bitmap b = android.graphics.Bitmap.createBitmap(96, 96, android.graphics.Bitmap.Config.ARGB_8888);
+                android.graphics.Canvas c = new android.graphics.Canvas(b);
+                if (d instanceof android.graphics.drawable.AdaptiveIconDrawable) {
+                    android.graphics.drawable.AdaptiveIconDrawable ad = (android.graphics.drawable.AdaptiveIconDrawable) d;
+                    for (android.graphics.drawable.Drawable layer : new android.graphics.drawable.Drawable[]{ad.getBackground(), ad.getForeground()}) {
+                        if (layer == null) continue;
+                        layer.setBounds(-24, -24, 120, 120);
+                        layer.draw(c);
+                    }
+                } else {
+                    d.setBounds(0, 0, 96, 96);
+                    d.draw(c);
+                }
+                java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+                b.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, out);
+                png = out.toByteArray();
+                synchronized (icons) { icons.put(pkg, png); }
+            } catch (Exception e) {
+                return new WebResourceResponse("text/plain", "utf-8", 404, "Not Found", null, null);
+            }
+        }
+        return new WebResourceResponse("image/png", null, new java.io.ByteArrayInputStream(png));
+    }
+
+    /** Serve assets/www/<path> with the right content type; icon/<pkg>.png from the installed app. */
     private WebResourceResponse asset(String path) {
-        if (path == null || path.equals("/")) path = "/" + START_PAGE;
+        if (path != null && path.startsWith("/icon/") && path.endsWith(".png")) return icon(path.substring(6, path.length() - 4));
+        if (path == null || path.equals("/")) path = "/" + startPage();
         try {
             InputStream in = getAssets().open("www" + path);
             String mime = mime(path);
@@ -188,7 +231,7 @@ public class MainActivity extends Activity {
     @Override
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
-        if (Intent.ACTION_MAIN.equals(intent.getAction())) bridge.home();
+        if (Intent.ACTION_MAIN.equals(intent.getAction())) bridge.home();   // also when the charger woke the tablet (Assist)
     }
 
     /** Back: leave the screensaver; on home it does nothing (a launcher has nowhere to go back to). */
