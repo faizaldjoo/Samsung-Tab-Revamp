@@ -436,7 +436,7 @@
   .cc-scrim { position: absolute; inset: 0; grid-area: auto; z-index: 3; background: rgba(5, 7, 10, 0.4); opacity: 0; pointer-events: none; transition: opacity 0.28s var(--ease); }
   #screen.show-cc .cc-scrim { opacity: 1; pointer-events: auto; }
   .rail { z-index: 5; }
-  .cc { position: absolute; z-index: 4; right: 130px; top: 20px; bottom: 20px; width: 700px; padding: 26px 28px 28px;
+  .cc { position: absolute; z-index: 4; right: 130px; top: 20px; bottom: 20px; width: 700px; padding: 24px 24px 20px;
     display: flex; flex-direction: column; gap: 16px;
     /* Glass kept, but frosted much harder than the home panels: a 40px blur turns the map and icons behind into soft colour,
        and the dark tint keeps the cards readable. Only drawn while the drawer is open, so the heavier blur costs nothing at rest. */
@@ -447,12 +447,20 @@
     transition: opacity 0.28s var(--ease), transform 0.28s var(--ease); }
   #screen.side-left .cc { right: auto; left: 130px; transform: translateX(-16px) scale(0.98); transform-origin: left center; }
   #screen.show-cc .cc { opacity: 1; transform: none; pointer-events: auto; }
-  .cc-head { display: flex; justify-content: space-between; align-items: center; }
-  .cc-head h2 { font-size: 28px; font-weight: 600; letter-spacing: -0.02em; }
-  .cc-head-r { display: flex; gap: 10px; align-items: center; }
-  .theme-lbl { font-size: 13px; font-weight: 600; color: var(--muted); }
-  .theme-seg { width: 200px; margin-right: 8px; }
-  .theme-seg button { height: 40px; }
+  .cc-foot { display: flex; gap: 10px; align-items: center; padding-top: 2px; }
+  .theme-lbl { font-size: 15px; font-weight: 600; color: var(--muted); margin: 0 4px 0 6px; }
+  .theme-seg { width: 264px; margin-right: auto; }
+  .theme-seg button { height: 52px; justify-content: flex-start; padding-left: 8px; gap: 10px; }
+  /* Theme swatches: each option shows what it looks like. Lite = solid dark surface with its one blue accent;
+     Glass = a clear pane over a sky, lit top-left. */
+  .tsw { width: 40px; height: 36px; border-radius: 10px; flex: none; position: relative; overflow: hidden; }
+  .tsw-lite { background: #15181d; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.16); }
+  .tsw-lite::after { content: ""; position: absolute; left: 7px; right: 15px; bottom: 7px; height: 4px; border-radius: 2px; background: #5aa7ff; }
+  .tsw-lite::before { content: ""; position: absolute; left: 7px; right: 7px; top: 7px; height: 12px; border-radius: 4px; background: #262b33; }
+  .tsw-glass { background: linear-gradient(160deg, #9cc0dc, #4f6f8c 60%, #2d3f52); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.22); }
+  .tsw-glass::before { content: ""; position: absolute; inset: 6px; border-radius: 6px;
+    background: linear-gradient(150deg, rgba(255,255,255,0.55), rgba(255,255,255,0.12) 55%, rgba(255,255,255,0.22));
+    box-shadow: inset 1px 1px 0 rgba(255,255,255,0.8), inset -1px -1px 0 rgba(255,255,255,0.3); }
   .pill-btn { height: 48px; padding: 0 20px 0 16px; border-radius: 999px; display: inline-flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 600;
     background: rgba(255,255,255,0.12); box-shadow: var(--rim); }
   .pill-btn i { font-size: 20px; }
@@ -715,16 +723,6 @@
 
   <div class="cc-scrim" id="ccScrim"></div>
   <section class="glass cc" id="cc" aria-label="Controls">
-    <div class="cc-head">
-      <h2>Controls</h2>
-      <div class="cc-head-r">
-        <!-- Theme switch in the header: the card grid has exactly four rows. -->
-        <span class="theme-lbl">Theme</span>
-        <div class="seg theme-seg" data-seg="theme"><button data-v="lite">Lite</button><button data-v="glass">Glass</button></div>
-        <button class="pill-btn press" id="wpBtn"><i class="ph-fill ph-image"></i>Wallpaper</button>
-        <button class="round press" id="ccClose" aria-label="Close controls"><i class="ph-bold ph-x"></i></button>
-      </div>
-    </div>
     <div class="cc-grid">
       <!-- In the Android app Wi-Fi and Bluetooth open Settings.Panel (apps cannot toggle them since Android 10);
            data, DND and auto brightness can toggle directly once WRITE_SECURE_SETTINGS is granted over ADB. -->
@@ -759,6 +757,17 @@
       <!-- Prototype only: tap these two cards to preview the warning states. -->
       <button class="card s2 health press" id="batCard"><i></i><span><b></b><small></small></span></button>
       <button class="card s2 health press" id="tempCard"><i></i><span><b></b><small></small></span></button>
+    </div>
+    <!-- Bottom bar (2026-10-28, user): on the 7.8" tablet the top of the drawer is a stretch from the driver's seat, so
+         Theme, Wallpaper and Close sit here, within thumb reach. The card grid keeps exactly four rows. -->
+    <div class="cc-foot">
+      <span class="theme-lbl">Theme</span>
+      <div class="seg theme-seg" data-seg="theme">
+        <button data-v="lite"><span class="tsw tsw-lite"></span>Lite</button>
+        <button data-v="glass"><span class="tsw tsw-glass"></span>Glass</button>
+      </div>
+      <button class="pill-btn press" id="wpBtn"><i class="ph-fill ph-image"></i>Wallpaper</button>
+      <button class="pill-btn press" id="ccClose" aria-label="Close controls"><i class="ph-bold ph-x"></i>Close</button>
     </div>
   </section>
 
