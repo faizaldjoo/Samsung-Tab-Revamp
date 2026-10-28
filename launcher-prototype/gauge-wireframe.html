@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Car Gauge Wireframe</title>
+<link rel="stylesheet" href="vendor/fonts/fonts.css">
+<link rel="stylesheet" href="vendor/phosphor/fill/style.css">
+<style>
+  /* Car panel, GPS mode (no OBD yet): three gauge options after a HUD speedometer and a Toyota digital cluster.
+     GPS gives speed, heading, trip, drive time and average; the segment bar shows speed. Panels are Lite's real Car panel
+     size on the tablet (270 x 304 CSS px) in Lite's colours, shown at 150%. */
+  :root { --bg: #0e1013; --panel: #171a1f; --raised: #20242b; --line: #2a2f37; --text: #eef0f3; --muted: #a3aab4; --faint: #6c737d;
+    --accent: #5aa7ff; --warn: #ff7a6b; --off: #2a3039; --redoff: #4a2b2b; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #08090b; color: var(--text); font-family: Geist, system-ui, sans-serif; padding: 28px 20px 40px; }
+  .page { max-width: 1340px; margin: 0 auto; }
+  h1 { font-size: 22px; font-weight: 600; letter-spacing: -0.01em; }
+  .lead { color: var(--muted); font-size: 15px; line-height: 1.5; max-width: 72ch; margin-top: 8px; }
+  .review { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 22px 0 30px; }
+  .review div { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; }
+  .review h2 { font-size: 15px; font-weight: 600; margin-bottom: 8px; }
+  .review ul { list-style: none; display: grid; gap: 6px; font-size: 14px; color: var(--muted); line-height: 1.45; }
+  .review b { color: var(--text); font-weight: 600; }
+  .opts { display: flex; flex-wrap: wrap; gap: 34px; }
+  .opt h3 { font-size: 16px; font-weight: 600; margin-bottom: 10px; }
+  .opt .zoom { zoom: 1.5; }
+  .opt .note { max-width: 405px; font-size: 14px; color: var(--muted); line-height: 1.5; margin-top: 12px; }
+  .foot { color: var(--muted); font-size: 14px; line-height: 1.5; max-width: 80ch; margin-top: 30px; }
+  @media (max-width: 760px) { .review { grid-template-columns: 1fr; } .opt .zoom { zoom: 1.2; } }
+
+  /* The panel (Lite) */
+  .car { width: 270px; height: 304px; background: var(--panel); border: 1px solid var(--line); border-radius: 18px; padding: 14px 16px;
+    display: flex; flex-direction: column; position: relative; overflow: hidden; }
+  .head { display: flex; justify-content: space-between; align-items: center; font-size: 14px; color: var(--muted); }
+  .head .end { display: flex; gap: 6px; align-items: center; }
+  .chip { display: inline-flex; gap: 5px; align-items: center; height: 26px; padding: 0 10px; border-radius: 999px; background: var(--raised); color: var(--text); font-size: 12px; font-weight: 600; }
+  .chip i { font-size: 14px; color: var(--accent); }
+  .reset { width: 26px; height: 26px; border-radius: 999px; background: var(--raised); display: grid; place-items: center; font-size: 13px; }
+  .num { font-family: "Sofia Sans Extra Condensed", Geist, sans-serif; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .unit { font-size: 13px; color: var(--muted); font-weight: 500; }
+  .mini { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: auto; }
+  .mini > div { background: var(--raised); border-radius: 12px; padding: 7px 9px; min-width: 0; }
+  .mini span { display: flex; gap: 4px; align-items: center; font-size: 12px; color: var(--muted); white-space: nowrap; } .mini span i { font-size: 13px; }
+  .mini b { display: block; font-size: 24px; line-height: 1.05; margin-top: 2px; white-space: nowrap; }
+  .mini b small { font-family: Geist, sans-serif; font-size: 11px; color: var(--muted); font-weight: 500; margin-left: 2px; }
+  svg { display: block; overflow: visible; }
+  .seg { fill: var(--off); } .seg.on { fill: var(--accent); } .seg.red { fill: var(--redoff); } .seg.red.on { fill: var(--warn); }
+  .scale { fill: var(--muted); font: 600 11px Geist, sans-serif; text-anchor: middle; } .scale.red { fill: var(--warn); }
+
+  /* Now (for comparison) */
+  .cur-speed { display: flex; align-items: baseline; gap: 6px; margin-top: 8px; }
+  .cur-speed b { font-size: 64px; font-weight: 600; letter-spacing: -0.03em; line-height: 1; }
+  .cur-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: auto; }
+  .cur-stats div { background: var(--raised); border-radius: 12px; padding: 8px 10px; }
+  .cur-stats span { font-size: 12px; color: var(--muted); display: flex; gap: 4px; align-items: center; } .cur-stats span i { font-size: 13px; }
+  .cur-stats b { font-size: 19px; font-weight: 600; display: block; margin-top: 2px; } .cur-stats b small { font-size: 11px; color: var(--muted); }
+
+  /* Heading tape (the compass chosen earlier): letters and ticks slide under the blue mark. */
+  .tape { position: relative; height: 24px; overflow: hidden; border-radius: 7px; background: rgba(0,0,0,0.28);
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent); mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent); }
+  .tape svg { position: absolute; left: 0; top: 0; height: 24px; }
+  .tape-tk { stroke: rgba(255,255,255,0.3); stroke-width: 1.5; } .tape-tk.major { stroke: rgba(255,255,255,0.65); stroke-width: 2; }
+  .tape-lbl { fill: var(--text); font: 600 10px Geist, sans-serif; text-anchor: middle; } .tape-lbl.n { fill: var(--warn); }
+  .tape-mark { position: absolute; left: 50%; top: 9px; bottom: 0; width: 2px; margin-left: -1px; background: var(--accent); }
+
+  /* A: speed strip + heading tape */
+  .a-top { display: flex; align-items: flex-end; justify-content: space-between; gap: 10px; margin-top: 6px; }
+  .a-speed { display: flex; align-items: baseline; gap: 6px; }
+  .a-speed b { font-size: 92px; line-height: 0.82; }
+  .a-head { width: 100px; padding-bottom: 2px; }
+  .a-head .lbl { display: flex; justify-content: space-between; align-items: baseline; font-size: 12px; color: var(--muted); margin-bottom: 5px; }
+  .a-head .lbl b { font-size: 20px; color: var(--text); }
+
+  /* B: HUD arc */
+  .b-arc { position: relative; height: 196px; margin: 2px -6px 0; }
+  .b-arc svg { position: absolute; inset: 0; }
+  .b-mid { position: absolute; left: 0; right: 0; top: 62px; text-align: center; }
+  .b-mid b { font-size: 84px; line-height: 0.85; display: block; }
+  .b-mid .unit { display: block; margin-top: 2px; }
+  .b-head { position: absolute; left: 0; right: 0; bottom: 2px; display: flex; justify-content: center; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
+  .b-head b { font-size: 22px; color: var(--text); }
+  .b-head i { font-size: 16px; color: var(--accent); display: inline-block; transform: rotate(42deg); }
+
+  /* C: HUD layout with a compass rose */
+  .c-top { display: flex; justify-content: space-between; align-items: flex-start; margin-top: 6px; }
+  .c-speed { display: flex; align-items: baseline; gap: 6px; }
+  .c-speed b { font-size: 92px; line-height: 0.82; }
+  .c-rose { text-align: center; }
+  .c-rose .val { font-size: 12px; color: var(--muted); margin-top: 3px; } .c-rose .val b { font-size: 17px; color: var(--text); }
+  .rose-ring { fill: none; stroke: var(--line); stroke-width: 1.5; }
+  .rose-tk { stroke: rgba(255,255,255,0.35); stroke-width: 1.5; }
+  .rose-lbl { fill: var(--muted); font: 700 9px Geist, sans-serif; text-anchor: middle; dominant-baseline: central; } .rose-lbl.n { fill: var(--warn); }
+  .rose-car { fill: var(--accent); }
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>Car panel, GPS: gauge card</h1>
+  <p class="lead">For the tablet's GPS (OBD comes later). GPS gives speed, heading, trip, drive time and average, so the segment bar shows speed. Sample: 48 km/h heading NE 42°, trip 12.4 km, 0:38 driving, average 31 km/h. Each panel is Lite's real Car panel size on the tablet (270 x 304 px), shown at 150%. Numbers use Sofia Sans Extra Condensed (already bundled).</p>
+
+  <div class="review">
+    <div><h2>HUD speedometer (first photo)</h2><ul>
+      <li><b>What works:</b> one huge white number, so speed reads in a glance. The arc is a bar of separate segments that fills with speed, which reads faster than a needle. The compass rose sits apart, in a corner.</li>
+      <li><b>What to skip:</b> four colours (white, blue, yellow, red) and clock plus distance digits as bold as the speed. Too busy for a 270 px card.</li></ul></div>
+    <div><h2>Toyota digital cluster (second photo)</h2><ul>
+      <li><b>What works:</b> one colour on black. The bar gauge fills left to right under a short scale, so it reads as "how much" without a precise reading.</li>
+      <li><b>What to skip:</b> tiny trip and scale labels; on the tablet they would fall under the 12 px floor.</li></ul></div>
+  </div>
+
+  <div class="opts">
+    <div class="opt"><h3>Now</h3><div class="zoom">
+      <section class="car">
+        <div class="head">Car<span class="end"><span class="chip"><i class="ph-fill ph-navigation-arrow"></i>Tablet GPS</span><span class="reset"><i class="ph-fill ph-arrow-counter-clockwise"></i></span></span></div>
+        <div class="cur-speed"><b>48</b><span class="unit">km/h</span></div>
+        <div class="cur-stats">
+          <div><span><i class="ph-fill ph-compass"></i>Heading</span><b>NE <small>42°</small></b></div>
+          <div><span><i class="ph-fill ph-path"></i>Trip</span><b>12.4 <small>km</small></b></div>
+          <div><span><i class="ph-fill ph-timer"></i>Drive time</span><b>0:38</b></div>
+          <div><span><i class="ph-fill ph-gauge"></i>Average</span><b>31 <small>km/h</small></b></div>
+        </div>
+      </section></div>
+      <p class="note">Speed is a number on its own and the four stats are equal cards, so nothing shows how fast at a glance.</p>
+    </div>
+
+    <div class="opt"><h3>A. Speed strip</h3><div class="zoom">
+      <section class="car">
+        <div class="head">Car<span class="end"><span class="chip"><i class="ph-fill ph-navigation-arrow"></i>Tablet GPS</span><span class="reset"><i class="ph-fill ph-arrow-counter-clockwise"></i></span></span></div>
+        <div class="a-top">
+          <div class="a-speed"><b class="num">48</b><span class="unit">km/h</span></div>
+          <div class="a-head"><div class="lbl">Heading<b class="num">NE 42°</b></div>
+            <div class="tape"><svg data-tape="42" width="100" viewBox="0 0 100 24"></svg><div class="tape-mark"></div></div></div>
+        </div>
+        <svg class="strip" data-v="48" width="238" height="44" viewBox="0 0 238 44" style="margin-top:14px"></svg>
+        <div class="mini">
+          <div><span><i class="ph-fill ph-path"></i>Trip</span><b class="num">12.4<small>km</small></b></div>
+          <div><span><i class="ph-fill ph-timer"></i>Drive</span><b class="num">0:38</b></div>
+          <div><span><i class="ph-fill ph-gauge"></i>Average</span><b class="num">31<small>km/h</small></b></div>
+        </div>
+      </section></div>
+      <p class="note">After the Toyota cluster: 28 bars from 0 to 140 km/h (5 km/h each), rising in height, lit blue up to the speed; from 110 km/h they are red. The heading tape sits beside the speed, and trip, drive time and average share one row.</p>
+    </div>
+
+    <div class="opt"><h3>B. HUD arc</h3><div class="zoom">
+      <section class="car">
+        <div class="head">Car<span class="end"><span class="chip"><i class="ph-fill ph-navigation-arrow"></i>Tablet GPS</span><span class="reset"><i class="ph-fill ph-arrow-counter-clockwise"></i></span></span></div>
+        <div class="b-arc">
+          <svg class="arc" data-v="48" width="270" height="196" viewBox="0 0 270 196"></svg>
+          <div class="b-mid"><b class="num">48</b><span class="unit">km/h</span></div>
+          <div class="b-head"><i class="ph-fill ph-arrow-up"></i><b class="num">NE 42°</b></div>
+        </div>
+        <div class="mini">
+          <div><span><i class="ph-fill ph-path"></i>Trip</span><b class="num">12.4<small>km</small></b></div>
+          <div><span><i class="ph-fill ph-timer"></i>Drive</span><b class="num">0:38</b></div>
+          <div><span><i class="ph-fill ph-gauge"></i>Average</span><b class="num">31<small>km/h</small></b></div>
+        </div>
+      </section></div>
+      <p class="note">Closest to the HUD: a ring of 28 segments for speed (0 to 140, red from 110) around the big number. The heading sits under it as an arrow that turns with the car plus NE 42°.</p>
+    </div>
+
+    <div class="opt"><h3>C. HUD with compass rose</h3><div class="zoom">
+      <section class="car">
+        <div class="head">Car<span class="end"><span class="chip"><i class="ph-fill ph-navigation-arrow"></i>Tablet GPS</span><span class="reset"><i class="ph-fill ph-arrow-counter-clockwise"></i></span></span></div>
+        <div class="c-top">
+          <div class="c-speed"><b class="num">48</b><span class="unit">km/h</span></div>
+          <div class="c-rose"><svg class="rose" data-heading="42" width="66" height="66" viewBox="0 0 66 66"></svg><div class="val"><b class="num">NE</b> 42°</div></div>
+        </div>
+        <svg class="strip" data-v="48" width="238" height="44" viewBox="0 0 238 44" style="margin-top:8px"></svg>
+        <div class="mini">
+          <div><span><i class="ph-fill ph-path"></i>Trip</span><b class="num">12.4<small>km</small></b></div>
+          <div><span><i class="ph-fill ph-timer"></i>Drive</span><b class="num">0:38</b></div>
+          <div><span><i class="ph-fill ph-gauge"></i>Average</span><b class="num">31<small>km/h</small></b></div>
+        </div>
+      </section></div>
+      <p class="note">The HUD's layout: speed on the left, a compass rose in the corner (it turns so N points north; the blue arrow in the middle is where the car heads), the same speed strip below.</p>
+    </div>
+  </div>
+
+  <p class="foot">In the app all three cost about the same: the bars, tape and rose are drawn once, and each GPS fix (once a second) only switches which bars are lit and shifts or turns the compass, with no easing in between, as the rule for Lite says. With OBD later, the same bar can show engine rpm and fuel can get its own gauge. Glass would get the same layout on its glass panel.</p>
+</div>
+
+<script>
+  const DIRS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+  // Speed strip (A, C): 28 bars, 5 km/h each, 0 to 140, rising in height; 110 and up red. Scale every 40.
+  document.querySelectorAll('svg.strip').forEach(svg => {
+    const v = +svg.dataset.v, W = +svg.getAttribute('width'), H = +svg.getAttribute('height');
+    const N = 28, gap = 2, w = (W - gap * (N - 1)) / N, top = 14, lit = Math.round(v / 5);
+    let out = '';
+    for (let i = 0; i < N; i++) {
+      const h = (H - top) * (0.45 + 0.55 * i / (N - 1)), x = i * (w + gap), red = i >= 22;
+      out += `<rect class="seg${red ? ' red' : ''}${i < lit ? ' on' : ''}" x="${x.toFixed(1)}" y="${(H - h).toFixed(1)}" width="${w.toFixed(1)}" height="${h.toFixed(1)}" rx="1.5"/>`;
+    }
+    for (let k = 0; k <= 3; k++) {
+      const x = Math.max(5, k * 8 * (w + gap) - (k ? gap / 2 : 0));
+      out += `<text class="scale${k === 3 ? ' red' : ''}" x="${x.toFixed(1)}" y="10">${k * 40}</text>`;
+    }
+    svg.innerHTML = out;
+  });
+  // HUD arc (B): 28 radial bars from -115° to 115° (0° = straight up), 5 km/h each; 110 and up red. Scale every 20.
+  document.querySelectorAll('svg.arc').forEach(svg => {
+    const v = +svg.dataset.v, cx = 135, cy = 118, N = 28, A = 115, lit = Math.round(v / 5);
+    let out = '';
+    for (let i = 0; i < N; i++) {
+      const a = (-A + (2 * A) * (i + 0.5) / N) * Math.PI / 180, red = i >= 22;
+      const p = r => [(cx + r * Math.sin(a)).toFixed(1), (cy - r * Math.cos(a)).toFixed(1)];
+      const [x1, y1] = p(98), [x2, y2] = p(114);
+      out += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke-width="6" stroke-linecap="round" style="stroke:var(${i < lit ? (red ? '--warn' : '--accent') : (red ? '--redoff' : '--off')})"/>`;
+    }
+    for (let k = 0; k <= 7; k++) {
+      const a = (-A + (2 * A) * k / 7) * Math.PI / 180, r = 84;
+      out += `<text class="scale${k * 20 >= 120 ? ' red' : ''}" x="${(cx + r * Math.sin(a)).toFixed(1)}" y="${(cy - r * Math.cos(a) + 4).toFixed(1)}">${k * 20}</text>`;
+    }
+    svg.innerHTML = out;
+  });
+  // Heading tape (A): 1.3 px per degree, a tick every 5°, letters every 45°; the centre is the heading.
+  document.querySelectorAll('svg[data-tape]').forEach(svg => {
+    const h = +svg.dataset.tape, W = +svg.getAttribute('width'), PX = 1.3, mid = W / 2, span = mid / PX + 5;
+    let out = '';
+    for (let a = Math.floor((h - span) / 5) * 5; a <= h + span; a += 5) {
+      const x = (mid + (a - h) * PX).toFixed(1), n = ((a % 360) + 360) % 360, major = n % 45 === 0;
+      out += `<line class="tape-tk${major ? ' major' : ''}" x1="${x}" y1="${major ? 13 : 17}" x2="${x}" y2="23"/>`;
+      if (major) out += `<text class="tape-lbl${n === 0 ? ' n' : ''}" x="${x}" y="9">${DIRS[n / 45]}</text>`;
+    }
+    svg.innerHTML = out;
+  });
+  // Compass rose (C): ring, ticks every 45°, N E S W turned by -heading; the blue notch on top is straight ahead.
+  document.querySelectorAll('svg.rose').forEach(svg => {
+    const h = +svg.dataset.heading, c = 33, r = 30;
+    let tk = '', lbl = '';
+    for (let a = 0; a < 360; a += 45) if (a % 90) tk += `<line class="rose-tk" x1="${c}" y1="${c - r + 2}" x2="${c}" y2="${c - r + 7}" transform="rotate(${a} ${c} ${c})"/>`;
+    ['N', 'E', 'S', 'W'].forEach((d, i) => {
+      const a = (i * 90 - h) * Math.PI / 180, rr = r - 9;
+      lbl += `<text class="rose-lbl${d === 'N' ? ' n' : ''}" x="${(c + rr * Math.sin(a)).toFixed(1)}" y="${(c - rr * Math.cos(a)).toFixed(1)}">${d}</text>`;
+    });
+    svg.innerHTML = `<circle class="rose-ring" cx="${c}" cy="${c}" r="${r}"/><g transform="rotate(${-h} ${c} ${c})">${tk}</g>${lbl}
+      <polygon class="rose-car" points="${c},${c - 9} ${c - 6},${c + 7} ${c},${c + 3} ${c + 6},${c + 7}"/>`;
+  });
+</script>
+</body>
+</html>

@@ -20,8 +20,9 @@ Driven over ADB from a computer on the same Wi-Fi (Wireless debugging; pair once
   Smart Launcher ginlemon.flowerfree. Google Maps is a system app. WhatsApp is not installed. Freeform support is off.
 - `launcher-prototype/glass.html` is the chosen design (option B, Liquid Glass over a photo wallpaper). `index.html` is option A (dark).
   `wireframe.html` is the flat mid-fidelity mockup of the same layout, used to settle changes cheaply before they go into glass.html.
-  `rpm-wireframe.html` (2026-10-28): Car panel in OBD mode, three engine-speed card options after a HUD speedometer and a
-  Toyota digital cluster (A tach strip, B HUD arc, C cluster with fuel column) at Lite's real panel size (270x304); not picked yet.
+  `gauge-wireframe.html` (2026-10-28): Car panel in GPS mode (user: GPS for now, OBD later), three gauge options after a HUD
+  speedometer and a Toyota digital cluster: A speed strip + heading tape, B HUD arc, C speed strip + compass rose; 28 segments
+  0-140 km/h, red from 110; at Lite's real panel size (270x304). Not picked yet. (Was rpm-wireframe.html, an OBD version.)
 - Canvas is 1340x800 landscape. Sections: Rail, Map, Today (HTC Sense style flip clock + current weather, see today.html), Car (speedometer + 4 stats),
   Now playing (cassette: title/artist centred on the label, the playing app as a pill (white logo + name) under the progress bar;
   tapping the pill or the tape window opens the app; the title still and centred when it fits, when longer it scrolls the YouTube Music way (rests 2.5 s at the start, slides at ~45 px/s, repeats; stops while paused), album art or station logo spins as the right reel, tape moves
