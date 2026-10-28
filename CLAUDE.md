@@ -154,7 +154,7 @@ Driven over ADB from a computer on the same Wi-Fi (Wireless debugging; pair once
 - Theme (2026-10-28): Controls > Theme: Lite / Glass, in both pages (data-seg="theme", handled before the generic
   segment code). Lite: a card next to the health cards. Glass: in the Controls drawer's bottom bar with Wallpaper and Close (moved from the header 2026-10-28,
   user: the top is out of easy reach on the 7.8" tablet; the header and its title are gone), because the Glass card grid
-  has exactly four rows (a fifth squeezed the first row and the cards overlapped). Each option shows a small swatch of its look. Switching navigates to the other page, so only one is ever loaded: with Lite chosen nothing of Glass
+  has exactly four rows (a fifth squeezed the first row and the cards overlapped). Icons: feather = Lite, drop = Glass (same as the Glass effect card). Switching navigates to the other page, so only one is ever loaded: with Lite chosen nothing of Glass
   runs. Each page sets S.theme to itself on load and sends it with setPrefs; MainActivity.startPage() reads it
   (SharedPreferences "carhome", default lite). Lite's note class is .note (.hint is the map pill).
 - Measured on the tablet 2026-10-27 (CPU = app + WebView engine, 10 s averages; song faked in the page, no audio):
