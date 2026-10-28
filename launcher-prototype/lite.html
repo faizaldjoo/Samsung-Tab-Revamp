@@ -214,14 +214,26 @@
   /* Horizontal swipes reach the page (see "Swipes"); vertical drags still scroll All apps. */
   #app, .page { touch-action: pan-y; }
   .apps-grid { touch-action: pan-x; }   /* the pages scroll sideways (the browser checks touch-action only up to the scroller) */
-  #cc { grid-template-rows: minmax(0, 1fr) auto; gap: 10px; padding: 6px; }
+  /* Controls is a drawer beside the rail, as in Glass (2026-10-28, user): home stays in view next to it. Solid, no shadow,
+     no slide; a tap outside it (the transparent #ccOut, nothing drawn) closes it. */
+  #cc { grid-template-rows: minmax(0, 1fr) auto; gap: 8px; padding: 10px; width: min(620px, calc(100% - 98px));
+    background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); }
+  body:not(.left) #cc { left: auto; }
+  body.left #cc { right: auto; }
+  #cc .card { background: var(--raised); border-color: var(--raised); }
+  #cc .seg, #cc .tog .disc, #cc .close { background: var(--bg); }
+  #cc .tog.on .disc { background: var(--accent); }
+  #cc .tog { flex-direction: column; align-items: flex-start; justify-content: space-between; text-align: left; }
+  #cc .tog > span:last-child { min-width: 0; max-width: 100%; }
+  #cc .tog b, #cc .tog small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #ccOut { display: none; position: absolute; inset: 0; z-index: 4; }
+  body.show-cc #ccOut { display: block; }
   .cc-grid { display: grid; grid-template-columns: repeat(4, 1fr); grid-template-rows: repeat(4, minmax(0, 1fr)); gap: 10px; }
   .cc-grid > .card:not(.tog):not(.health) { display: flex; flex-direction: column; justify-content: center; }
-  .cc-foot { display: flex; align-items: center; gap: 12px; padding: 8px 8px 8px 16px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; }
-  .cc-foot .seg { margin-top: 0; width: 240px; flex: none; }
+  .cc-foot { display: flex; align-items: center; gap: 12px; padding: 0 0 0 6px; }
+  .cc-foot .seg { margin-top: 0; width: 240px; flex: none; margin-right: auto; }
   .cc-foot .seg button { height: 44px; display: flex; align-items: center; justify-content: center; gap: 8px; }
   .cc-foot .seg button i { font-size: 18px; }
-  .cc-foot .note { margin: 0 auto 0 0; min-width: 0; }
   .close { height: 52px; padding: 0 22px 0 18px; border-radius: 10px; background: var(--raised); font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 8px; flex: none; }
   .close i { font-size: 18px; }
   .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 12px; min-width: 0; }
@@ -329,6 +341,7 @@
       <button class="tool press" id="cleanBtn"><span class="ic"><i class="ph-fill ph-broom"></i></span><span><b>Clean up</b><small id="memTxt">Free memory</small></span></button></div>
 </section>
 
+<div id="ccOut"></div>
 <section class="page" id="cc" aria-label="Controls">
   <div class="cc-grid">
     <button class="card tog press" data-t="wifi"><span class="disc"><i class="ph-fill ph-wifi-high"></i></span><span><b>Wi-Fi</b><small></small></span></button>
@@ -347,7 +360,6 @@
   <div class="cc-foot">
     <span class="label">Theme</span>
     <div class="seg" data-seg="theme"><button data-v="lite"><i class="ph-fill ph-feather"></i>Lite</button><button data-v="glass"><i class="ph-fill ph-drop"></i>Glass</button></div>
-    <small class="note">Lite is light on the tablet. Glass looks richer and uses more of it.</small>
     <button class="close press" id="ccClose"><i class="ph-fill ph-x"></i>Close</button>
   </div>
 </section>
@@ -478,7 +490,7 @@
   }
   $('homeBtn').onclick = () => show(document.body.classList.contains('show-apps') ? null : 'apps');
   $('gearBtn').onclick = $('statusBtn').onclick = () => show(document.body.classList.contains('show-cc') ? null : 'cc');
-  $('ccClose').onclick = () => show(null);
+  $('ccClose').onclick = $('ccOut').onclick = () => show(null);
 
   // ---- Split screen and recent apps, through Car Home's accessibility service (Assist.java): One UI lets no app start
   //      split screen itself, so the service taps through One UI's recent apps menu (takes a few seconds). Split screen
