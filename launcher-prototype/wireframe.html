@@ -148,6 +148,13 @@
   .opt .gauge { min-height: 150px; }
   .stats .full { grid-column: 1 / -1; }
   /* A: a small dial inside the Heading card. The rose turns so N points north; the notch at the top is the car. */
+  .opts.chosen { margin-top: 28px; }
+  .stat.taped .head-row b { font-size: 18px; }
+  .stat.taped { padding: 10px 14px; }
+  .stat.taped .tape { margin-top: 6px; } .tape.sm, .tape.sm svg { height: 28px; }
+  .tape.sm { -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); }
+  .tape.sm .tape-lbl { font-size: 11px; }
+  .tape.sm .tape-mark { top: 11px; height: auto; bottom: 0; }
   .stat.dial { display: flex; align-items: center; gap: 12px; }
   .stat.dial svg { width: 48px; height: 48px; flex: none; }
   .rose-ring { fill: none; stroke: rgba(255,255,255,0.22); stroke-width: 1.5; }
@@ -266,7 +273,7 @@
 </section>
 
 <section>
-  <h1>1c. Car panel, GPS: heading as a compass (pick one)</h1>
+  <h1>1c. Car panel, GPS: heading as a compass</h1>
   <p class="note" style="margin:0 0 14px">Sample heading 42° (north-east). The compass follows the GPS heading, so it only turns while the car moves (the tablet's GPS gives no heading when standing still: it keeps the last one).</p>
   <div class="opts">
     <div class="opt"><h3>A. Dial in the Heading card</h3>
@@ -307,6 +314,25 @@
         </div>
       </section>
       <p class="note">One instrument: N, E, S, W ride on a ring around the speedometer and turn with the car; the blue notch at the top is straight ahead, with the heading written under the speed. Frees the fourth card, so the stats fit one row.</p>
+    </div>
+  </div>
+  <div class="opts chosen">
+    <div class="opt"><h3>Chosen: B's tape in A's small card</h3>
+      <section class="p car">
+        <div class="car-head">Car<span class="end"><span class="chip"><i class="ph-fill ph-navigation-arrow"></i>Tablet GPS</span><span class="reset"><i class="ph-bold ph-arrow-counter-clockwise"></i></span></span></div>
+        <div class="gauge" data-speed="48"></div>
+        <div class="stats">
+          <div class="stat taped"><div class="head-row"><span>Heading</span><b>NE <small>42°</small></b></div>
+            <div class="tape sm"><svg data-tape="42" data-px="1.3" width="118" viewBox="0 6 118 28"></svg><div class="tape-mark"></div></div></div>
+          <div class="stat"><span><i class="ph-fill ph-path"></i>Trip</span><b>12.4 <small>km</small></b></div>
+          <div class="stat"><span><i class="ph-fill ph-timer"></i>Drive time</span><b>0:38</b></div>
+          <div class="stat"><span><i class="ph-fill ph-gauge"></i>Average</span><b>31 <small>km/h</small></b></div>
+        </div>
+      </section>
+    </div>
+    <div class="opt"><h3>&nbsp;</h3>
+      <p class="note">A's four cards, with B's sliding tape inside the small Heading card: the heading (NE 42°) moves up beside the label and the tape takes the value's place, so the card stays the height of the others. The tape is about 120 px wide, so it is scaled to 1.3 px per degree: it shows about 90°, so the next main letter either side comes into view as you turn (here N on the left of NE).</p>
+      <p class="note">App: the tape is drawn once as a strip of 0-360° (plus a wrap-around copy) and only shifted sideways (translateX) on each GPS update. Heading only changes while moving.</p>
     </div>
   </div>
   <p class="note">In the app all three cost the same: the dial, tape or ring is drawn once and only its rotation (or sideways shift) changes, on the existing once-a-second GPS update. Nothing animates in between.</p>
@@ -386,11 +412,11 @@
       <g transform="rotate(${-h} ${c} ${c})">${tk}<polygon class="rose-n" points="${c},${c - 14} ${c - 4},${c} ${c + 4},${c}"/><polygon class="rose-s" points="${c},${c + 14} ${c - 4},${c} ${c + 4},${c}"/></g>
       <polygon class="rose-car" points="${c},1 ${c - 4},7 ${c + 4},7"/>`;
   });
-  // B: tape, 2.4 px per degree, a tick every 5°, letters every 45°. The centre of the 303 px window is the heading.
+  // Tape (B and the chosen card): data-px per degree (default 2.4), a tick every 5°, letters every 45°. The centre of the window is the heading.
   document.querySelectorAll('svg[data-tape]').forEach(svg => {
-    const h = +svg.dataset.tape, W = 303, PX = 2.4, mid = W / 2;
+    const h = +svg.dataset.tape, W = +svg.getAttribute('width'), PX = +(svg.dataset.px || 2.4), mid = W / 2, span = mid / PX + 5;
     let out = '';
-    for (let a = Math.floor((h - 70) / 5) * 5; a <= h + 70; a += 5) {
+    for (let a = Math.floor((h - span) / 5) * 5; a <= h + span; a += 5) {
       const x = (mid + (a - h) * PX).toFixed(1), n = ((a % 360) + 360) % 360, major = n % 45 === 0;
       out += `<line class="tape-tk${major ? ' major' : ''}" x1="${x}" y1="${major ? 20 : 25}" x2="${x}" y2="32"/>`;
       if (major) out += `<text class="tape-lbl${n === 0 ? ' n' : ''}" x="${x}" y="14">${DIRS[n / 45]}</text>`;
