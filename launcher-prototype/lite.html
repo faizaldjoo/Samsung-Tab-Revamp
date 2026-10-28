@@ -214,10 +214,16 @@
   /* Horizontal swipes reach the page (see "Swipes"); vertical drags still scroll All apps. */
   #app, .page { touch-action: pan-y; }
   .apps-grid { touch-action: pan-x; }   /* the pages scroll sideways (the browser checks touch-action only up to the scroller) */
-  #cc { grid-template-rows: auto 1fr; gap: 12px; padding: 6px; }
-  .cc-head { display: flex; justify-content: space-between; align-items: center; }
-  .close { height: 44px; padding: 0 20px; border-radius: 999px; background: var(--raised); font-size: 15px; font-weight: 600; }
-  .cc-grid { display: grid; grid-template-columns: repeat(4, 1fr); grid-auto-rows: min-content; gap: 10px; align-content: start; }
+  #cc { grid-template-rows: minmax(0, 1fr) auto; gap: 10px; padding: 6px; }
+  .cc-grid { display: grid; grid-template-columns: repeat(4, 1fr); grid-template-rows: repeat(4, minmax(0, 1fr)); gap: 10px; }
+  .cc-grid > .card:not(.tog):not(.health) { display: flex; flex-direction: column; justify-content: center; }
+  .cc-foot { display: flex; align-items: center; gap: 12px; padding: 8px 8px 8px 16px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; }
+  .cc-foot .seg { margin-top: 0; width: 240px; flex: none; }
+  .cc-foot .seg button { height: 44px; display: flex; align-items: center; justify-content: center; gap: 8px; }
+  .cc-foot .seg button i { font-size: 18px; }
+  .cc-foot .note { margin: 0 auto 0 0; min-width: 0; }
+  .close { height: 52px; padding: 0 22px 0 18px; border-radius: 10px; background: var(--raised); font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 8px; flex: none; }
+  .close i { font-size: 18px; }
   .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 12px; min-width: 0; }
   .card.s2 { grid-column: span 2; }
   .tog { display: flex; align-items: center; gap: 10px; }
@@ -324,7 +330,6 @@
 </section>
 
 <section class="page" id="cc" aria-label="Controls">
-  <div class="cc-head"><h1>Controls</h1><button class="close press" id="ccClose">Done</button></div>
   <div class="cc-grid">
     <button class="card tog press" data-t="wifi"><span class="disc"><i class="ph-fill ph-wifi-high"></i></span><span><b>Wi-Fi</b><small></small></span></button>
     <button class="card tog press" data-t="bt"><span class="disc"><i class="ph-fill ph-bluetooth"></i></span><span><b>Bluetooth</b><small></small></span></button>
@@ -335,10 +340,15 @@
     <div class="card s2"><div class="label">Navigation app</div><div class="seg" data-seg="nav"><button data-v="waze">Waze</button><button data-v="maps">Google Maps</button></div></div>
     <button class="card tog press" data-t="dnd"><span class="disc"><i class="ph-fill ph-moon"></i></span><span><b>Do Not Disturb</b><small></small></span></button>
     <button class="card tog press" data-t="autoBri"><span class="disc"><i class="ph-fill ph-sun-dim"></i></span><span><b>Auto brightness</b><small></small></span></button>
-    <div class="card health" id="batCard"></div>
-    <div class="card health" id="tempCard"></div>
-    <div class="card s2"><div class="label">Theme</div><div class="seg" data-seg="theme"><button data-v="lite">Lite</button><button data-v="glass">Glass</button></div>
-      <small class="note">Lite is light on the tablet. Glass looks richer and uses more of it.</small></div>
+    <div class="card health s2" id="batCard"></div>
+    <div class="card health s2" id="tempCard"></div>
+  </div>
+  <!-- Bottom bar, as in Glass (2026-10-28, user): within thumb reach on the 7.8" tablet. Flat, in Lite's own style. -->
+  <div class="cc-foot">
+    <span class="label">Theme</span>
+    <div class="seg" data-seg="theme"><button data-v="lite"><i class="ph-fill ph-feather"></i>Lite</button><button data-v="glass"><i class="ph-fill ph-drop"></i>Glass</button></div>
+    <small class="note">Lite is light on the tablet. Glass looks richer and uses more of it.</small>
+    <button class="close press" id="ccClose"><i class="ph-fill ph-x"></i>Close</button>
   </div>
 </section>
 
@@ -628,9 +638,9 @@
       : S.wifi ? 'ph-wifi-high' : S.data ? 'ph-cell-signal-high' : 'ph-cell-signal-slash off');
     $('stBt').className = 'ph-fill ' + (S.bt ? 'ph-bluetooth' : 'ph-bluetooth-slash off');
     $('stWarn').innerHTML = (hot ? '<i class="ph-fill ph-thermometer-hot warn"></i>' : '') + (charging ? '' : '<i class="ph-fill ph-plugs warn"></i>');
-    $('batCard').className = 'card health' + (charging ? '' : ' bad');
+    $('batCard').className = 'card health s2' + (charging ? '' : ' bad');
     $('batCard').innerHTML = `<i class="ph-fill ph-battery-${charging ? 'charging-vertical' : 'high'}"></i><span><b class="num">${level}%</b><small>${charging ? 'Charging' : 'Not charging, check the cable'}</small></span>`;
-    $('tempCard').className = 'card health' + (hot ? ' bad' : '');
+    $('tempCard').className = 'card health s2' + (hot ? ' bad' : '');
     $('tempCard').innerHTML = `<i class="ph-fill ph-thermometer-simple"></i><span><b class="num">${temp}&deg;C</b><small>${hot ? 'Too hot, shade it' : 'Normal'}</small></span>`;
   }
 
