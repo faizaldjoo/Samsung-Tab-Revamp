@@ -138,7 +138,7 @@
           <div><span><i class="ph-fill ph-gauge"></i>Average</span><b class="num">31<small>km/h</small></b></div>
         </div>
       </section></div>
-      <p class="note">After the Toyota cluster: 28 bars from 0 to 140 km/h (5 km/h each), rising in height, lit blue up to the speed; from 110 km/h they are red. The heading tape sits beside the speed, and trip, drive time and average share one row.</p>
+      <p class="note">After the Toyota cluster: 28 bars from 0 to 140 km/h (5 km/h each), rising in height, lit blue up to the speed; from 100 km/h they are red. The heading tape sits beside the speed, and trip, drive time and average share one row.</p>
     </div>
 
     <div class="opt"><h3>B. HUD arc</h3><div class="zoom">
@@ -155,7 +155,7 @@
           <div><span><i class="ph-fill ph-gauge"></i>Average</span><b class="num">31<small>km/h</small></b></div>
         </div>
       </section></div>
-      <p class="note">Closest to the HUD: a ring of 28 segments for speed (0 to 140, red from 110) around the big number. The heading sits under it as an arrow that turns with the car plus NE 42°.</p>
+      <p class="note">Closest to the HUD: a ring of 28 segments for speed (0 to 140, red from 100) around the big number. The heading sits under it as an arrow that turns with the car plus NE 42°.</p>
     </div>
 
     <div class="opt"><h3>C. HUD with compass rose</h3><div class="zoom">
@@ -187,7 +187,7 @@
     const N = 28, gap = 2, w = (W - gap * (N - 1)) / N, top = 14, lit = Math.round(v / 5);
     let out = '';
     for (let i = 0; i < N; i++) {
-      const h = (H - top) * (0.45 + 0.55 * i / (N - 1)), x = i * (w + gap), red = i >= 22;
+      const h = (H - top) * (0.45 + 0.55 * i / (N - 1)), x = i * (w + gap), red = i >= 20;
       out += `<rect class="seg${red ? ' red' : ''}${i < lit ? ' on' : ''}" x="${x.toFixed(1)}" y="${(H - h).toFixed(1)}" width="${w.toFixed(1)}" height="${h.toFixed(1)}" rx="1.5"/>`;
     }
     for (let k = 0; k <= 3; k++) {
@@ -201,7 +201,7 @@
     const v = +svg.dataset.v, cx = 135, cy = 118, N = 28, A = 115, lit = Math.round(v / 5);
     let out = '';
     for (let i = 0; i < N; i++) {
-      const a = (-A + (2 * A) * (i + 0.5) / N) * Math.PI / 180, red = i >= 22;
+      const a = (-A + (2 * A) * (i + 0.5) / N) * Math.PI / 180, red = i >= 20;
       const p = r => [(cx + r * Math.sin(a)).toFixed(1), (cy - r * Math.cos(a)).toFixed(1)];
       const [x1, y1] = p(98), [x2, y2] = p(114);
       out += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke-width="6" stroke-linecap="round" style="stroke:var(${i < lit ? (red ? '--warn' : '--accent') : (red ? '--redoff' : '--off')})"/>`;

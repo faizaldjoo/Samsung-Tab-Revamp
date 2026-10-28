@@ -22,7 +22,8 @@ Driven over ADB from a computer on the same Wi-Fi (Wireless debugging; pair once
   `wireframe.html` is the flat mid-fidelity mockup of the same layout, used to settle changes cheaply before they go into glass.html.
   `gauge-wireframe.html` (2026-10-28): Car panel in GPS mode (user: GPS for now, OBD later), three gauge options after a HUD
   speedometer and a Toyota digital cluster: A speed strip + heading tape, B HUD arc, C speed strip + compass rose; 28 segments
-  0-140 km/h, red from 110; at Lite's real panel size (270x304). Not picked yet. (Was rpm-wireframe.html, an OBD version.)
+  0-140 km/h, red from 100 (user); at Lite's real panel size (270x304). (Was rpm-wireframe.html, an OBD version.)
+  Picked 2026-10-28: option C, built into lite.html and glass.html (see Car panel below).
 - Canvas is 1340x800 landscape. Sections: Rail, Map, Today (HTC Sense style flip clock + current weather, see today.html), Car (speedometer + 4 stats),
   Now playing (cassette: title/artist centred on the label, the playing app as a pill (white logo + name) under the progress bar;
   tapping the pill or the tape window opens the app; the title still and centred when it fits, when longer it scrolls the YouTube Music way (rests 2.5 s at the start, slides at ~45 px/s, repeats; stops while paused), album art or station logo spins as the right reel, tape moves
@@ -84,6 +85,12 @@ Driven over ADB from a computer on the same Wi-Fi (Wireless debugging; pair once
   as a plain image; zero per-frame cost. Only the Controls drawer blurs live, once, as it opens.
   Flip clock (Today panel): one custom View, digits drawn to Canvas, a single minute-aligned callback (ACTION_TIME_TICK),
   flip = short rotationX ValueAnimator on the changed digits only; nothing runs between minutes.
+- Car panel layout (2026-10-28, gauge-wireframe.html option C, Lite and Glass): source chip + reset, big speed (Sofia Sans
+  Extra Condensed) with a compass rose top right (#rose: N/E/S/W turned by -heading, blue arrow = straight ahead, value
+  under it), a speed bar (#strip: 28 segments, 5 km/h each, 0-140, red from 100, scale 0/40/80/120), then 3 stats in a row
+  (GPS: Trip, Drive, Average; prototype OBD sample: Engine, Temp, Battery). Built once; renderCar toggles only changed
+  segments and rotates the rose when the heading moves a degree (no easing). The old needle speedometer is gone.
+  Prototype default source is now GPS (S.obd false).
 - Car panel: OBD (ELM327 over Bluetooth) shows car speed, RPM, coolant, fuel, battery V; without OBD it shows GPS speed,
   heading, trip km, drive time, average. Trip rules: distance summed from fixes with accuracy <= 20 m, drive time counts only
   while speed > 3 km/h, average = trip / drive time. Trip auto-resets after 20 min stationary; manual reset = long-press the

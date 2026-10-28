@@ -242,13 +242,10 @@
   @media (prefers-reduced-motion: reduce) { .ibox, .ibox *, .ibox .drops i { animation: none !important; } .ibox .drops i { opacity: 0.8; } }
   /* Calm mode (always on in the app; glass.html?calm in a browser): no decorative loops. On this tablet each loop made the
      whole screen redraw 60 times a second for nothing. What stays: reels while music plays, a long title scrolling,
-     the clock flip once a minute, the speed needle on GPS updates. */
+     the clock flip once a minute, the speed bar and compass on GPS updates (they step, never ease). */
   #screen.calm .ibox, #screen.calm .ibox *, #screen.calm .status .warn, #screen.calm .live-badge i { animation: none !important; }
   #screen.calm .ibox .drops i { opacity: 0.8; }
   #screen.calm .ibox .glow { opacity: 0.85; }
-  /* The needle is an SVG line: easing it repaints the whole gauge every frame, and with a GPS fix every second while
-     driving it never stops (measured: 110%+ CPU on the tablet). In calm mode it steps once a second instead. */
-  #screen.calm .gauge .needle { transition: none; }
   /* Same for the cassette: on this tablet each screen update costs about 10% CPU per update per second, so anything that
      moves every frame costs over a full core (measured: 170% with the reels spinning, 24% still). In calm mode the
      reels turn and the spools resize together on the one-second progress tick: one update a second. */
@@ -273,24 +270,29 @@
   .chip { display: inline-flex; gap: 6px; align-items: center; padding: 6px 12px; border-radius: 999px; background: var(--card); font-size: 13px; color: var(--text); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.1); }
   .chip i { font-size: 16px; color: #fff; }
   .reset { width: 34px; height: 34px; border-radius: 999px; background: var(--card); display: grid; place-items: center; font-size: 17px; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.1); }
-  .gauge { flex: 1; min-height: 0; position: relative; }
-  .gauge svg { position: absolute; inset: 0; width: 100%; height: 100%; }
-  .gauge .tk { stroke: rgba(255,255,255,0.22); stroke-width: 2; stroke-linecap: round; }
-  .gauge .tk.on { stroke: var(--text); }
-  .gauge .tk.major { stroke-width: 3; }
-  .gauge text { fill: var(--muted); font: 600 12px Geist, system-ui, sans-serif; text-anchor: middle; dominant-baseline: middle; }
-  .gauge .num { fill: var(--text); font-size: 40px; font-weight: 600; letter-spacing: -0.04em; font-variant-numeric: tabular-nums; }
-  .gauge .unit { font-size: 12px; }
-  /* Only the needle moves: a CSS transform around the hub, eased, so the GPU composites it. */
-  .gauge .needle { stroke: var(--text); stroke-width: 3; stroke-linecap: round; transform-box: view-box; transform-origin: 110px 108px; transition: transform 0.6s var(--ease); }
-  .gauge .pivot { fill: #1c2028; stroke: var(--text); stroke-width: 3; }
-  .car-sub { font-size: 13px; color: var(--muted); text-align: center; margin: 2px 0 10px; min-height: 16px; }
-  .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-  .stat { background: var(--card); border-radius: var(--r-tile); padding: 12px 14px; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08); }
-  .stat span { display: flex; gap: 6px; align-items: center; font-size: 14px; font-weight: 500; color: var(--muted); }
-  .stat span i { font-size: 16px; }
-  .stat b { display: block; font-size: 22px; font-weight: 600; margin-top: 4px; font-variant-numeric: tabular-nums; }
-  .stat b small { font-size: 14px; color: var(--muted); font-weight: 500; }
+  /* Gauge (2026-10-28, user's pick: gauge-wireframe.html option C, after a HUD speedometer): big speed on the left, a compass
+     rose top right (turns so N points north; the blue arrow is straight ahead), a speed bar of 28 segments (5 km/h each,
+     0-140, red from 100), then three stats in a row. Built once; a GPS fix only switches lit segments and turns the rose. */
+  .car-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-top: 10px; }
+  .speed { display: flex; align-items: baseline; gap: 8px; }
+  .speed b { font-family: 'Sofia Sans Extra Condensed', Geist, sans-serif; font-size: 132px; font-weight: 700; line-height: 0.8; font-variant-numeric: tabular-nums; }
+  .speed span { font-size: 17px; font-weight: 500; color: var(--muted); }
+  .rose-box { text-align: center; flex: none; }
+  #rose { width: 92px; height: 92px; display: block; }
+  .rose-val { font-size: 15px; font-weight: 500; color: var(--muted); margin-top: 4px; white-space: nowrap; }
+  .rose-val b { font-family: 'Sofia Sans Extra Condensed', Geist, sans-serif; font-size: 22px; font-weight: 700; color: var(--text); }
+  .rose-ring { fill: rgba(0,0,0,0.12); stroke: rgba(255,255,255,0.28); stroke-width: 1.5; }
+  .rose-tk { stroke: rgba(255,255,255,0.45); stroke-width: 1.5; }
+  .rose-lbl { fill: var(--muted); font: 700 9px Geist, sans-serif; text-anchor: middle; dominant-baseline: central; } .rose-lbl.n { fill: var(--warn); }
+  .rose-car { fill: var(--accent); }
+  .strip { width: 100%; height: auto; display: block; overflow: visible; margin: 18px 0 0; }
+  .seg { fill: rgba(255,255,255,0.14); } .seg.on { fill: var(--accent); } .seg.red { fill: rgba(255,122,107,0.22); } .seg.red.on { fill: var(--warn); }
+  .scale { fill: var(--muted); font: 600 11px Geist, sans-serif; text-anchor: middle; } .scale.red { fill: var(--warn); }
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: auto; }
+  .stat { background: var(--card); border-radius: var(--r-tile); padding: 11px 12px; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08); min-width: 0; }
+  .stat span { display: flex; gap: 6px; align-items: center; font-size: 14px; font-weight: 500; color: var(--muted); white-space: nowrap; overflow: hidden; }
+  .stat b { display: block; font-family: 'Sofia Sans Extra Condensed', Geist, sans-serif; font-size: 32px; font-weight: 700; line-height: 1.05; margin-top: 3px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .stat b small { font-family: Geist, sans-serif; font-size: 13px; color: var(--muted); font-weight: 500; margin-left: 2px; }
 
   /* Now playing as a cassette: details on the label, album art spins as the right reel, controls on the bottom bridge.
      Follows whichever app owns the playing media session (MediaSessionManager in the app). */
@@ -568,7 +570,7 @@
   .toast.show { opacity: 1; transform: translate(-50%, 0); }
 
   @media (prefers-reduced-motion: reduce) {
-    .press, .press:active, .main, .apps-page, .cc, .wall, .gauge .needle, .sw, .sw::after { transition: none; }
+    .press, .press:active, .main, .apps-page, .cc, .wall, .sw, .sw::after { transition: none; }
     .press:active { transform: none; }
     .dock-item, #screen.show-apps .app, .status .warn, .hub, .swap, .live-badge i { animation: none; }
     .tape { transition: none; }
@@ -654,8 +656,11 @@
               <button class="reset press" id="resetBtn" aria-label="Reset trip (hold)"><i class="ph-bold ph-arrow-counter-clockwise"></i></button>
             </span>
           </div>
-          <div class="gauge" id="gauge"></div>
-          <div class="car-sub" id="carSub"></div>
+          <div class="car-top">
+            <div class="speed"><b id="speed">0</b><span>km/h</span></div>
+            <div class="rose-box"><svg id="rose" viewBox="0 0 66 66" aria-hidden="true"></svg><div class="rose-val"><b id="roseDir">N</b> <span id="roseDeg">0°</span></div></div>
+          </div>
+          <svg class="strip" id="strip" viewBox="0 0 238 44" aria-hidden="true"></svg>
           <div class="stats" id="stats"></div>
         </section>
       </div>
@@ -840,7 +845,7 @@
 
   // Settings. Persisted so the prototype remembers them between reloads.
   const S = Object.assign(
-    { side: 'right', night: 'auto', glass: true, wall: 'hills', nav: 'waze', pins: ['waze', 'spotify'], wifi: true, bt: true, data: true, hotspot: false, dnd: true, autoBri: true, obd: true },
+    { side: 'right', night: 'auto', glass: true, wall: 'hills', nav: 'waze', pins: ['waze', 'spotify'], wifi: true, bt: true, data: true, hotspot: false, dnd: true, autoBri: true, obd: false },
     JSON.parse(localStorage.getItem('carhome') || '{}'));
   delete S.autoOpen;   // "Open <nav app> when the car starts", removed 2026-10-28 (plugging in shows home)
   // In the Android app the page runs with window.Android (android/src/.../Bridge.java): real apps, battery, GPS, music,
@@ -1350,37 +1355,49 @@
     tc.innerHTML = `<i class="ph-fill ph-thermometer-${hot ? 'hot' : 'simple'}"></i><span><b>${temp}°C</b><small>${hot ? 'Too hot, shade it' : 'Normal'}</small></span>`;
   }
 
-  // Speedometer: 0-160 km/h over a 240° sweep, opening at the bottom. Built once; updates touch the needle, tick classes and the number.
-  const GMAX = 160, CX = 110, CY = 108;
-  const gAt = (v, r) => { const a = (150 + 240 * v / GMAX) * Math.PI / 180; return [(CX + r * Math.cos(a)).toFixed(1), (CY + r * Math.sin(a)).toFixed(1)]; };
+  // Gauge, built once: the speed bar (28 segments rising in height, 5 km/h each, 0-140, red from 100; scale every 40) and
+  // the compass rose. renderCar only switches the segments whose state changed and turns the rose.
+  const GMAX = 160, SEGS = 28, DIR8 = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
   (function buildGauge() {
+    const W = 238, H = 44, gap = 2, w = (W - gap * (SEGS - 1)) / SEGS, top = 14;
     let out = '';
-    for (let v = 0; v <= GMAX; v += 5) {
-      const major = v % 20 === 0, [x1, y1] = gAt(v, 96), [x2, y2] = gAt(v, major ? 84 : 89);
-      out += `<line class="tk${major ? ' major' : ''}" data-v="${v}" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/>`;
-      if (major) { const [tx, ty] = gAt(v, 71); out += `<text x="${tx}" y="${ty}">${v}</text>`; }
+    for (let i = 0; i < SEGS; i++) {
+      const hh = (H - top) * (0.45 + 0.55 * i / (SEGS - 1));
+      out += `<rect class="seg${i >= 20 ? ' red' : ''}" x="${(i * (w + gap)).toFixed(1)}" y="${(H - hh).toFixed(1)}" width="${w.toFixed(1)}" height="${hh.toFixed(1)}" rx="1.5"/>`;
     }
-    $('gauge').innerHTML = `<svg viewBox="0 0 220 200" role="img" aria-label="Speed">${out}
-      <line class="needle" id="needle" x1="${CX}" y1="${CY}" x2="${CX + 78}" y2="${CY}"/><circle class="pivot" cx="${CX}" cy="${CY}" r="7"/>
-      <text class="num" id="gNum" x="${CX}" y="${CY + 54}">0</text><text class="unit" x="${CX}" y="${CY + 80}">km/h</text></svg>`;
+    for (let k = 0; k <= 3; k++) out += `<text class="scale${k === 3 ? ' red' : ''}" x="${Math.max(5, k * 8 * (w + gap) - (k ? gap / 2 : 0)).toFixed(1)}" y="10">${k * 40}</text>`;
+    $('strip').innerHTML = out;
+    let tk = '';
+    for (let a = 45; a < 360; a += 90) tk += `<line class="rose-tk" x1="33" y1="5" x2="33" y2="10" transform="rotate(${a} 33 33)"/>`;
+    for (let a = 0; a < 360; a += 90) tk += `<line class="rose-tk" x1="33" y1="3" x2="33" y2="6" transform="rotate(${a} 33 33)"/>`;
+    $('rose').innerHTML = `<circle class="rose-ring" cx="33" cy="33" r="30"/><g id="roseG">${tk}</g>`
+      + ['N', 'E', 'S', 'W'].map(d => `<text class="rose-lbl${d === 'N' ? ' n' : ''}">${d}</text>`).join('')
+      + '<polygon class="rose-car" points="33,24 27,40 33,36 39,40"/>';
   })();
-  const ticks = [...document.querySelectorAll('.gauge .tk')];
+  const segEls = [...document.querySelectorAll('#strip .seg')], roseG = $('roseG'), ROSE_L = [...document.querySelectorAll('#rose .rose-lbl')];
+  let segLit = -1, roseH = -1, statsHtml = '';
 
   // Trip counters (GPS). Distance adds up while moving; drive time counts only above 3 km/h.
   let speed = 48, tripKm = 12.4, driveS = 38 * 60, heading = 42;
   const TICK_S = 1.5;
   function renderCar() {
-    $('needle').style.transform = `rotate(${150 + 240 * speed / GMAX}deg)`;
-    $('gNum').textContent = speed;
-    ticks.forEach(t => t.classList.toggle('on', +t.dataset.v <= speed));
+    $('speed').textContent = speed;
+    const lit = Math.min(SEGS, Math.round(speed / 5));
+    if (lit !== segLit) { segEls.forEach((el, i) => { if ((i < lit) !== (i < segLit)) el.classList.toggle('on', i < lit); }); segLit = lit; }
+    const h = Math.round(heading) % 360;
+    if (h !== roseH) {
+      roseH = h; roseG.setAttribute('transform', `rotate(${-h} 33 33)`);
+      ROSE_L.forEach((t, i) => { const a = (i * 90 - h) * Math.PI / 180; t.setAttribute('x', (33 + 21 * Math.sin(a)).toFixed(1)); t.setAttribute('y', (33 - 21 * Math.cos(a)).toFixed(1)); });
+      $('roseDir').textContent = DIR8[Math.round(h / 45) % 8]; $('roseDeg').textContent = `${h}°`;
+    }
     $('srcChip').innerHTML = S.obd ? `<i class="ph-fill ph-plugs-connected"></i>OBD connected` : `<i class="ph-fill ph-navigation-arrow"></i>Tablet GPS`;
-    $('carSub').textContent = S.obd ? '' : 'Plug in an OBD adapter for engine data';
     $('resetBtn').style.display = S.obd ? 'none' : '';
-    const stat = (icon, label, val, unit) => `<div class="stat"><span><i class="ph-fill ph-${icon}"></i>${label}</span><b>${val}${unit ? ` <small>${unit}</small>` : ''}</b></div>`;
+    const stat = (label, val, unit) => `<div class="stat"><span>${label}</span><b>${val}${unit ? `<small>${unit}</small>` : ''}</b></div>`;
     const avg = driveS > 0 ? Math.round(tripKm / (driveS / 3600)) : 0;
-    $('stats').innerHTML = S.obd
-      ? stat('gauge', 'Engine', (800 + speed * 36).toLocaleString('en'), 'rpm') + stat('thermometer-simple', 'Coolant', '88°', 'C') + stat('gas-pump', 'Fuel', '62%', '~410 km') + stat('car-battery', 'Battery', '14.2', 'V')
-      : stat('compass', 'Heading', ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'][Math.round(heading / 45) % 8], `${Math.round(heading)}°`) + stat('path', 'Trip', tripKm.toFixed(1), 'km') + stat('timer', 'Drive time', `${Math.floor(driveS / 3600)}:${String(Math.floor(driveS / 60) % 60).padStart(2, '0')}`) + stat('gauge', 'Average', avg, 'km/h');
+    const html = S.obd
+      ? stat('Engine', (800 + speed * 36).toLocaleString('en'), 'rpm') + stat('Temp', '88°', 'C') + stat('Battery', '14.2', 'V')
+      : stat('Trip', tripKm.toFixed(1), 'km') + stat('Drive', `${Math.floor(driveS / 3600)}:${String(Math.floor(driveS / 60) % 60).padStart(2, '0')}`) + stat('Average', avg, 'km/h');
+    if (html !== statsHtml) $('stats').innerHTML = statsHtml = html;
   }
   if (NATIVE) { S.obd = false; speed = 0; heading = 0; tripKm = 0; driveS = 0; }   // no OBD adapter support yet in the app: tablet GPS
   else $('srcChip').addEventListener('click', () => { S.obd = !S.obd; save(); renderCar(); });

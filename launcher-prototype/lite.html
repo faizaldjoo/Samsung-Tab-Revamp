@@ -153,18 +153,34 @@
   .controls .play { background: var(--text); color: var(--bg); font-size: 30px; }
   .music.no-skip .skip { visibility: hidden; }
 
-  /* Car: big speed number, source chip, four stats. */
-  .car { padding: 14px 16px; display: grid; grid-template-rows: auto auto 1fr; gap: 10px; }
+  /* Car (2026-10-28, user's pick: gauge-wireframe.html option C, after a HUD speedometer): big speed on the left, a compass
+     rose top right (turns so N points north; the blue arrow is straight ahead), a speed bar of 28 segments (5 km/h each,
+     0-140, red from 100), then trip / drive time / average in one row. Built once; a GPS fix only switches lit segments and
+     turns the rose (no easing). */
+  .car { padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; min-height: 0; }
   .car-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
   .chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 11px; border-radius: 999px; background: var(--raised); font-size: 13px; font-weight: 600; }
-  .speed { display: flex; align-items: baseline; gap: 8px; }
-  .speed b { font-size: 76px; font-weight: 600; letter-spacing: -0.03em; line-height: 1; }
-  .speed span { font-size: 16px; color: var(--muted); }
-  .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; align-content: end; }
-  .stat { background: var(--raised); border-radius: 12px; padding: 9px 12px; }
-  .stat span { display: flex; align-items: center; gap: 5px; font-size: 13px; font-weight: 500; color: var(--muted); }
-  .stat b { display: block; font-size: 20px; font-weight: 600; margin-top: 2px; }
-  .stat b small { font-size: 13px; font-weight: 500; color: var(--muted); }
+  .car-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+  .speed { display: flex; align-items: baseline; gap: 6px; }
+  .speed b { font-family: 'Sofia Sans Extra Condensed', Geist, sans-serif; font-size: 92px; font-weight: 700; line-height: 0.82; }
+  .speed span { font-size: 14px; color: var(--muted); }
+  .rose-box { text-align: center; flex: none; }
+  #rose { width: 66px; height: 66px; display: block; }
+  .rose-val { font-size: 12px; color: var(--muted); margin-top: 3px; white-space: nowrap; }
+  .rose-val b { font-family: 'Sofia Sans Extra Condensed', Geist, sans-serif; font-size: 17px; font-weight: 700; color: var(--text); }
+  .rose-ring { fill: none; stroke: var(--line); stroke-width: 1.5; }
+  .rose-tk { stroke: rgba(255,255,255,0.35); stroke-width: 1.5; }
+  .rose-lbl { fill: var(--muted); font: 700 9px Geist, sans-serif; text-anchor: middle; dominant-baseline: central; } .rose-lbl.n { fill: var(--warn); }
+  .rose-car { fill: var(--accent); }
+  .strip { width: 100%; height: auto; display: block; overflow: visible; margin-top: 4px; }
+  .seg { fill: #2a3039; } .seg.on { fill: var(--accent); } .seg.red { fill: #4a2b2b; } .seg.red.on { fill: var(--warn); }
+  .scale { fill: var(--muted); font: 600 11px Geist, sans-serif; text-anchor: middle; } .scale.red { fill: var(--warn); }
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: auto; }
+  .stat { background: var(--raised); border-radius: 12px; padding: 7px 9px; min-width: 0; }
+  .stat span { display: flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 500; color: var(--muted); white-space: nowrap; overflow: hidden; }
+  .stat span i { display: none; }   /* three to a row: the words need the room */
+  .stat b { display: block; font-family: 'Sofia Sans Extra Condensed', Geist, sans-serif; font-size: 24px; font-weight: 700; line-height: 1.05; margin-top: 2px; white-space: nowrap; }
+  .stat b small { font-family: Geist, sans-serif; font-size: 11px; font-weight: 500; color: var(--muted); margin-left: 2px; }
   .reset { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; background: var(--raised); font-size: 16px; }
 
   /* Volume and brightness: two vertical bars filling from the bottom; drag anywhere on a bar. */
@@ -320,7 +336,11 @@
     <div class="col">
       <section class="panel car" aria-label="Car">
         <div class="car-head"><span class="label">Car</span><span style="display:flex;gap:6px"><button class="chip press" id="srcChip"></button><button class="reset press" id="resetBtn" aria-label="Reset trip (hold)"><i class="ph-fill ph-arrow-counter-clockwise"></i></button></span></div>
-        <div class="speed num"><b id="speed">0</b><span>km/h</span></div>
+        <div class="car-top">
+          <div class="speed num"><b id="speed">0</b><span>km/h</span></div>
+          <div class="rose-box"><svg id="rose" viewBox="0 0 66 66" aria-hidden="true"></svg><div class="rose-val"><b id="roseDir">N</b> <span id="roseDeg">0°</span></div></div>
+        </div>
+        <svg class="strip" id="strip" viewBox="0 0 238 44" aria-hidden="true"></svg>
         <div class="stats num" id="stats"></div>
       </section>
       <section class="panel sliders" aria-label="Volume and brightness">
@@ -383,7 +403,7 @@
 
   // ---- Settings, shared with glass.html. ----
   const S = Object.assign({ side: 'right', night: 'auto', nav: 'waze', pins: ['waze', 'spotify'],
-    wifi: true, bt: true, data: true, hotspot: false, dnd: true, autoBri: true, obd: true }, JSON.parse(localStorage.getItem('carhome') || '{}'));
+    wifi: true, bt: true, data: true, hotspot: false, dnd: true, autoBri: true, obd: false }, JSON.parse(localStorage.getItem('carhome') || '{}'));
   delete S.mapSrc;   // the old map choice (Dark / OpenStreetMap / Waze live / Google), gone since 2026-10-28
   delete S.autoOpen;   // "Open <nav app> when the car starts", removed 2026-10-28 (plugging in shows home)
   const save = () => {
@@ -698,13 +718,43 @@
     const obd = S.obd && !NATIVE;
     $('srcChip').innerHTML = obd ? '<i class="ph-fill ph-plugs-connected"></i>OBD' : '<i class="ph-fill ph-navigation-arrow"></i>GPS';
     $('resetBtn').style.display = obd ? 'none' : '';
-    const st = (icon, label, val, unit) => `<div class="stat"><span><i class="ph-fill ph-${icon}"></i>${label}</span><b>${val}${unit ? ` <small>${unit}</small>` : ''}</b></div>`;
+    const st = (icon, label, val, unit) => `<div class="stat"><span><i class="ph-fill ph-${icon}"></i>${label}</span><b>${val}${unit ? `<small>${unit}</small>` : ''}</b></div>`;
     const avg = driveS > 0 ? Math.round(tripKm / (driveS / 3600)) : 0;
-    $('stats').innerHTML = obd
-      ? st('gauge', 'Engine', (800 + speed * 36).toLocaleString('en'), 'rpm') + st('thermometer-simple', 'Coolant', '88°', 'C') + st('gas-pump', 'Fuel', '62%', '') + st('car-battery', 'Battery', '14.2', 'V')
-      : st('compass', 'Heading', ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'][Math.round(heading / 45) % 8], '') + st('path', 'Trip', tripKm.toFixed(1), 'km')
-        + st('timer', 'Drive time', `${Math.floor(driveS / 3600)}:${pad(Math.floor(driveS / 60) % 60)}`, '') + st('gauge', 'Average', avg, 'km/h');
+    const html = obd
+      ? st('gauge', 'Engine', (800 + speed * 36).toLocaleString('en'), 'rpm') + st('thermometer-simple', 'Temp', '88°', 'C') + st('car-battery', 'Battery', '14.2', 'V')
+      : st('path', 'Trip', tripKm.toFixed(1), 'km') + st('timer', 'Drive', `${Math.floor(driveS / 3600)}:${pad(Math.floor(driveS / 60) % 60)}`, '') + st('gauge', 'Average', avg, 'km/h');
+    if (html !== statsHtml) $('stats').innerHTML = statsHtml = html;
+    // Speed bar: only the segments whose state changed are touched.
+    const lit = Math.min(SEGS, Math.round(speed / 5));
+    if (lit !== segLit) { segEls.forEach((el, i) => { if ((i < lit) !== (i < segLit)) el.classList.toggle('on', i < lit); }); segLit = lit; }
+    // Rose: turns only when the heading moves a whole degree.
+    const h = Math.round(heading) % 360;
+    if (h !== roseH) {
+      roseH = h; roseG.setAttribute('transform', `rotate(${-h} 33 33)`);
+      ROSE_L.forEach((t, i) => { const a = (i * 90 - h) * Math.PI / 180; t.setAttribute('x', (33 + 21 * Math.sin(a)).toFixed(1)); t.setAttribute('y', (33 - 21 * Math.cos(a)).toFixed(1)); });
+      $('roseDir').textContent = DIR8[Math.round(h / 45) % 8]; $('roseDeg').textContent = `${h}°`;
+    }
   }
+  // Built once: the speed bar (28 segments rising in height, 5 km/h each, 0-140, red from 100; scale every 40) and the rose.
+  const SEGS = 28, DIR8 = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+  let segLit = -1, roseH = -1, statsHtml = '';
+  {
+    const W = 238, H = 44, gap = 2, w = (W - gap * (SEGS - 1)) / SEGS, top = 14;
+    let out = '';
+    for (let i = 0; i < SEGS; i++) {
+      const hh = (H - top) * (0.45 + 0.55 * i / (SEGS - 1));
+      out += `<rect class="seg${i >= 20 ? ' red' : ''}" x="${(i * (w + gap)).toFixed(1)}" y="${(H - hh).toFixed(1)}" width="${w.toFixed(1)}" height="${hh.toFixed(1)}" rx="1.5"/>`;
+    }
+    for (let k = 0; k <= 3; k++) out += `<text class="scale${k === 3 ? ' red' : ''}" x="${Math.max(5, k * 8 * (w + gap) - (k ? gap / 2 : 0)).toFixed(1)}" y="10">${k * 40}</text>`;
+    $('strip').innerHTML = out;
+    let tk = '';
+    for (let a = 45; a < 360; a += 90) tk += `<line class="rose-tk" x1="33" y1="5" x2="33" y2="10" transform="rotate(${a} 33 33)"/>`;
+    for (let a = 0; a < 360; a += 90) tk += `<line class="rose-tk" x1="33" y1="3" x2="33" y2="6" transform="rotate(${a} 33 33)"/>`;
+    $('rose').innerHTML = `<circle class="rose-ring" cx="33" cy="33" r="30"/><g id="roseG">${tk}</g>`
+      + ['N', 'E', 'S', 'W'].map(d => `<text class="rose-lbl${d === 'N' ? ' n' : ''}">${d}</text>`).join('')
+      + '<polygon class="rose-car" points="33,24 27,40 33,36 39,40"/>';
+  }
+  const segEls = [...document.querySelectorAll('#strip .seg')], roseG = $('roseG'), ROSE_L = [...document.querySelectorAll('#rose .rose-lbl')];
   if (!NATIVE) $('srcChip').onclick = () => { S.obd = !S.obd; save(); renderCar(); };
   $('resetBtn').addEventListener('pointerdown', () => { holdT = setTimeout(() => { tripKm = 0; driveS = 0; renderCar(); say('Trip reset'); }, 600); });
 

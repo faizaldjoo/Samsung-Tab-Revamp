@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased (fixes for issues #1 to #5, not yet tested on the tablet)
+## Unreleased (not yet tested on the tablet)
 
 - Unplugging the charger (car off) now pauses the music, opens the screensaver at once (whatever app is in front)
   and puts the tablet to sleep 2 minutes later; plugging back in before then cancels the sleep. (#3)
@@ -14,6 +14,11 @@
   for example a hotspot without data. (#5)
 - Unplug and plug-in actions need Car Home's accessibility service on (Settings > Accessibility > Installed apps).
   Without it, the home page still opens the screensaver and pauses the music when unplugged.
+- Controls: Theme, Wallpaper and Close sit in a bar at the bottom of the drawer (easier to reach); Lite's Controls is
+  a drawer beside the sidebar like Glass's, not a full page.
+- Sidebar: bigger buttons with no gaps between them; the status pill is the Controls button (the separate gear is gone).
+- Car panel (GPS): a HUD-style gauge: big speed, a compass rose, a speed bar (red from 100 km/h), then trip, drive
+  time and average.
 
 ## v1.2 (2026-10-28)
 
