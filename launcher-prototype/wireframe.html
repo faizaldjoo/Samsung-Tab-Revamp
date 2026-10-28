@@ -7,6 +7,8 @@
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css">
 <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/bold/style.css">
+<link rel="stylesheet" href="vendor/phosphor/fill/style.css">
+<link rel="stylesheet" href="vendor/phosphor/bold/style.css">
 <style>
   /* Mid-fidelity mockup: real layout, type, icons and colours, but flat panels (no glass, blur or photos)
      so the layout can be settled cheaply before it goes into glass.html. Frames are 1340x800, shown at 60%. */
@@ -135,6 +137,42 @@
   .switch { display: flex; align-items: center; gap: 14px; font-size: 14px; color: var(--muted); }
   .switch .seg { width: 220px; } .switch .seg span { height: 36px; }
   .note { max-width: 804px; font-size: 14px; color: var(--muted); margin-top: 10px; line-height: 1.5; }
+
+  /* Car panel, GPS mode: heading as a compass. Three options at the panel's real size (351 x 430), side by side. */
+  .opts { display: flex; gap: 28px; align-items: flex-start; }
+  .opt h3 { font-size: 15px; font-weight: 600; margin-bottom: 10px; }
+  .opt .car { width: 351px; height: 430px; }
+  .opt .note { max-width: 351px; font-size: 13px; }
+  .stats.three { grid-template-columns: repeat(3, 1fr); }
+  .stats.three .stat { padding: 12px; } .stats.three .stat b { font-size: 20px; white-space: nowrap; } .stats.three .stat b small { font-size: 13px; }
+  .opt .gauge { min-height: 150px; }
+  .stats .full { grid-column: 1 / -1; }
+  /* A: a small dial inside the Heading card. The rose turns so N points north; the notch at the top is the car. */
+  .stat.dial { display: flex; align-items: center; gap: 12px; }
+  .stat.dial svg { width: 48px; height: 48px; flex: none; }
+  .rose-ring { fill: none; stroke: rgba(255,255,255,0.22); stroke-width: 1.5; }
+  .rose-tk { stroke: rgba(255,255,255,0.35); stroke-width: 1.5; }
+  .rose-n { fill: var(--warn); } .rose-s { fill: rgba(255,255,255,0.55); }
+  .rose-car { fill: var(--text); }
+  .rose-lbl { fill: var(--muted); font: 600 10px Geist, system-ui, sans-serif; text-anchor: middle; dominant-baseline: central; }
+  .rose-lbl.n { fill: var(--warn); }
+  /* B: a horizontal tape, like a car mirror compass. The tape slides under a fixed centre mark. */
+  .tape { position: relative; height: 34px; margin-top: 8px; overflow: hidden; border-radius: 12px; background: rgba(0,0,0,0.22);
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 18%, #000 82%, transparent); mask-image: linear-gradient(90deg, transparent, #000 18%, #000 82%, transparent); }
+  .tape svg { position: absolute; left: 0; top: 0; height: 34px; }
+  .tape-tk { stroke: rgba(255,255,255,0.3); stroke-width: 1.5; } .tape-tk.major { stroke: rgba(255,255,255,0.6); stroke-width: 2; }
+  .tape-lbl { fill: var(--text); font: 600 13px Geist, system-ui, sans-serif; text-anchor: middle; } .tape-lbl.n { fill: var(--warn); }
+  .tape-mark { position: absolute; left: 50%; top: 0; width: 2px; height: 100%; margin-left: -1px; background: var(--accent); }
+  .tape-mark::before { content: ""; position: absolute; left: -5px; top: 0; border: 6px solid transparent; border-top-color: var(--accent); border-bottom: 0; }
+  .head-row { display: flex; justify-content: space-between; align-items: baseline; }
+  .head-row b { margin-top: 0; font-size: 22px; }
+  .stats .full { padding: 10px 14px 12px; }
+  /* C: the compass rose rings the speedometer; its letters turn with the heading, the notch at the top is the car. */
+  .gauge.ringed { position: relative; }
+  .gauge .bezel { position: absolute; inset: 0; margin: auto; width: 100%; height: 100%; max-height: 225px; }
+  .bezel-lbl { fill: var(--muted); font: 700 12px Geist, system-ui, sans-serif; text-anchor: middle; dominant-baseline: central; } .bezel-lbl.n { fill: var(--warn); }
+  .bezel-ring { fill: none; stroke: rgba(255,255,255,0.1); stroke-width: 18; }
+  .bezel-car { fill: var(--accent); }
 </style>
 </head>
 <body>
@@ -228,6 +266,53 @@
 </section>
 
 <section>
+  <h1>1c. Car panel, GPS: heading as a compass (pick one)</h1>
+  <p class="note" style="margin:0 0 14px">Sample heading 42° (north-east). The compass follows the GPS heading, so it only turns while the car moves (the tablet's GPS gives no heading when standing still: it keeps the last one).</p>
+  <div class="opts">
+    <div class="opt"><h3>A. Dial in the Heading card</h3>
+      <section class="p car">
+        <div class="car-head">Car<span class="end"><span class="chip"><i class="ph-fill ph-navigation-arrow"></i>Tablet GPS</span><span class="reset"><i class="ph-bold ph-arrow-counter-clockwise"></i></span></span></div>
+        <div class="gauge" data-speed="48"></div>
+        <div class="stats">
+          <div class="stat dial"><svg class="rose" data-heading="42" viewBox="0 0 48 48"></svg><div><span>Heading</span><b>NE <small>42°</small></b></div></div>
+          <div class="stat"><span><i class="ph-fill ph-path"></i>Trip</span><b>12.4 <small>km</small></b></div>
+          <div class="stat"><span><i class="ph-fill ph-timer"></i>Drive time</span><b>0:38</b></div>
+          <div class="stat"><span><i class="ph-fill ph-gauge"></i>Average</span><b>31 <small>km/h</small></b></div>
+        </div>
+      </section>
+      <p class="note">Smallest change: same four cards, the compass icon becomes a live dial. The rose turns so its red N always points north; the white notch at the top is where the car is heading. In all three, the OBD hint line under the speedometer goes, to give the speedometer room.</p>
+    </div>
+    <div class="opt"><h3>B. Compass tape</h3>
+      <section class="p car">
+        <div class="car-head">Car<span class="end"><span class="chip"><i class="ph-fill ph-navigation-arrow"></i>Tablet GPS</span><span class="reset"><i class="ph-bold ph-arrow-counter-clockwise"></i></span></span></div>
+        <div class="gauge" data-speed="48"></div>
+        <div class="stats three">
+          <div class="stat full"><div class="head-row"><span><i class="ph-fill ph-compass"></i>Heading</span><b>NE <small>42°</small></b></div>
+            <div class="tape"><svg data-tape="42" width="303" viewBox="0 0 303 34"></svg><div class="tape-mark"></div></div></div>
+          <div class="stat"><span>Trip</span><b>12.4 <small>km</small></b></div>
+          <div class="stat"><span>Drive</span><b>0:38</b></div>
+          <div class="stat"><span>Average</span><b>31</b></div>
+        </div>
+      </section>
+      <p class="note">A strip like a rear-view mirror compass: letters and ticks slide under the blue mark. Easy to read at a glance in a straight line. The other three stats share one row (Average in km/h), and the heading card stays one compact strip so the speedometer keeps its size.</p>
+    </div>
+    <div class="opt"><h3>C. Compass around the speedometer</h3>
+      <section class="p car">
+        <div class="car-head">Car<span class="end"><span class="chip"><i class="ph-fill ph-navigation-arrow"></i>Tablet GPS</span><span class="reset"><i class="ph-bold ph-arrow-counter-clockwise"></i></span></span></div>
+        <div class="gauge ringed" data-speed="48" data-ring="42"></div>
+        <div class="stats three">
+          <div class="stat"><span>Trip</span><b>12.4 <small>km</small></b></div>
+          <div class="stat"><span>Drive</span><b>0:38</b></div>
+          <div class="stat"><span>Average</span><b>31</b></div>
+        </div>
+      </section>
+      <p class="note">One instrument: N, E, S, W ride on a ring around the speedometer and turn with the car; the blue notch at the top is straight ahead, with the heading written under the speed. Frees the fourth card, so the stats fit one row.</p>
+    </div>
+  </div>
+  <p class="note">In the app all three cost the same: the dial, tape or ring is drawn once and only its rotation (or sideways shift) changes, on the existing once-a-second GPS update. Nothing animates in between.</p>
+</section>
+
+<section>
   <h1>2. Controls</h1>
   <div class="wrap"><div class="frame dim" data-fill="rail home" data-car="obd" id="ccFrame">
     <section class="cc">
@@ -289,6 +374,42 @@
       <text class="num" x="${cx}" y="${cy + 54}">${speed}</text><text class="unit" x="${cx}" y="${cy + 80}">km/h</text></svg>`;
   }
   document.querySelectorAll('.gauge').forEach(g => g.innerHTML = gauge(+g.dataset.speed));
+
+  // ---- Compass options (1c). Heading in degrees clockwise from north. ----
+  const DIRS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+  // A: 48 px rose. The rose turns by -heading so N points north; the car notch stays at the top.
+  document.querySelectorAll('svg.rose').forEach(svg => {
+    const h = +svg.dataset.heading, c = 24;
+    let tk = '';
+    for (let a = 0; a < 360; a += 30) { const r = a * Math.PI / 180; tk += `<line class="rose-tk" x1="${c + 17 * Math.sin(r)}" y1="${c - 17 * Math.cos(r)}" x2="${c + 20 * Math.sin(r)}" y2="${c - 20 * Math.cos(r)}"/>`; }
+    svg.innerHTML = `<circle class="rose-ring" cx="${c}" cy="${c}" r="21"/>
+      <g transform="rotate(${-h} ${c} ${c})">${tk}<polygon class="rose-n" points="${c},${c - 14} ${c - 4},${c} ${c + 4},${c}"/><polygon class="rose-s" points="${c},${c + 14} ${c - 4},${c} ${c + 4},${c}"/></g>
+      <polygon class="rose-car" points="${c},1 ${c - 4},7 ${c + 4},7"/>`;
+  });
+  // B: tape, 2.4 px per degree, a tick every 5°, letters every 45°. The centre of the 303 px window is the heading.
+  document.querySelectorAll('svg[data-tape]').forEach(svg => {
+    const h = +svg.dataset.tape, W = 303, PX = 2.4, mid = W / 2;
+    let out = '';
+    for (let a = Math.floor((h - 70) / 5) * 5; a <= h + 70; a += 5) {
+      const x = (mid + (a - h) * PX).toFixed(1), n = ((a % 360) + 360) % 360, major = n % 45 === 0;
+      out += `<line class="tape-tk${major ? ' major' : ''}" x1="${x}" y1="${major ? 20 : 25}" x2="${x}" y2="32"/>`;
+      if (major) out += `<text class="tape-lbl${n === 0 ? ' n' : ''}" x="${x}" y="14">${DIRS[n / 45]}</text>`;
+    }
+    svg.innerHTML = out;
+  });
+  // C: ring of N/E/S/W around the speedometer, turned by -heading; notch at the top = straight ahead.
+  document.querySelectorAll('.gauge[data-ring]').forEach(g => {
+    const h = +g.dataset.ring, cx = 110, cy = 108, r = 112;
+    let lbl = '';
+    ['N', 'E', 'S', 'W'].forEach((d, i) => {
+      const a = (i * 90 - h) * Math.PI / 180;
+      lbl += `<text class="bezel-lbl${d === 'N' ? ' n' : ''}" x="${(cx + r * Math.sin(a)).toFixed(1)}" y="${(cy - r * Math.cos(a)).toFixed(1)}">${d}</text>`;
+    });
+    const svg = g.querySelector('svg');
+    svg.setAttribute('viewBox', '-14 -18 248 250');
+    svg.insertAdjacentHTML('afterbegin', `<circle class="bezel-ring" cx="${cx}" cy="${cy}" r="${r}"/>${lbl}<polygon class="bezel-car" points="${cx},${cy - r - 9} ${cx - 6},${cy - r + 1} ${cx + 6},${cy - r + 1}"/>`);
+    svg.insertAdjacentHTML('beforeend', `<text class="unit" x="${cx}" y="${cy + 96}" style="fill:var(--text);font-weight:600">NE 42°</text>`);
+  });
   document.querySelector('#ccFrame .status').classList.add('sel');
 
   // Sidebar side: the page switch and the Controls option both flip every frame.
