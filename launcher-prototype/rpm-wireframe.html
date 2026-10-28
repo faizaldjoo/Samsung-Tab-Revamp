@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RPM Card Wireframe</title>
+<link rel="stylesheet" href="vendor/fonts/fonts.css">
+<link rel="stylesheet" href="vendor/phosphor/fill/style.css">
+<style>
+  /* Car panel, OBD mode: three ways to show engine speed, after a HUD speedometer and a Toyota digital cluster.
+     Panels are drawn at Lite's real Car panel size on the tablet (270 x 304 CSS px) with Lite's colours, shown at 150%. */
+  :root { --bg: #0e1013; --panel: #171a1f; --raised: #20242b; --line: #2a2f37; --text: #eef0f3; --muted: #a3aab4; --faint: #6c737d;
+    --accent: #5aa7ff; --warn: #ff7a6b; --off: #2a3039; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #08090b; color: var(--text); font-family: Geist, system-ui, sans-serif; padding: 28px 20px 40px; }
+  .page { max-width: 1340px; margin: 0 auto; }
+  h1 { font-size: 22px; font-weight: 600; letter-spacing: -0.01em; }
+  .lead { color: var(--muted); font-size: 15px; line-height: 1.5; max-width: 70ch; margin-top: 8px; }
+  .review { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 22px 0 30px; }
+  .review div { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; }
+  .review h2 { font-size: 15px; font-weight: 600; margin-bottom: 8px; }
+  .review ul { list-style: none; display: grid; gap: 6px; font-size: 14px; color: var(--muted); line-height: 1.45; }
+  .review b { color: var(--text); font-weight: 600; }
+  .opts { display: flex; flex-wrap: wrap; gap: 34px; }
+  .opt h3 { font-size: 16px; font-weight: 600; margin-bottom: 10px; }
+  .opt .zoom { zoom: 1.5; }
+  .opt .note { max-width: 405px; font-size: 14px; color: var(--muted); line-height: 1.5; margin-top: 12px; }
+  .opt.current .car { opacity: 1; }
+  .foot { color: var(--muted); font-size: 14px; line-height: 1.5; max-width: 80ch; margin-top: 30px; }
+  @media (max-width: 760px) { .review { grid-template-columns: 1fr; } .opt .zoom { zoom: 1.2; } }
+
+  /* The panel (Lite) */
+  .car { width: 270px; height: 304px; background: var(--panel); border: 1px solid var(--line); border-radius: 18px; padding: 14px 16px;
+    display: flex; flex-direction: column; position: relative; overflow: hidden; }
+  .head { display: flex; justify-content: space-between; align-items: center; font-size: 14px; color: var(--muted); }
+  .chip { display: inline-flex; gap: 5px; align-items: center; height: 26px; padding: 0 10px; border-radius: 999px; background: var(--raised); color: var(--text); font-size: 12px; font-weight: 600; }
+  .chip i { font-size: 14px; color: var(--accent); }
+  .num { font-family: "Sofia Sans Extra Condensed", Geist, sans-serif; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: 0; }
+  .unit { font-size: 13px; color: var(--muted); font-weight: 500; }
+  .mini { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: auto; }
+  .mini > div { background: var(--raised); border-radius: 12px; padding: 7px 9px; min-width: 0; }
+  .mini span { display: flex; gap: 4px; align-items: center; font-size: 12px; color: var(--muted); white-space: nowrap; } .mini span i { font-size: 13px; }
+  .mini b { display: block; font-size: 24px; line-height: 1.05; margin-top: 2px; white-space: nowrap; } .mini b small { font-family: Geist, sans-serif; font-size: 11px; color: var(--muted); font-weight: 500; margin-left: 1px; }
+
+  /* Current (for comparison) */
+  .cur-speed { display: flex; align-items: baseline; gap: 6px; margin-top: 8px; }
+  .cur-speed b { font-family: Geist, sans-serif; font-size: 64px; font-weight: 600; letter-spacing: -0.03em; line-height: 1; }
+  .cur-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: auto; }
+  .cur-stats div { background: var(--raised); border-radius: 12px; padding: 8px 10px; }
+  .cur-stats span { font-size: 12px; color: var(--muted); display: flex; gap: 4px; align-items: center; }
+  .cur-stats b { font-size: 19px; font-weight: 600; display: block; margin-top: 2px; } .cur-stats b small { font-size: 11px; color: var(--muted); }
+
+  /* A: tach strip */
+  .a-top { display: flex; align-items: flex-end; justify-content: space-between; margin-top: 4px; }
+  .a-speed { display: flex; align-items: baseline; gap: 6px; }
+  .a-speed b { font-size: 92px; line-height: 0.82; }
+  .a-rpm { text-align: right; padding-bottom: 4px; }
+  .a-rpm b { font-size: 30px; line-height: 1; display: block; }
+  svg { display: block; overflow: visible; }
+  .seg { fill: var(--off); } .seg.on { fill: var(--accent); } .seg.red { fill: #4a2b2b; } .seg.red.on { fill: var(--warn); }
+  .scale { fill: var(--muted); font: 600 11px Geist, sans-serif; text-anchor: middle; } .scale.red { fill: var(--warn); }
+  .tag { fill: var(--faint); font: 500 10px Geist, sans-serif; }
+
+  /* B: HUD arc */
+  .b-arc { position: relative; height: 196px; margin: 2px -6px 0; }
+  .b-arc svg { position: absolute; inset: 0; }
+  .b-mid { position: absolute; left: 0; right: 0; top: 64px; text-align: center; }
+  .b-mid b { font-size: 84px; line-height: 0.85; display: block; }
+  .b-mid .unit { display: block; margin-top: 2px; }
+  .b-rpm { position: absolute; left: 0; right: 0; bottom: 0; text-align: center; font-size: 13px; color: var(--muted); }
+  .b-rpm b { font-size: 22px; color: var(--text); margin-right: 3px; }
+
+  /* C: cluster with fuel column */
+  .c-body { display: grid; grid-template-columns: 1fr 34px; gap: 12px; flex: 1; min-height: 0; margin-top: 6px; }
+  .c-left { display: flex; flex-direction: column; min-width: 0; }
+  .c-speed { display: flex; align-items: baseline; gap: 6px; }
+  .c-speed b { font-size: 88px; line-height: 0.82; }
+  .c-rpmrow { display: flex; justify-content: space-between; align-items: baseline; margin: 10px 0 4px; font-size: 12px; color: var(--muted); }
+  .c-rpmrow b { font-size: 22px; color: var(--text); }
+  .c-two { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: auto; }
+  .c-two div { background: var(--raised); border-radius: 12px; padding: 7px 9px; }
+  .c-two span { display: flex; gap: 4px; align-items: center; font-size: 12px; color: var(--muted); } .c-two span i { font-size: 13px; }
+  .c-two b { display: block; font-size: 24px; line-height: 1.05; margin-top: 2px; } .c-two b small { font-family: Geist, sans-serif; font-size: 11px; color: var(--muted); font-weight: 500; }
+  .fuel { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .fuel .lbl { font-size: 11px; font-weight: 600; color: var(--muted); }
+  .fuel .stack { flex: 1; width: 100%; display: flex; flex-direction: column-reverse; gap: 3px; }
+  .fuel .stack i { flex: 1; border-radius: 3px; background: var(--off); }
+  .fuel .stack i.on { background: var(--accent); }
+  .fuel .stack i.low { background: #4a2b2b; } .fuel .stack i.low.on { background: var(--accent); } .fuel .stack.is-low i.low.on { background: var(--warn); }
+  .fuel .pct { font-size: 18px; }
+  .fuel .ic { font-size: 15px; color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>Car panel, OBD: engine speed card</h1>
+  <p class="lead">Sample reading: 48 km/h, 2,528 rpm, coolant 88°, fuel 62%, battery 14.2 V. Each panel is Lite's real Car panel size on the tablet (270 x 304 px), shown at 150%. Numbers use Sofia Sans Extra Condensed (already bundled) for the digital-cluster feel.</p>
+
+  <div class="review">
+    <div><h2>HUD speedometer (first photo)</h2><ul>
+      <li><b>What works:</b> one huge white number, so speed reads in a glance. The arc is a bar of separate segments that fills up, which reads faster than a needle.</li>
+      <li><b>What to skip:</b> four colours (white, blue, yellow, red) and clock plus distance digits all at the same weight. It is busy for a 270 px card.</li></ul></div>
+    <div><h2>Toyota digital cluster (second photo)</h2><ul>
+      <li><b>What works:</b> one colour on black. The tach is a row of bars that fills left to right with 0 to 6 above it, and the fuel gauge is a short stack of blocks. Both read as "how full", with no precise reading needed.</li>
+      <li><b>What to skip:</b> tiny trip and scale labels; on the tablet they would fall under the 12 px floor.</li></ul></div>
+  </div>
+
+  <div class="opts">
+    <div class="opt current"><h3>Now</h3><div class="zoom">
+      <section class="car">
+        <div class="head">Car<span class="chip"><i class="ph-fill ph-plug"></i>OBD</span></div>
+        <div class="cur-speed"><b>48</b><span class="unit">km/h</span></div>
+        <div class="cur-stats">
+          <div><span><i class="ph-fill ph-gauge"></i>Engine</span><b>2,528 <small>rpm</small></b></div>
+          <div><span><i class="ph-fill ph-thermometer"></i>Coolant</span><b>88° <small>C</small></b></div>
+          <div><span><i class="ph-fill ph-gas-pump"></i>Fuel</span><b>62%</b></div>
+          <div><span><i class="ph-fill ph-car-battery"></i>Battery</span><b>14.2 <small>V</small></b></div>
+        </div>
+      </section></div>
+      <p class="note">RPM is one of four equal cards, so it reads as a number to work out rather than a gauge.</p>
+    </div>
+
+    <div class="opt"><h3>A. Tach strip</h3><div class="zoom">
+      <section class="car">
+        <div class="head">Car<span class="chip"><i class="ph-fill ph-plug"></i>OBD</span></div>
+        <div class="a-top">
+          <div class="a-speed"><b class="num">48</b><span class="unit">km/h</span></div>
+          <div class="a-rpm"><b class="num">2,528</b><span class="unit">rpm</span></div>
+        </div>
+        <svg class="tach" data-rpm="2528" width="238" height="44" viewBox="0 0 238 44" style="margin-top:12px"></svg>
+        <div class="mini">
+          <div><span><i class="ph-fill ph-thermometer"></i>Coolant</span><b class="num">88<small>°C</small></b></div>
+          <div><span><i class="ph-fill ph-gas-pump"></i>Fuel</span><b class="num">62<small>%</small></b></div>
+          <div><span><i class="ph-fill ph-car-battery"></i>Battery</span><b class="num">14.2<small>V</small></b></div>
+        </div>
+      </section></div>
+      <p class="note">After the Toyota cluster: 24 bars from 0 to 6,000 rpm, rising in height, lit in blue up to the engine speed; the last three (5,500 and up) are the red zone. Speed and rpm sit side by side above it, the other three readings share one row.</p>
+    </div>
+
+    <div class="opt"><h3>B. HUD arc</h3><div class="zoom">
+      <section class="car">
+        <div class="head">Car<span class="chip"><i class="ph-fill ph-plug"></i>OBD</span></div>
+        <div class="b-arc">
+          <svg class="arc" data-rpm="2528" width="270" height="196" viewBox="0 0 270 196"></svg>
+          <div class="b-mid"><b class="num">48</b><span class="unit">km/h</span></div>
+          <div class="b-rpm"><b class="num">2,528</b>rpm</div>
+        </div>
+        <div class="mini">
+          <div><span><i class="ph-fill ph-thermometer"></i>Coolant</span><b class="num">88<small>°C</small></b></div>
+          <div><span><i class="ph-fill ph-gas-pump"></i>Fuel</span><b class="num">62<small>%</small></b></div>
+          <div><span><i class="ph-fill ph-car-battery"></i>Battery</span><b class="num">14.2<small>V</small></b></div>
+        </div>
+      </section></div>
+      <p class="note">After the HUD: a ring of 30 segments for rpm (0 to 6, red from 5.5) wrapped around the speed. The arc carries engine speed, not road speed, because road speed is already the big number in the middle.</p>
+    </div>
+
+    <div class="opt"><h3>C. Cluster with fuel column</h3><div class="zoom">
+      <section class="car">
+        <div class="head">Car<span class="chip"><i class="ph-fill ph-plug"></i>OBD</span></div>
+        <div class="c-body">
+          <div class="c-left">
+            <div class="c-speed"><b class="num">48</b><span class="unit">km/h</span></div>
+            <div class="c-rpmrow"><span>Engine</span><span><b class="num">2,528</b> rpm</span></div>
+            <svg class="tach" data-rpm="2528" data-plain width="190" height="30" viewBox="0 0 190 30"></svg>
+            <div class="c-two">
+              <div><span><i class="ph-fill ph-thermometer"></i>Coolant</span><b class="num">88<small>°C</small></b></div>
+              <div><span><i class="ph-fill ph-car-battery"></i>Battery</span><b class="num">14.2<small>V</small></b></div>
+            </div>
+          </div>
+          <div class="fuel"><span class="lbl">F</span><div class="stack" data-fuel="62"></div><span class="lbl">E</span><i class="ph-fill ph-gas-pump ic"></i></div>
+        </div>
+      </section></div>
+      <p class="note">Closest to the Toyota layout: speed and the tach strip on the left, fuel as a column of 8 blocks on the right (the bottom two are dark red when empty and turn red only when fuel is down to them). Coolant and battery get two bigger cards since fuel moved out.</p>
+    </div>
+  </div>
+
+  <p class="foot">In the app all three cost about the same: the segments are drawn once, and each OBD reading (about twice a second) only switches which ones are lit, with no easing in between, as the rule for Lite says. Glass would get the same layout on its glass panel.</p>
+</div>
+
+<script>
+  // A and C: the tach strip. 24 bars for 0-6,000 rpm (250 rpm each), rising in height; 5,500 and up are red.
+  document.querySelectorAll('svg.tach').forEach(svg => {
+    const rpm = +svg.dataset.rpm, W = +svg.getAttribute('width'), H = +svg.getAttribute('height'), plain = 'plain' in svg.dataset;
+    const N = 24, gap = 2, w = (W - gap * (N - 1)) / N, top = plain ? 0 : 14, lit = Math.round(rpm / 250);
+    let out = '';
+    for (let i = 0; i < N; i++) {
+      const h = (H - top) * (0.45 + 0.55 * i / (N - 1)), x = i * (w + gap), red = i >= 22;
+      out += `<rect class="seg${red ? ' red' : ''}${i < lit ? ' on' : ''}" x="${x.toFixed(1)}" y="${(H - h).toFixed(1)}" width="${w.toFixed(1)}" height="${h.toFixed(1)}" rx="1.5"/>`;
+    }
+    if (!plain) for (let k = 0; k <= 6; k++) {
+      const x = Math.min(W - 4, Math.max(4, k * 4 * (w + gap) - (k ? gap / 2 : 0)));
+      out += `<text class="scale${k === 6 ? ' red' : ''}" x="${x.toFixed(1)}" y="10">${k}</text>`;
+    }
+    svg.innerHTML = out;
+  });
+  // B: arc of 30 radial bars from -115° to 115° (0° = straight up), 200 rpm each; 5,500 and up are red.
+  document.querySelectorAll('svg.arc').forEach(svg => {
+    const rpm = +svg.dataset.rpm, cx = 135, cy = 118, N = 30, A = 115, lit = Math.round(rpm / 200);
+    let out = '';
+    for (let i = 0; i < N; i++) {
+      const a = (-A + (2 * A) * (i + 0.5) / N) * Math.PI / 180, r1 = 98, r2 = 114, red = i >= 27;
+      const p = r => [(cx + r * Math.sin(a)).toFixed(1), (cy - r * Math.cos(a)).toFixed(1)];
+      const [x1, y1] = p(r1), [x2, y2] = p(r2);
+      out += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke-width="6" stroke-linecap="round" style="stroke:var(${i < lit ? (red ? '--warn' : '--accent') : (red ? '--redoff' : '--off')})"/>`;
+    }
+    for (let k = 0; k <= 6; k++) {
+      const a = (-A + (2 * A) * k / 6) * Math.PI / 180, r = 84;
+      out += `<text class="scale${k === 6 ? ' red' : ''}" x="${(cx + r * Math.sin(a)).toFixed(1)}" y="${(cy - r * Math.cos(a) + 4).toFixed(1)}">${k}</text>`;
+    }
+    svg.innerHTML = out;
+  });
+  document.documentElement.style.setProperty('--redoff', '#4a2b2b');
+  // C: fuel column, 8 blocks; the bottom two red (low).
+  document.querySelectorAll('.stack[data-fuel]').forEach(el => {
+    const lit = Math.round(+el.dataset.fuel / 12.5);
+    el.innerHTML = Array.from({ length: 8 }, (_, i) => `<i class="${i < 2 ? 'low' : ''}${i < lit ? ' on' : ''}"></i>`).join('');
+    el.classList.toggle('is-low', lit <= 2);
+  });
+</script>
+</body>
+</html>
