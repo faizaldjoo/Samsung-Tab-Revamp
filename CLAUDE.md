@@ -45,6 +45,11 @@ Driven over ADB from a computer on the same Wi-Fi (Wireless debugging; pair once
   opens the screensaver; in the prototype screensaver.html?from=home, where a single tap goes back home), then 4 app slots:
   pinned apps first (pin badge, order pinned, `S.pins`, default Waze + Spotify), a hairline, then the most recent other apps
   (open app marked). Hold an app in the rail or on the all-apps page to pin/unpin it. All-apps / Home button at the bottom.
+  Reach pass (2026-10-28, user: rail buttons hard to hit in the car; Lite and Glass): the separate gear is gone, the status
+  pill is the Controls button (gear icon at its foot, accent while Controls is open); every rail item is a full-width row
+  and the rows share the rail's height with no gaps (status 1.7 shares), so each target is ~80 x 73 CSS px (~15 x 14 mm;
+  was 52 x 52 in Lite, 47 x 47 in Glass, with dead gaps). Visible faces 60 CSS px (Lite .face) / 80 canvas px (Glass .rf).
+  Rail column: Lite 80 px (was 68), Glass 112 canvas px (was 96).
   One `APPS` list in the JS drives the rail, the all-apps page and the navigation setting. Settings persist in localStorage (`carhome`).
 - Prototype-only taps: Today panel = next weather, Today place name = next location, Car source chip = OBD/GPS, music source: hold the app pill for the next app, or glass.html?src=ytmusic|spotify|prambors (default YT Music),
   battery and temperature cards = preview warning states.

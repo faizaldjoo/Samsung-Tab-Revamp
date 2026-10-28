@@ -37,13 +37,13 @@
   /* Sidebar on the right by default (driver's side in a right-hand-drive car). .side-left mirrors it. */
   #screen { text-shadow: 0 1px 2px rgba(0,0,0,0.35);
     width: 1340px; height: 800px; position: absolute; left: 50%; top: 50%; overflow: hidden;
-    display: grid; grid-template-columns: 1fr 96px; grid-template-rows: minmax(0, 1fr); gap: 18px; padding: 20px 16px 20px 20px;
+    display: grid; grid-template-columns: 1fr 112px; grid-template-rows: minmax(0, 1fr); gap: 18px; padding: 20px 16px 20px 20px;
     transform-origin: center center;
   }
   .main { min-height: 0; }
   .rail { grid-column: 2; grid-row: 1; }
   .main, .apps-page, .wp-page { grid-column: 1; grid-row: 1; }
-  #screen.side-left { grid-template-columns: 96px 1fr; padding: 20px 20px 20px 16px; }
+  #screen.side-left { grid-template-columns: 112px 1fr; padding: 20px 20px 20px 16px; }
   #screen.side-left .rail { grid-column: 1; }
   #screen.side-left .main, #screen.side-left .apps-page, #screen.side-left .wp-page { grid-column: 2; }
 
@@ -81,10 +81,21 @@
   .press { transition: transform 0.22s var(--ease), filter 0.22s; }
   .press:active { transform: scale(0.95); filter: brightness(1.15); }
 
-  /* Rail: status (tap for Controls), settings, screensaver, pinned apps then recent apps (4 slots), all-apps / home at the bottom. */
-  .rail { display: flex; flex-direction: column; align-items: center; padding: 22px 0 16px; }
-  .status { width: 62px; padding: 16px 0 12px; border-radius: 999px; display: flex; flex-direction: column; gap: 14px; align-items: center;
-    color: var(--text); background: rgba(255,255,255,0.10); box-shadow: var(--rim); }
+  /* Rail (2026-10-28, user: hard to hit in the car). Every item is a full-width row and the rows share the height with no
+     gaps, so a tap anywhere in the rail lands on something (112 x ~96 canvas px = about 84 x 72 CSS px, 15 x 14 mm on the
+     tablet; Android's car guidance is 76 dp). The visible face (.rf) inside is 80 px. The status pill is the Controls button
+     (gear at its foot), so there is no separate gear: one target fewer, the others taller. Order: status / Controls,
+     split screen, pinned apps then recent apps (4 slots), all-apps / home at the bottom. */
+  .rail { display: flex; flex-direction: column; padding: 10px 0; }
+  .rail > button, .dock-item { flex: 1 1 0; min-height: 0; width: 100%; display: grid; place-items: center; position: relative; }
+  .rail > .status { flex-grow: 1.7; }
+  .rf { width: 80px; height: 80px; border-radius: 999px; display: grid; place-items: center; font-size: 32px;
+    background: rgba(255,255,255,0.10); box-shadow: var(--rim); }
+  .status .rf { height: calc(100% - 16px); display: flex; flex-direction: column; justify-content: center; gap: 12px; align-items: center; color: var(--text); }
+  .status .st-gear { font-size: 26px; color: var(--muted); }
+  #screen.show-cc .status .rf { background: var(--accent); box-shadow: none; }
+  #screen.show-cc .status .st-gear { color: #fff; }
+  .home-btn .rf { background: rgba(255,255,255,0.14); box-shadow: inset 0 1px 0 rgba(255,255,255,0.4), inset 0 0 0 1px rgba(255,255,255,0.12); }
   .status .row { display: flex; flex-direction: column; gap: 3px; align-items: center; }
   .status .row:empty { display: none; }
   .status i { font-size: 22px; }
@@ -93,32 +104,26 @@
   /* Battery: percentage only, first in the pill. */
   .status .bat { font-size: 15px; font-weight: 600; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
   .status .warn { color: var(--warn); animation: pulse 1.6s ease-in-out infinite; }
-  /* Settings button under the status pill: the obvious way into the Controls drawer (the status pill opens it too). */
-  .gear, .saver { margin-top: 14px; width: 62px; height: 62px; border-radius: 999px; display: grid; place-items: center; font-size: 28px;
-    background: rgba(255,255,255,0.10); box-shadow: var(--rim); }
-  .saver { margin-top: 12px; }
-  #screen.show-cc .gear { background: var(--accent); box-shadow: none; }
   /* Screensaver button: the home screen fades to black, then the screensaver opens. */
   #screen::after { content: ""; position: absolute; inset: 0; z-index: 20; background: #07080a; opacity: 0; pointer-events: none; transition: opacity 0.4s var(--ease); }
   #screen.to-saver::after { opacity: 1; }
   @keyframes pulse { 50% { opacity: 0.45; } }
-  .dock { margin: auto 0; display: flex; flex-direction: column; align-items: center; gap: 16px; }
+  .dock { flex: 4 1 0; min-height: 0; display: flex; flex-direction: column; }
   /* Hairline between pinned apps (fixed order) and recent apps (newest first). */
-  .dock .split { width: 28px; height: 1px; margin: -6px 0; background: rgba(255,255,255,0.32); }
+  .dock .split { flex: none; align-self: center; width: 32px; height: 1px; background: rgba(255,255,255,0.32); }
   /* Pin badge on a pinned app's tile, in the rail and on the all-apps page. Hold an app to pin or unpin it. */
   .pin { position: absolute; z-index: 1; top: -5px; right: -5px; width: 22px; height: 22px; border-radius: 999px; display: none; place-items: center;
     background: var(--text); color: #14171c; font-size: 12px; box-shadow: 0 2px 6px rgba(0,0,0,0.35); }
   .dock .tile .pin i, .tile .pin i { font-size: 12px; color: #14171c; }
   .pinned .pin { display: grid; }
-  .dock .tile { width: 62px; height: 62px; }
+  .dock .tile { width: 80px; height: 80px; }
   .dock .tile img { width: 46%; height: 46%; }
-  .dock .tile i { font-size: 30px; }
-  .dock-item { position: relative; animation: slot-in 0.35s var(--ease) both; }
+  .dock .tile i { font-size: 38px; }
+  .dock-item { animation: slot-in 0.35s var(--ease) both; }
   /* Marks the app that is open right now, on the outer edge of the rail. */
-  .dock-item.active::before { content: ""; position: absolute; right: -15px; top: 50%; width: 5px; height: 26px; margin-top: -13px; border-radius: 999px; background: var(--text); }
-  #screen.side-left .dock-item.active::before { right: auto; left: -15px; }
+  .dock-item.active::before { content: ""; position: absolute; right: 2px; top: 50%; width: 5px; height: 26px; margin-top: -13px; border-radius: 999px; background: var(--text); }
+  #screen.side-left .dock-item.active::before { right: auto; left: 2px; }
   @keyframes slot-in { from { opacity: 0; transform: translateY(-10px) scale(0.9); } }
-  .home-btn { width: 62px; height: 62px; border-radius: 999px; display: grid; place-items: center; font-size: 28px; background: rgba(255,255,255,0.14); box-shadow: inset 0 1px 0 rgba(255,255,255,0.4), inset 0 0 0 1px rgba(255,255,255,0.12); }
 
   /* Home and the all-apps page share the same grid cell and cross-fade. */
   .main, .apps-page, .wp-page { transition: opacity 0.32s var(--ease), transform 0.32s var(--ease); }
@@ -436,7 +441,7 @@
   .cc-scrim { position: absolute; inset: 0; grid-area: auto; z-index: 3; background: rgba(5, 7, 10, 0.4); opacity: 0; pointer-events: none; transition: opacity 0.28s var(--ease); }
   #screen.show-cc .cc-scrim { opacity: 1; pointer-events: auto; }
   .rail { z-index: 5; }
-  .cc { position: absolute; z-index: 4; right: 130px; top: 20px; bottom: 20px; width: 700px; padding: 24px 24px 20px;
+  .cc { position: absolute; z-index: 4; right: 146px; top: 20px; bottom: 20px; width: 700px; padding: 24px 24px 20px;
     display: flex; flex-direction: column; gap: 16px;
     /* Glass kept, but frosted much harder than the home panels: a 40px blur turns the map and icons behind into soft colour,
        and the dark tint keeps the cards readable. Only drawn while the drawer is open, so the heavier blur costs nothing at rest. */
@@ -445,7 +450,7 @@
     -webkit-backdrop-filter: blur(40px) saturate(1.5) brightness(0.62);
     opacity: 0; transform: translateX(16px) scale(0.98); transform-origin: right center; pointer-events: none;
     transition: opacity 0.28s var(--ease), transform 0.28s var(--ease); }
-  #screen.side-left .cc { right: auto; left: 130px; transform: translateX(-16px) scale(0.98); transform-origin: left center; }
+  #screen.side-left .cc { right: auto; left: 146px; transform: translateX(-16px) scale(0.98); transform-origin: left center; }
   #screen.show-cc .cc { opacity: 1; transform: none; pointer-events: auto; }
   .cc-foot { display: flex; gap: 10px; align-items: center; padding-top: 2px; }
   .theme-lbl { font-size: 15px; font-weight: 600; color: var(--muted); margin: 0 4px 0 6px; }
@@ -579,16 +584,15 @@
   <div class="wall" id="wall"></div>
 
   <aside class="glass rail">
-    <button class="status press" id="statusBtn" aria-label="Open controls">
-      <div class="row bat" id="stBat"></div>
-      <div class="row" id="stNet"></div>
-      <div class="row" id="stBt"></div>
-      <div class="row warn" id="stWarn"></div>
-    </button>
-    <button class="gear press" id="gearBtn" aria-label="Settings"><i class="ph-fill ph-gear-six"></i></button>
-    <button class="saver press" id="splitRail" aria-label="Split screen"><i class="ph-fill ph-square-split-horizontal"></i></button>
+    <button class="status press" id="statusBtn" aria-label="Controls"><span class="rf">
+      <span class="row bat" id="stBat"></span>
+      <span class="row" id="stNet"></span>
+      <span class="row" id="stBt"></span>
+      <span class="row warn" id="stWarn"></span>
+      <i class="ph-fill ph-gear-six st-gear"></i></span></button>
+    <button class="press" id="splitRail" aria-label="Split screen"><span class="rf"><i class="ph-fill ph-square-split-horizontal"></i></span></button>
     <nav class="dock" id="dock" aria-label="Pinned and recent apps"></nav>
-    <button class="home-btn press" id="homeBtn" aria-label="All apps"><i class="ph-bold ph-dots-nine"></i></button>
+    <button class="home-btn press" id="homeBtn" aria-label="All apps"><span class="rf"><i class="ph-bold ph-dots-nine"></i></span></button>
   </aside>
 
   <main class="main">
@@ -954,7 +958,7 @@
     if (!on && pick) { pick = null; renderPick(); }
     if (on) { screen.classList.remove('show-wp'); showCC(false); memText(); layoutApps(); $('appsGrid').scrollLeft = 0; dots(); }   // opens on the first page
     screen.classList.toggle('show-apps', on);
-    homeBtn.innerHTML = `<i class="ph-bold ph-${on ? 'house' : 'dots-nine'}"></i>`;
+    homeBtn.innerHTML = `<span class="rf"><i class="ph-bold ph-${on ? 'house' : 'dots-nine'}"></i></span>`;
     homeBtn.setAttribute('aria-label', on ? 'Home' : 'All apps');
   }
   homeBtn.addEventListener('click', () => showApps(!screen.classList.contains('show-apps')));
@@ -1061,7 +1065,7 @@
   // Controls panel.
   // Controls and All apps are never open together: opening one closes the other.
   const showCC = on => { if (on) showApps(false); screen.classList.toggle('show-cc', on); };
-  ['statusBtn', 'gearBtn'].forEach(id => $(id).addEventListener('click', () => showCC(!screen.classList.contains('show-cc'))));
+  $('statusBtn').addEventListener('click', () => showCC(!screen.classList.contains('show-cc')));
   $('ccClose').addEventListener('click', () => showCC(false));
   $('ccScrim').addEventListener('click', () => showCC(false));
 
