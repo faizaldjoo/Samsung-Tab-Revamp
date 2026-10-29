@@ -3,6 +3,22 @@
 > Theme naming (2026-10-29, user): the flat theme is shown as **Matte** (was "Lite"). Code, file (lite.html), ids
 > (S.theme 'lite', Bridge prefs, screensaver ?lite) and older notes below still say lite/Lite on purpose.
 
+## Working with the user (nDashMo, by @faizald.jo)
+
+The launcher is **nDashMo**, "Dashboard meets Motion.", version 1.0 (package me.faizal.carhome). How the user likes
+to work, carried here so a Claude Code session on any computer follows it:
+- Don't commit or push until the user asks ("update the repo" = commit and push). Leave edits uncommitted otherwise.
+- Ask before adding CHANGELOG.md entries (2026-10-29: "don't add change log, just version only"; the app shows the
+  version only, no change list).
+- UI work: use /anthropic-skills:taste-design when the user asks; for layout changes, a wireframe in
+  launcher-prototype/ first, then build the chosen option in both themes (Matte = lite.html, Glass = glass.html).
+- Check every change on the tablet when it is reachable (build, install, screenshot), and measure CPU for anything that
+  moves: this tablet pays ~10% CPU per screen update per second, and the user prefers the cheaper option.
+- Never change Android security settings from adb: the user turns on nDashMo's accessibility service themselves
+  (it goes off after each install). Never commit android/carhome.keystore or keystore.properties.
+- Testing: start the app with the HOME intent (`am start -a android.intent.action.MAIN -c android.intent.category.HOME`),
+  never `am start -n` (that makes a second copy). Mute music for tests and restore the volume after.
+
 Samsung Galaxy Tab A7 Lite LTE (SM-T225, Android 14 / One UI 6.1, ~2.8 GB RAM) used as a car head unit.
 Driven over ADB from a computer on the same Wi-Fi (Wireless debugging; pair once per computer).
 
