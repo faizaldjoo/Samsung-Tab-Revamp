@@ -44,12 +44,12 @@ public class Assist extends AccessibilityService {
 
     /**
      * The charger is the car's ignition. This service keeps running in the background and while the screen is off.
-     * Charger out = the car is off (#3): pause the music, show Car Home's screensaver whatever app is in front, and put
-     * the tablet to sleep 2 minutes later unless the charger comes back.
+     * Charger out = the car is off (#3): pause the music and put the tablet to sleep at once (user, 2026-10-29; it was
+     * the screensaver first, then sleep 2 minutes later). The short wait lets the playing app take the pause key.
      * Charger in = the car has started (#4): with the screen off, wake it and bring up Car Home's home screen; either
      * way, resume the music that played last, once the car's Bluetooth has had a moment to connect.
      */
-    static final long SLEEP_AFTER_MS = 120_000, RESUME_AFTER_MS = 3_000;
+    static final long SLEEP_AFTER_MS = 500, RESUME_AFTER_MS = 3_000;
 
     private final BroadcastReceiver power = new BroadcastReceiver() {
         @Override
@@ -62,7 +62,6 @@ public class Assist extends AccessibilityService {
     private void unplugged() {
         main.removeCallbacks(resume);
         if (getSystemService(AudioManager.class).isMusicActive()) mediaKey(KeyEvent.KEYCODE_MEDIA_PAUSE);
-        startActivity(new Intent(this, MainActivity.class).setAction(MainActivity.ACTION_SAVER).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
         main.removeCallbacks(sleep);
         main.postDelayed(sleep, SLEEP_AFTER_MS);
     }
@@ -80,7 +79,7 @@ public class Assist extends AccessibilityService {
         main.postDelayed(resume, RESUME_AFTER_MS);
     }
 
-    /** Still unplugged after 2 minutes: screen off (this tablet has no lock screen, so "lock" just means sleep). */
+    /** Still unplugged: screen off (this tablet has no lock screen, so "lock" just means sleep). */
     private final Runnable sleep = () -> {
         if (!plugged()) performGlobalAction(GLOBAL_ACTION_LOCK_SCREEN);
     };

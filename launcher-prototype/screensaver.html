@@ -63,6 +63,9 @@
   /* Paused: the line stays (so the controls make sense) but stops scrolling and steps back. */
   .song.on.paused { opacity: 0.55; }
   .song.paused .track { animation-play-state: paused; }
+  /* Still (the title fits, or the song is paused): one copy, centred, no scrolling; a long paused title ends in "...". */
+  .song.still { text-align: center; }
+  .song.still .track { display: block; padding: 0 6%; animation: none; overflow: hidden; text-overflow: ellipsis; }
 
   /* Music controls above the song: three big round glass buttons, sized for a thumb at arm's length (64 / 80 / 64 px,
      32px apart). Same lit rim as the launcher's glass controls. They drift with the rest of the screen (burn-in) and only
@@ -405,15 +408,21 @@
   const esc = x => String(x).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
   function renderPlayer() {
     const line = PL.title ? `<b>${esc(PL.title)}</b>${PL.artist ? ' \u00b7 ' + esc(PL.artist) : ''}` : '';
-    // Two copies so the loop is seamless.
-    songText.innerHTML = line ? line + '<span style="display:inline-block;width:64px"></span>' + line : '';
+    // Scroll only a line that doesn't fit while it plays; otherwise one copy, centred (as the paused song looked
+    // stuck off-centre with its loop copy showing, on the tablet 2026-10-29). Scrolling uses two copies so the loop
+    // is seamless.
+    songEl.classList.remove('still');
+    songText.innerHTML = line;
+    const one = songText.scrollWidth, still = !PL.playing || one <= songEl.clientWidth * 0.84;
+    songEl.classList.toggle('still', still);
+    if (line && !still) songText.innerHTML = line + '<span style="display:inline-block;width:64px"></span>' + line;
     songEl.classList.toggle('on', !!PL.title);
     songEl.classList.toggle('paused', !PL.playing);
     mediaEl.classList.toggle('on', !!PL.title);
     playBtn.innerHTML = `<i class="ph-fill ph-${PL.playing ? 'pause' : 'play'}"></i>`;
     playBtn.setAttribute('aria-label', PL.playing ? 'Pause' : 'Play');
     // Same reading speed for any title length: about 45 px/s over one copy of the line.
-    if (line) songText.style.animationDuration = Math.max(8, songText.scrollWidth / 2 / 45).toFixed(1) + 's';
+    if (line && !still) songText.style.animationDuration = Math.max(8, one / 45).toFixed(1) + 's';
   }
   const player = {
     state: PL,

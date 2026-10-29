@@ -1,9 +1,34 @@
 # Changelog
 
-## Unreleased (not yet tested on the tablet)
+## Unreleased
 
-- Unplugging the charger (car off) now pauses the music, opens the screensaver at once (whatever app is in front)
-  and puts the tablet to sleep 2 minutes later; plugging back in before then cancels the sleep. (#3)
+Tested on the tablet 2026-10-29 (simulated drive and charger): the driving view, unplug = pause + sleep within 2 s,
+plug in = the last music resumes. Not yet tried in the car.
+
+- Map driving view (Lite and Glass), after TomTom's free-driving look, all the time (parked too): the map tilts and
+  turns with the direction of travel (parked: the last direction), the dot is an arrow lower in the panel, the street
+  is named under it, and a speed limit sign shows on the left when OpenStreetMap has one (solid red above the
+  limit). The speed itself is not on the map (removed on request; the Car panel shows it). Speed limits are rare around
+  Sumedang in OSM (the Cisumdawu toll road and a few streets). Try it in a browser: lite.html?drive or glass.html?drive.
+  Roads are brighter in the driving view (light grey streets, lighter labels), so they read at a glance when tilted.
+  Light and dark map (Lite and Glass): the map follows Night mode in Controls, light by day (white roads on a cool grey
+  ground, blue-grey water, dark street names) and dark at night; Auto switches at 18:00 and 06:00 with the rest of the
+  screen. Your position is a car seen from above instead of an arrow: white on the dark
+  map, dark grey on the light map, tipped back to lie on the tilted road, with a soft shadow and a faint blue pool.
+- Home player (Lite and Glass): the time labels are gone, only the progress bar stays. In Lite a title too long for
+  the label now scrolls like Glass's (rests at the start, slides, repeats; stops while paused); a title that fits stays
+  still and centred. Scrolling costs CPU on the tablet: about 84% (Lite) and 103% (Glass) while a long title runs,
+  against 6-9% still.
+- Cassette reels (Lite and Glass): both reels turn one 20 degree step a second while music plays, on the progress
+  tick, in the browser prototype too (it used to spin them smoothly, which costs over a full CPU core on the tablet).
+  Glass's step was 40 degrees, which on the 6-spoke reel looked like turning backwards. In Lite the album art now
+  turns too. On the tablet: about 10-18% CPU playing, 1-2% paused.
+- Screensaver song line: a title that fits, or any paused song, shows once and centred; only a long title scrolls,
+  and only while it plays. (A short or paused song sat off-centre with its scrolling copy showing.)
+- Unplugging the charger (car off) resets the trip: distance and drive time go back to 0, and nothing adds to them
+  until the tablet is charging again, so carrying it around doesn't count as driving.
+- Unplugging the charger (car off) now pauses the music and puts the tablet to sleep straight away, whatever app is
+  in front. (#3; first built as the screensaver, then sleep 2 minutes later, changed to sleep at once on request.)
 - Plugging the charger in (car on) resumes the music that played last, about 3 seconds later, so the car's Bluetooth
   has time to connect. (#4)
 - The screensaver starts again after 5 minutes idle: a GPS reading left over from the last drive, or a single noisy

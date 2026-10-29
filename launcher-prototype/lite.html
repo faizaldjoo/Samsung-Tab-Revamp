@@ -97,6 +97,37 @@
   .attrib { position: absolute; right: 6px; bottom: 2px; font-size: 9px; color: var(--faint); }
   .map.nav .hint { display: none; }
   .map:not(.nav) .turn, .map:not(.nav) .eta, .map.no-eta .eta { display: none; }
+  /* Driving view (while moving): the map tilts and turns with the car, the dot becomes an arrow low in the panel, the
+     street is named under it and a badge on the left shows the speed, with the limit sign when OSM knows it. The
+     badge is sign-white on purpose: it reads like a road sign at a glance. */
+  .map.driving .puck { top: 75%; width: 30px; height: 60px; margin: -30px -15px; border: 0; border-radius: 0; background: none; box-shadow: none;
+    --car-body: #eef1f4; --car-roof: #1d2026; --car-glass: #262a31; --car-edge: #a3aab3; --car-lamp: #e3ecff; }
+  /* Your position: a car seen from above (2026-10-29, user), heading up like the map. White on the dark map, dark
+     grey on the light map, so it stands out on both. Tipped back a little to lie on the tilted road, a soft shadow and
+     a faint accent pool under it. Drawn once; nothing about it animates. */
+  .map.light .puck { --car-body: #30343b; --car-roof: #4b515b; --car-glass: #0b0c0f; --car-edge: #5b626c; --car-lamp: #eef2f7; }
+  .map.driving .puck::before { content: ""; position: absolute; left: 50%; top: 56%; width: 300%; height: 56%; transform: translate(-50%, -50%);
+    border-radius: 50%; background: radial-gradient(closest-side, rgba(90,167,255,0.3), rgba(90,167,255,0)); }
+  .puck svg { position: relative; display: block; width: 100%; height: 100%; overflow: visible;
+    transform: perspective(220px) rotateX(18deg); filter: drop-shadow(0 4px 5px rgba(8,16,32,0.5)); }
+  .puck .car { fill: var(--car-body); stroke: var(--car-edge); stroke-width: 0.8; }
+  .puck .mirror { fill: var(--car-body); stroke: var(--car-edge); stroke-width: 0.6; }
+  .puck .glass { fill: var(--car-glass); } .puck .roof { fill: var(--car-roof); }
+  .puck .lamp { fill: var(--car-lamp); } .puck .tail { fill: #d8322d; }
+  .road { display: none; position: absolute; left: 50%; top: calc(75% + 28px); transform: translateX(-50%); max-width: 86%;
+    padding: 4px 12px; border-radius: 8px; background: var(--accent); color: #fff; font-size: 15px; font-weight: 600;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .map.driving .road:not(:empty) { display: block; }
+  /* Light map (by day): the ground behind it before it draws and darker small print. */
+  .map.light { background: #e6e9ed; }
+  .map.light .attrib { color: rgba(40,46,54,0.6); }
+  /* Speed limit sign (2026-10-29, user: the speed itself is gone from the map; the Car panel shows it): only when OSM
+     knows the limit; above it the sign turns solid red. */
+  .lim { position: absolute; left: 10px; top: 50%; width: 46px; height: 46px; margin-top: -23px; border-radius: 50%;
+    border: 5px solid #d8322d; background: #fff; color: #15181c; display: none; place-items: center; font-size: 18px; font-weight: 700;
+    font-variant-numeric: tabular-nums; box-shadow: 0 6px 14px rgba(0,0,0,0.3); }
+  .map.driving .lim:not([hidden]) { display: grid; }
+  .lim.over { background: #d8322d; color: #fff; }
 
   /* Today: plain text clock, date, weather with a still icon. */
   .today { padding: 16px 20px; display: grid; grid-template-rows: auto 1fr auto; }
@@ -126,7 +157,16 @@
   .screw { position: absolute; width: 8px; height: 8px; border-radius: 50%; background: var(--line); }
   .screw.tl { left: 10px; top: 10px; } .screw.tr { right: 10px; top: 10px; } .screw.bl { left: 10px; bottom: 10px; } .screw.br { right: 10px; bottom: 10px; }
   .tape-label { text-align: center; min-width: 0; padding: 0 14px; }
-  .tape-label .title { font-size: 19px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  /* A title too long for the label runs the YouTube Music way, as in Glass: rests 2.5 s at the start, slides left at
+     45 px/s until the second copy lines up, repeats; stops while paused (fitTitle(), Web Animations, transform only).
+     A title that fits is one centred copy, still. contain: inline-size keeps the double-length line from widening the
+     cassette. */
+  .tape-label .title { font-size: 19px; font-weight: 600; white-space: nowrap; overflow: hidden; contain: inline-size;
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 4%, #000 92%, transparent); mask-image: linear-gradient(90deg, transparent, #000 4%, #000 92%, transparent); }
+  .tape-label .title .run { display: inline-block; }
+  .tape-label .title .run i { display: inline-block; width: 48px; }
+  .tape-label .title.still { -webkit-mask-image: none; mask-image: none; }
+  .tape-label .title.still .run > i, .tape-label .title.still .run > span { display: none; }
   .tape-label .artist { font-size: 15px; color: var(--muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .window { align-self: center; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 12px; padding: 8px; border-radius: 999px; background: var(--raised); }
   .reel { width: 84px; height: 84px; border-radius: 50%; background: #2c3038; display: grid; place-items: center; }
@@ -137,11 +177,11 @@
   .hub.spokes::after { content: ""; position: absolute; width: 12px; height: 12px; border-radius: 50%; background: #e7e5de; }
   .hub.spokes { position: relative; }
   .art { background: #3a3f48 center / cover; font-size: 24px; color: var(--muted); }
+  .hub.art { transform: rotate(var(--turn, 0deg)); }   /* the album art is the right reel: it turns with the left one */
   .mid { min-width: 0; display: grid; gap: 6px; justify-items: center; }
   .prog { width: 100%; }
   .prog .bar { height: 4px; border-radius: 2px; background: #3a3f48; overflow: hidden; }
   .prog .bar i { display: block; height: 100%; width: 0; background: var(--text); }
-  .prog .times { display: flex; justify-content: space-between; font-size: 13px; color: var(--muted); margin-top: 5px; }
   .live-badge { display: none; font-size: 12px; font-weight: 700; letter-spacing: 0.06em; color: var(--warn); }
   .music.live .prog { display: none; } .music.live .live-badge { display: block; }
   .music.idle .prog { visibility: hidden; }
@@ -287,10 +327,12 @@
 <body>
 <div id="app">
   <main class="main">
-    <section class="panel map press" id="map" data-app="waze" aria-label="Map">
+    <section class="panel map driving press" id="map" data-app="waze" aria-label="Map">
       <div class="tiles" id="tiles"></div>
       <div class="vmap" id="vmap"></div>
-      <div class="puck"></div>
+      <div class="puck"><svg viewBox="0 0 40 80" aria-hidden="true"><defs><linearGradient id="carShade" x1="0" x2="1"><stop offset="0" stop-color="#fff" stop-opacity="0.22"/><stop offset="0.5" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity="0.14"/></linearGradient></defs><path class="mirror" d="M6.2 26.5 2.6 25q-1.1 1.7 0 3.3l3.6.5ZM33.8 26.5l3.6-1.5q1.1 1.7 0 3.3l-3.6.5Z"/><path class="car" d="M20 2C29 2 33.5 5 34 13l.5 51c0 10-4.5 14-14.5 14S5.5 74 5.5 64L6 13C6.5 5 11 2 20 2Z"/><path fill="url(#carShade)" d="M20 2C29 2 33.5 5 34 13l.5 51c0 10-4.5 14-14.5 14S5.5 74 5.5 64L6 13C6.5 5 11 2 20 2Z"/><path class="glass" d="M9.5 26Q20 20.5 30.5 26l-2 9Q20 33 11.5 35ZM8.6 29l2 6.5v21l-2 4.5ZM31.4 29l-2 6.5v21l2 4.5ZM11.5 58.5Q20 60 28.5 58.5l1 8.5Q20 69.5 10.5 67Z"/><path class="roof" d="M11.5 35Q20 33 28.5 35v22Q20 58.5 11.5 57Z"/><path class="lamp" d="M8 9q2-3.5 6-4.8L13 7.5Q10 8.5 8 11ZM32 9q-2-3.5-6-4.8l1 3.3q3 1 5 3.5Z"/><path class="tail" d="M7 71.5q2 3.6 6 4.9l-.5-2.1q-3-1-5-3.9ZM33 71.5q-2 3.6-6 4.9l.5-2.1q3-1 5-3.9Z"/></svg></div>
+      <div class="road" id="road"></div>
+      <div class="lim num" id="spdLim" hidden></div>
       <div class="turn">
         <div class="arrow" id="navArrow"><i class="ph-fill ph-arrow-bend-up-right"></i></div>
         <div><div class="dist num" id="navDist">300 m</div><div class="street" id="navStreet">Jl. Prabu Geusan Ulun</div></div>
@@ -319,7 +361,7 @@
         <div class="window">
           <div class="reel"><div class="hub spokes"></div></div>
           <div class="mid">
-            <div class="prog"><div class="bar"><i id="prog"></i></div><div class="times num"><span id="tNow">0:00</span><span id="tLen">0:00</span></div></div>
+            <div class="prog"><div class="bar"><i id="prog"></i></div></div>
             <div class="live-badge">LIVE</div>
             <button class="app-pill press" id="appPill"></button>
           </div>
@@ -657,7 +699,7 @@
   const isNight = () => { const h = new Date().getHours(); return S.night === 'night' || (S.night === 'auto' && (h >= 18 || h < 6)); };
   function apply() {
     document.body.classList.toggle('left', S.side === 'left');
-    document.body.classList.toggle('night', isNight());
+    document.body.classList.toggle('night', isNight()); mapTheme();
     document.querySelectorAll('[data-t]').forEach(el => {
       el.classList.toggle('on', !!S[el.dataset.t]);
       const sm = el.querySelector('small'); if (SUB[el.dataset.t]) sm.textContent = SUB[el.dataset.t](S[el.dataset.t]);
@@ -689,7 +731,7 @@
     const d = new Date();
     $('cH').textContent = pad(d.getHours()); $('cM').textContent = pad(d.getMinutes());
     $('date').textContent = d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
-    if (S.night === 'auto') document.body.classList.toggle('night', isNight());
+    if (S.night === 'auto') { document.body.classList.toggle('night', isNight()); mapTheme(); }
   }
   (function minute() { tick(); setTimeout(minute, 60000 - Date.now() % 60000 + 30); })();
 
@@ -808,23 +850,14 @@
       try {
         const style = await (await fetch('vendor/dark-matter/style.json')).json();
         style.sprite = new URL(style.sprite, location.href).href;
-        // Car tuning: Dark Matter is a quiet backdrop for data; lift roads and labels so streets read at a glance.
-        const CAR = {
-          highway_path: { 'line-color': '#24272c' }, highway_minor: { 'line-color': '#30343a' },
-          highway_major_casing: { 'line-color': 'rgba(105,110,118,0.9)' }, highway_major_inner: { 'line-color': '#25282d' },
-          highway_motorway_casing: { 'line-color': 'rgba(120,126,134,0.9)' }, highway_motorway_inner: { 'line-color': '#282b31' },
-          highway_name_other: { 'text-color': '#8d929a' }, highway_name_motorway: { 'text-color': '#9aa0a8' },
-        };
-        for (const l of style.layers) {
-          Object.assign(l.paint || {}, CAR[l.id]);
-          if (l.id.startsWith('place_')) l.paint['text-color'] = '#8d929a';
-        }
+        mapStyle(style);
         vm = new maplibregl.Map({
           container: 'vmap', style, zoom: Z - 1, center: pos ? [pos.lon, pos.lat] : [107.921, -6.842],
           interactive: false, attributionControl: false, fadeDuration: 0, antialias: false, pixelRatio: 1,
-          renderWorldCopies: false, maxPitch: 0,
+          renderWorldCopies: false, maxPitch: 60,   // tilt only in the driving view
         });
         vm.on('error', e => console.warn('map', e.error && e.error.message));
+        vm.once('load', vmMove);   // the driving colours and street name need the loaded style; parked, no fix may follow
         vmState = 'ready'; vmMove();
       } catch (e) { vmFail(); }
     };
@@ -834,7 +867,140 @@
   function vmFail() { vmState = 'failed'; vmUse(true); if (pos) setMap(pos.lat, pos.lon); say('Dark map unavailable, showing OpenStreetMap'); }
   function vmMove() {
     if (!vm || !pos) return;
-    vm.jumpTo({ center: [pos.lon, pos.lat], padding: { top: Math.round($('map').clientHeight * 0.28), bottom: 0, left: 0, right: 0 } });
+    vm.jumpTo(mapView());
+    nameStreet(); fetchLimit(); renderDrive();
+  }
+  // The driving view, parked or not (user, 2026-10-29): heading up (the last heading while parked), tilted 55
+  // degrees, closer in, the position low in the panel so more road ahead shows.
+  function mapView() {
+    const H = $('map').clientHeight, pad = p => ({ top: Math.round(H * p), bottom: 0, left: 0, right: 0 });
+    return { center: [pos.lon, pos.lat], zoom: 16.4, pitch: 55, bearing: heading, padding: pad(0.5) };
+  }
+
+  // ---- Driving view (2026-10-29, user, after TomTom's free-driving view), all the time: the map follows the car
+  //      with one jumpTo a fix. Street name: the nearest named road in the map's own
+  //      tiles (transportation_name), within 30 m. Speed limit: OSM maxspeed through the Overpass API, asked at most
+  //      every 30 s (sooner, 5 s, when the street changes); most roads around Sumedang have none, and
+  //      then only the speed shows. ----
+  // ---- Map colours, light by day and dark at night (2026-10-29, user): the map follows Night mode (Auto / Day /
+  //      Night in Controls). Dark: Dark Matter with roads lifted to light greys, so they read when tilted. Light: a
+  //      cool grey ground, white roads with grey edges, blue-grey water, soft green parks, dark labels on white
+  //      halos. Switching is a few dozen paint changes on the loaded map, no reload. ----
+  const MAP_DARK = {
+    highway_path: { 'line-color': '#3a3e45' },
+    highway_minor: { 'line-color': '#59606a', 'line-width': { base: 1.55, stops: [[13, 2.4], [20, 26]] } },
+    highway_major_casing: { 'line-color': '#9aa1ab' }, highway_major_inner: { 'line-color': '#6f7681' },
+    highway_motorway_casing: { 'line-color': '#a9b0ba' }, highway_motorway_inner: { 'line-color': '#7c838e' },
+    highway_name_other: { 'text-color': '#c9ced5' }, highway_name_motorway: { 'text-color': '#d6dadf' },
+    building: { 'fill-color': '#15171a', 'fill-outline-color': '#262a30' },
+    place: { 'text-color': '#8d929a' },
+  };
+  const MAP_LIGHT = {
+    background: { 'background-color': '#e6e9ed' },
+    water: { 'fill-color': '#b3c8dc' }, waterway: { 'line-color': '#b3c8dc' },
+    water_name: { 'text-color': '#4f6d8a', 'text-halo-color': 'rgba(255,255,255,0.8)' },
+    landuse_residential: { 'fill-color': '#dfe3e8' }, landcover_wood: { 'fill-opacity': 0 },
+    landuse_park: { 'fill-color': '#cfe0cb' },
+    building: { 'fill-color': '#dadee2', 'fill-outline-color': '#cbd0d5' },
+    'aeroway-area': { 'fill-color': '#dadde2' }, 'aeroway-runway': { 'line-color': '#f8f9fa' },
+    'aeroway-taxiway': { 'line-color': '#f8f9fa' }, 'aeroway-runway-casing': { 'line-color': '#b9bfc7' },
+    road_area_pier: { 'fill-color': '#e6e9ed' }, road_pier: { 'line-color': '#e6e9ed' },
+    highway_path: { 'line-color': '#a9b0b9' }, highway_minor: { 'line-color': '#ffffff' },
+    highway_major_casing: { 'line-color': '#aeb5bf' }, highway_major_inner: { 'line-color': '#ffffff' },
+    highway_major_subtle: { 'line-color': '#ffffff' }, highway_motorway_subtle: { 'line-color': '#ffffff' },
+    highway_motorway_casing: { 'line-color': '#959eaa' }, highway_motorway_inner: { 'line-color': '#f4f6f8' },
+    highway_name_other: { 'text-color': '#353a41', 'text-halo-color': '#ffffff' },
+    highway_name_motorway: { 'text-color': '#353a41' },
+    rail: { 'line-color': '#c2c7ce' }, rail_dash: { 'line-color': '#e6e9ed' },
+    boundary: { 'line-color': '#a9b0b9' },
+    place: { 'text-color': '#4d535b', 'text-halo-color': 'rgba(255,255,255,0.85)' },
+  };
+  const mapGroup = id => id.startsWith('place_') ? 'place' : id.startsWith('boundary_') ? 'boundary'
+    : id.startsWith('railway') ? (id.endsWith('dashline') ? 'rail_dash' : 'rail') : id;
+  var mapPal = null, mapMode = '';   // var: Night mode's apply() may call mapTheme before this line runs
+  // Before the map is made: the dark colours go into the style, and each colour the light map changes is kept, so
+  // the map can go back to dark. Then the style starts in the current mode, so it never flashes the other one.
+  function mapStyle(style) {
+    mapPal = { dark: {}, light: {} };
+    for (const l of style.layers) {
+      const g = mapGroup(l.id), light = MAP_LIGHT[g];
+      l.paint = Object.assign(l.paint || {}, MAP_DARK[g]);
+      if (!light) continue;
+      mapPal.light[l.id] = light;
+      mapPal.dark[l.id] = Object.fromEntries(Object.keys(light).map(k => [k, l.paint[k]]));
+    }
+    mapMode = mapNight() ? 'dark' : 'light';
+    if (mapMode === 'light') for (const l of style.layers) Object.assign(l.paint, mapPal.light[l.id]);
+    mapClass();
+    return style;
+  }
+  function mapTheme() {
+    if (!mapPal) return;
+    const mode = mapNight() ? 'dark' : 'light';
+    if (!vm || mode === mapMode) return;
+    mapMode = mode; mapClass();
+    for (const [id, props] of Object.entries(mapPal[mode]))
+      if (vm.getLayer(id)) for (const [k, v] of Object.entries(props)) vm.setPaintProperty(id, k, v);
+  }
+  function mapNight() { return document.body.classList.contains('night'); }
+  function mapClass() { $('map').classList.toggle('light', mapMode === 'light'); }
+
+  let street = '', limit = null, limitFor = '', limitAt = 0;
+  function nameStreet() {
+    if (!vm.isStyleLoaded()) return;
+    const kx = 111320 * Math.cos(pos.lat * Math.PI / 180), ky = 110540;   // metres per degree here
+    let best = 30, name = '';
+    for (const f of vm.querySourceFeatures('openmaptiles', { sourceLayer: 'transportation_name' })) {
+      const n = f.properties.name || f.properties['name:latin']; if (!n) continue;
+      const lines = f.geometry.type === 'LineString' ? [f.geometry.coordinates] : f.geometry.type === 'MultiLineString' ? f.geometry.coordinates : [];
+      for (const l of lines) for (let i = 1; i < l.length; i++) {
+        const ax = (l[i - 1][0] - pos.lon) * kx, ay = (l[i - 1][1] - pos.lat) * ky, bx = (l[i][0] - pos.lon) * kx, by = (l[i][1] - pos.lat) * ky;
+        const dx = bx - ax, dy = by - ay, t = Math.max(0, Math.min(1, -(ax * dx + ay * dy) / (dx * dx + dy * dy || 1)));
+        const d = Math.hypot(ax + t * dx, ay + t * dy);
+        if (d < best) { best = d; name = n; }
+      }
+    }
+    street = name;
+  }
+  async function fetchLimit() {
+    const changed = street !== limitFor, wait = changed ? 5000 : 30000;
+    if (changed) limit = null;
+    if (Date.now() - limitAt < wait) return;
+    limitAt = Date.now(); limitFor = street;
+    const q = `[out:json][timeout:8];way(around:25,${pos.lat.toFixed(5)},${pos.lon.toFixed(5)})[highway][maxspeed];out tags;`;
+    try {
+      const ways = (await (await fetch('https://overpass-api.de/api/interpreter', { method: 'POST', body: 'data=' + encodeURIComponent(q) })).json()).elements || [];
+      const w = ways.find(w => street && w.tags.name === street) || (street ? null : ways[0]);
+      const n = w ? parseInt(w.tags.maxspeed, 10) : NaN;
+      limit = n > 0 ? n : null;
+    } catch (e) { limit = null; }   // offline or Overpass busy: no sign
+    renderDrive();
+  }
+  function renderDrive() {
+    $('road').textContent = street;
+    $('spdLim').hidden = !limit; $('spdLim').textContent = limit || '';
+    $('spdLim').classList.toggle('over', !!limit && speed > limit);
+  }
+
+  // Prototype: lite.html?drive drives a 3 km loop through Sumedang (an OSRM route over Jalan Sersan Mayor Muchtar,
+  // which has a 30 km/h limit in OSM) at 25-40 km/h, one fix a second, through the same driving view.
+  const DRIVE = !NATIVE && new URLSearchParams(location.search).has('drive');
+  if (DRIVE) {
+    const R = [[107.92099,-6.842],[107.921,-6.84206],[107.92102,-6.84211],[107.92102,-6.84217],[107.92101,-6.84222],[107.921,-6.84226],[107.921,-6.84229],[107.921,-6.84232],[107.921,-6.84235],[107.92103,-6.84249],[107.92104,-6.84255],[107.92103,-6.84259],[107.921,-6.84269],[107.92095,-6.84286],[107.92088,-6.8431],[107.92078,-6.8434],[107.92074,-6.84362],[107.92061,-6.84403],[107.92051,-6.84433],[107.92046,-6.84444],[107.92039,-6.84463],[107.92025,-6.84497],[107.9199,-6.84485],[107.91927,-6.84461],[107.91924,-6.84459],[107.91916,-6.84455],[107.91895,-6.84444],[107.91871,-6.84436],[107.91844,-6.84428],[107.91827,-6.84424],[107.91795,-6.84414],[107.91739,-6.84397],[107.91727,-6.8439],[107.91714,-6.84374],[107.91701,-6.84357],[107.91692,-6.84345],[107.91682,-6.84324],[107.91679,-6.84319],[107.91673,-6.84314],[107.91666,-6.84312],[107.91656,-6.84311],[107.91641,-6.84308],[107.91617,-6.84353],[107.91607,-6.84374],[107.91603,-6.84382],[107.91595,-6.84393],[107.91587,-6.84405],[107.91578,-6.84415],[107.91552,-6.84442],[107.91516,-6.84476],[107.91502,-6.84492],[107.91493,-6.84506],[107.91491,-6.84514],[107.91487,-6.84524],[107.91484,-6.84536],[107.91483,-6.84545],[107.91484,-6.84552],[107.91486,-6.84571],[107.91492,-6.8459],[107.91499,-6.8461],[107.915,-6.84616],[107.9151,-6.84645],[107.91511,-6.84649],[107.91512,-6.84652],[107.91513,-6.84673],[107.91513,-6.8468],[107.91512,-6.8469],[107.91511,-6.84705],[107.91508,-6.84726],[107.91499,-6.84748],[107.91479,-6.84802],[107.91446,-6.84913],[107.91432,-6.84961],[107.91416,-6.85019],[107.91409,-6.85046],[107.91407,-6.85055],[107.91406,-6.85059],[107.91407,-6.85063],[107.91409,-6.85071],[107.91419,-6.85085],[107.91432,-6.85104],[107.91468,-6.85152],[107.91477,-6.85166],[107.91493,-6.85196],[107.91498,-6.85207],[107.91515,-6.85252],[107.91524,-6.85275],[107.91542,-6.85319],[107.91567,-6.85387],[107.91579,-6.85417],[107.91587,-6.85445],[107.91597,-6.85481],[107.91604,-6.85499],[107.91609,-6.85509],[107.91616,-6.85519],[107.91634,-6.85539],[107.91645,-6.85559],[107.91653,-6.85577],[107.91658,-6.85595],[107.91663,-6.85614],[107.9167,-6.85636],[107.91711,-6.8564],[107.91734,-6.85642],[107.91788,-6.85649],[107.91834,-6.85654],[107.9188,-6.85661],[107.9188,-6.85661],[107.919,-6.85664],[107.91954,-6.85671],[107.91975,-6.85674],[107.91973,-6.85687],[107.91968,-6.85715],[107.91968,-6.85729],[107.91968,-6.85743],[107.9197,-6.85751],[107.91966,-6.8579],[107.91966,-6.85795],[107.91963,-6.85832],[107.91961,-6.85845]];
+    const kx = 111320 * Math.cos(-6.85 * Math.PI / 180), ky = 110540;
+    let seg = 0, at = 0;   // metres along segment seg
+    setInterval(() => {
+      speed = Math.max(25, Math.min(40, speed + Math.round((Math.random() - 0.5) * 6)));
+      let left = speed / 3.6;
+      while (left > 0) {
+        const a = R[seg], b = R[seg + 1], len = Math.hypot((b[0] - a[0]) * kx, (b[1] - a[1]) * ky);
+        if (at + left < len) { at += left; left = 0; } else { left -= len - at; at = 0; seg = (seg + 1) % (R.length - 1); }
+      }
+      const a = R[seg], b = R[seg + 1], len = Math.hypot((b[0] - a[0]) * kx, (b[1] - a[1]) * ky) || 1, t = at / len;
+      heading = (Math.atan2((b[0] - a[0]) * kx, (b[1] - a[1]) * ky) * 180 / Math.PI + 360) % 360;
+      driveS += 1; tripKm += speed / 3600;
+      renderCar(); setMap(a[1] + (b[1] - a[1]) * t, a[0] + (b[0] - a[0]) * t);
+    }, 1000);
   }
 
   setMap(-6.842, 107.921);
@@ -863,39 +1029,60 @@
 
   // ---- Music: still art, title cut with an ellipsis (no scrolling), progress on a one-second tick. ----
   let cur = null, playing = false;
-  const fmt = t => `${Math.floor(t / 60)}:${pad(t % 60)}`;
   function renderProgress() {
     if (!cur || cur.len == null) return;
     $('prog').style.width = (cur.pos / cur.len * 100).toFixed(1) + '%';
-    $('tNow').textContent = fmt(cur.pos); $('tLen').textContent = fmt(cur.len);
   }
   function setSource(src) {
     cur = src;
     const m = $('music');
     m.classList.toggle('idle', !!src.idle); m.classList.toggle('live', !src.idle && src.len == null); m.classList.toggle('no-skip', !src.skip);
-    $('title').textContent = src.title; $('artist').textContent = src.artist;
+    const t = src.title.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+    $('title').innerHTML = `<span class="run">${t}<i></i><span aria-hidden="true">${t}<i></i></span></span>`;   // second copy: seamless loop
+    fitTitle();
+    $('artist').textContent = src.artist;
     $('appPill').innerHTML = `${src.icon}<span>${src.app}</span>`;
     if (src.id) $('appPill').dataset.app = src.id; else $('appPill').removeAttribute('data-app');
     $('art').style.backgroundImage = src.art ? `url("${src.art}")` : ''; $('art').innerHTML = src.art ? '' : '<i class="ph-fill ph-music-notes"></i>';
     renderProgress();
   }
+  const REST = 2500, SPEED = 45, reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let titleAnim;
+  function fitTitle() {
+    const box = $('title'), run = box.firstChild; if (!run) return;
+    titleAnim && titleAnim.cancel(); titleAnim = null;
+    box.classList.remove('still');
+    const travel = run.scrollWidth / 2;                    // one copy plus its gap
+    if (travel - 48 <= box.clientWidth || reduceMotion) { box.classList.add('still'); return; }
+    const slide = travel / SPEED * 1000, total = REST + slide;
+    titleAnim = run.animate([
+      { transform: 'translateX(0)', offset: 0 },
+      { transform: 'translateX(0)', offset: REST / total },
+      { transform: 'translateX(-50%)', offset: 1 },
+    ], { duration: total, iterations: Infinity, easing: 'linear' });
+    if (!playing) titleAnim.pause();
+  }
+  document.fonts && document.fonts.ready.then(fitTitle);
+  addEventListener('resize', fitTitle);
   function setPlaying(on) {
     playing = on;
+    titleAnim && (playing ? titleAnim.play() : titleAnim.pause());
     $('play').innerHTML = `<i class="ph-fill ph-${on ? 'pause' : 'play'}"></i>`; $('play').setAttribute('aria-label', on ? 'Pause' : 'Play');
   }
   $('prev').onclick = () => { if (NATIVE) Android.media('prev'); };
   $('next').onclick = () => { if (NATIVE) Android.media('next'); };
   $('play').onclick = () => { if (NATIVE) Android.media('toggle'); else setPlaying(!playing); };
-  // One tick a second while playing: the progress bar, and the left reel steps 20deg (a third of the 60deg spoke gap,
-  // so it reads as turning forward; half a gap would flicker with no direction). It rides on the redraw the progress
-  // bar already causes: no animation, no extra frames. Live radio has no progress, the reel still turns.
+  // One tick a second while playing: the progress bar, and both reels step 20deg (a third of the left reel's 60deg
+  // spoke gap, so it reads as turning forward; half a gap would flicker with no direction). It rides on the redraw the
+  // progress bar already causes: no animation, no extra frames. Live radio has no progress, the reels still turn.
+  // --turn is set on the cassette window, so the spokes and the album art both pick it up.
   let turn = 0;
   setInterval(() => {
     if (!playing) return;
-    turn = (turn + 20) % 360; spokes.style.setProperty('--turn', `${turn}deg`);
+    turn = (turn + 20) % 360; reels.style.setProperty('--turn', `${turn}deg`);
     if (cur && cur.len != null) { cur.pos = Math.min(cur.len, cur.pos + 1); renderProgress(); }
   }, 1000);
-  const spokes = document.querySelector('.hub.spokes');
+  const reels = document.querySelector('.music .window') || document.querySelector('.window');
   if (!NATIVE) {
     const yt = byId.ytmusic;
     setSource({ id: 'ytmusic', app: yt.name, icon: yt.icon, title: 'Zona Nyaman (OST. Filosofi Kopi 2: Ben & Jody)', artist: 'Fourtwnty',
@@ -936,7 +1123,7 @@
   apply();
 
   // Prototype only: simulated driving, one update a second.
-  if (!NATIVE) setInterval(() => {
+  if (!NATIVE && !DRIVE) setInterval(() => {
     speed = Math.max(0, Math.min(72, speed + Math.round((Math.random() - 0.5) * 6)));
     if (speed > 3) { driveS += 1; tripKm += speed / 3600; }
     renderCar();
@@ -946,6 +1133,9 @@
   if (NATIVE) {
     try { const t = JSON.parse(localStorage.getItem('carhome-trip') || 'null'); if (t) { tripKm = t.tripKm; driveS = t.driveS; } } catch (e) { }
     setInterval(() => localStorage.setItem('carhome-trip', JSON.stringify({ tripKm, driveS })), 60000);
+    // Unplugged = the trip is over (user, 2026-10-29): back to 0 and saved at once, so it holds even if this page is
+    // replaced by the screensaver right after. Checked on every battery update, so a page that loads unplugged clears it too.
+    const resetTrip = () => { tripKm = 0; driveS = 0; localStorage.setItem('carhome-trip', JSON.stringify({ tripKm, driveS })); renderCar(); };
     let lastFix = null, stillSince = Date.now(), gotFix = false;
     const rad = x => x * Math.PI / 180, km = (a, b) => { const h = Math.sin(rad(b.lat - a.lat) / 2) ** 2 + Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(rad(b.lon - a.lon) / 2) ** 2; return 12742 * Math.asin(Math.sqrt(h)); };
     function onGps(f) {
@@ -954,7 +1144,7 @@
       fixAt = Date.now(); moveRun = kmh > 5 && f.accuracy <= 25 ? moveRun + 1 : 0;
       if (f.heading != null && kmh > 3) heading = f.heading;
       if (f.accuracy <= 20) {
-        if (lastFix) { const dt = (f.t - lastFix.t) / 1000; if (dt > 0 && dt < 10 && kmh > 3) { driveS += dt; tripKm += km(lastFix, f); } }
+        if (lastFix && charging) { const dt = (f.t - lastFix.t) / 1000; if (dt > 0 && dt < 10 && kmh > 3) { driveS += dt; tripKm += km(lastFix, f); } }   // unplugged: no trip
         lastFix = f;
       }
       if (kmh > 3) stillSince = Date.now(); else if (Date.now() - stillSince > 20 * 60000 && (tripKm || driveS)) { tripKm = 0; driveS = 0; }
@@ -981,11 +1171,11 @@
         if (type === 'battery') {
           const unplugged = charging && !d.charging;
           level = d.level; charging = d.charging; temp = d.temp; renderStatus(); awake();
-          // Charger out (#3): Assist pauses the music and opens the screensaver ('saver' below). Without the
-          // accessibility service, do the same from here (sleep then comes from the screen timeout).
-          if (unplugged && !(Android.assistOn && Android.assistOn())) { Android.media('pause'); goSaver(); }
+          if (!charging && (tripKm || driveS)) resetTrip();
+          // Charger out (#3): Assist pauses the music and puts the tablet to sleep. Without the accessibility service,
+          // pause from here; the screen then sleeps on its timeout.
+          if (unplugged && !(Android.assistOn && Android.assistOn())) Android.media('pause');
         }
-        else if (type === 'saver') goSaver();
         else if (type === 'net') { S.wifi = d.wifi; S.data = d.data; S.bt = d.bt; NET.ssid = d.ssid; NET.online = d.online !== false; apply(); }
         else if (type === 'gps') onGps(d);
         else if (type === 'place' && (d.district || d.area)) { const a = strip(d.area), di = strip(d.district); $('place').textContent = di && di !== a ? `${di}, ${a}` : a || di; }

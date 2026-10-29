@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Car Panel Layout</title>
+<link rel="stylesheet" href="vendor/fonts/fonts.css">
+<link rel="stylesheet" href="vendor/phosphor/fill/style.css">
+<style>
+  /* Wireframe (2026-10-29): the Car panel moved under the map. Lite's real grid and colours, flat blocks for the
+     content, frames at the tablet's 1340 x 800 shown smaller. Current layout first, then two options. */
+  :root { --bg: #0e1013; --panel: #171a1f; --raised: #20242b; --line: #2a2f37; --text: #eef0f3; --muted: #a3aab4; --faint: #6c737d;
+    --accent: #5aa7ff; --warn: #ff7a6b; --off: #2a3039; --redoff: #4a2b2b; --map: #dfe3e8; --road: #ffffff; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #08090b; color: var(--text); font-family: Geist, system-ui, sans-serif; padding: 28px 20px 48px; }
+  .page { max-width: 1240px; margin: 0 auto; }
+  h1 { font-size: 22px; font-weight: 600; letter-spacing: -0.01em; }
+  .lead { color: var(--muted); font-size: 15px; line-height: 1.5; max-width: 76ch; margin-top: 8px; }
+  section { margin-top: 34px; }
+  h2 { font-size: 17px; font-weight: 600; }
+  .note { color: var(--muted); font-size: 14px; line-height: 1.55; max-width: 84ch; margin: 6px 0 14px; }
+  .note b { color: var(--text); font-weight: 600; }
+  .shot { zoom: 0.62; }
+  @media (max-width: 860px) { .shot { zoom: 0.26; } }
+
+  /* Frame = Lite's #app: 10 px padding, sidebar 80 px, 10 px gaps */
+  .frame { width: 1340px; height: 800px; background: var(--bg); border-radius: 22px; padding: 10px; display: grid;
+    grid-template-columns: 1fr 80px; gap: 10px; overflow: hidden; }
+  .main { display: grid; gap: 10px; min-height: 0; }
+  .p { background: var(--panel); border: 1px solid var(--line); border-radius: 18px; position: relative; overflow: hidden; min-width: 0; min-height: 0; }
+  .tag { position: absolute; right: 12px; bottom: 10px; font-size: 12px; font-weight: 600; color: var(--faint); }
+  .rail { background: var(--panel); border: 1px solid var(--line); border-radius: 18px; display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 12px 0; }
+  .rail .st { width: 58px; height: 120px; border-radius: 14px; background: var(--raised); }
+  .rail .t { width: 58px; height: 58px; border-radius: 14px; display: grid; place-items: center; font-size: 28px; color: #fff; }
+  .rail .sp { flex: 1; }
+
+  /* Map: light day map, roads, the car low in the panel */
+  .map { background: var(--map); }
+  .map .rd { position: absolute; background: var(--road); box-shadow: 0 0 0 2px #c9ced5; }
+  .map .car { position: absolute; left: 50%; width: 26px; height: 52px; margin-left: -13px; border-radius: 10px 10px 8px 8px; background: #30343b; box-shadow: 0 4px 8px rgba(0,0,0,0.3); }
+  .map .car::after { content: ""; position: absolute; left: 4px; right: 4px; top: 14px; height: 22px; border-radius: 4px; background: #4b515b; }
+  .map .street { position: absolute; left: 50%; transform: translateX(-50%); padding: 4px 12px; border-radius: 8px; background: var(--accent); color: #fff; font-size: 15px; font-weight: 600; white-space: nowrap; }
+  .map .turn { position: absolute; left: 10px; right: 10px; top: 10px; height: 64px; border-radius: 14px; background: var(--raised); display: flex; align-items: center; gap: 12px; padding: 10px; }
+  .map .turn i { width: 44px; height: 44px; border-radius: 12px; background: var(--accent); display: grid; place-items: center; font-size: 24px; }
+  .map .turn b { font-size: 22px; } .map .turn small { display: block; color: var(--muted); font-size: 13px; }
+  .map .eta { position: absolute; left: 10px; right: 10px; bottom: 10px; height: 58px; border-radius: 14px; background: var(--raised); display: grid; grid-template-columns: repeat(3, 1fr); padding: 8px 14px; }
+  .map .eta b { display: block; font-size: 19px; } .map .eta span { font-size: 12px; color: var(--muted); }
+
+  /* Today: flip clock and weather */
+  .today { padding: 16px 20px; display: grid; gap: 14px; }
+  .flip { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .flip div { border-radius: 12px; background: #e7e9ec; color: #1d2025; display: grid; place-items: center; font-weight: 500; letter-spacing: -0.04em; }
+  .date { font-size: 18px; color: var(--muted); }
+  .wx { display: flex; align-items: center; gap: 14px; }
+  .wx i { font-size: 46px; color: #c9ced5; } .wx b { font-size: 34px; font-weight: 500; display: block; } .wx span { color: var(--muted); font-size: 15px; }
+  .wx .hl { margin-left: auto; color: var(--muted); font-size: 17px; align-self: flex-start; }
+  .place { color: var(--muted); font-size: 15px; }
+  .today.side .wx i { font-size: 76px; } .today.side .wx b { font-size: 60px; } .today.side .wx span { font-size: 18px; }
+  .today.side .place { font-size: 17px; }
+
+  /* Car: speed + compass, segment bar, trip stats */
+  .car-p { padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+  .head { display: flex; justify-content: space-between; align-items: center; font-size: 14px; color: var(--muted); }
+  .head .chips { display: flex; gap: 6px; } .head .chips span { padding: 5px 10px; border-radius: 999px; background: var(--raised); color: var(--text); font-weight: 600; font-size: 13px; }
+  .spd { display: flex; align-items: flex-end; gap: 8px; }
+  .spd b { font-family: 'Sofia Sans Extra Condensed', Geist, sans-serif; font-weight: 700; line-height: 0.82; }
+  .spd small { color: var(--muted); font-size: 15px; padding-bottom: 6px; }
+  .rose { margin-left: auto; border-radius: 50%; border: 2px solid var(--line); display: grid; place-items: center; color: var(--accent); }
+  .bar { display: grid; grid-template-columns: repeat(24, 1fr); gap: 3px; }
+  .bar i { display: block; border-radius: 3px; background: var(--off); }
+  .bar i.on { background: var(--accent); } .bar i.red { background: var(--redoff); }
+  .scale { display: flex; justify-content: space-between; font-size: 13px; color: var(--muted); font-weight: 600; } .scale span:last-child { color: var(--warn); }
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .stats div { background: var(--raised); border-radius: 10px; padding: 7px 10px; } .stats span { font-size: 12px; color: var(--muted); display: block; }
+  .stats b { font-family: 'Sofia Sans Extra Condensed', Geist, sans-serif; font-size: 26px; font-weight: 700; } .stats small { font-size: 12px; color: var(--muted); }
+
+  /* Music: cassette + controls; sliders */
+  .music { padding: 14px 16px 0; display: grid; grid-template-rows: auto 1fr auto; gap: 10px; text-align: center; }
+  .music b { font-size: 20px; } .music span { display: block; color: var(--muted); font-size: 15px; }
+  .cass { align-self: center; height: 88px; border-radius: 999px; background: var(--raised); display: flex; align-items: center; gap: 14px; padding: 8px; }
+  .cass i { flex: none; width: 72px; height: 72px; border-radius: 50%; background: #e9e6dc; }
+  .cass i:last-child { background: linear-gradient(135deg, #8aa3b5, #3c4a55); }
+  .cass s { flex: 1; height: 4px; border-radius: 2px; background: #e7e9ec; }
+  .ctrl { justify-self: center; width: 70%; height: 70px; border-radius: 14px 14px 0 0; background: var(--raised); display: grid; grid-template-columns: 1fr 1.3fr 1fr; align-items: center; justify-items: center; font-size: 26px; }
+  .ctrl em { width: 90%; height: 46px; border-radius: 10px; background: #f0f1f3; color: #111; display: grid; place-items: center; font-style: normal; }
+  .sliders { padding: 12px 10px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .sliders div { border-radius: 16px; background: var(--raised); position: relative; overflow: hidden; }
+  .sliders div::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: var(--v); background: #eef0f3; }
+  .sliders.row { grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; }
+  .sliders.row div::after { top: 0; bottom: 0; height: auto; width: var(--v); }
+
+  /* Highlight of the moved panel */
+  .moved { outline: 2px dashed var(--accent); outline-offset: 3px; }
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>Car panel under the map</h1>
+  <p class="lead">Lite's home screen at the tablet's size (1340 x 800). The Car panel (dashed) moves into the map's column, under the map.
+    Its tall slot today is mostly empty space between the speed bar and the trip numbers, so it only needs about a third of the height.
+    The two options differ in what takes the freed top-right space.</p>
+
+  <section>
+    <h2>Now</h2>
+    <p class="note">Map in its own full-height column; the Car panel shares the top row with Today and is 514 px tall for about 250 px of content.</p>
+    <div class="shot" id="now"></div>
+  </section>
+
+  <section>
+    <h2>Option A: wide Today</h2>
+    <p class="note">Left column: <b>map 500 px, Car 270 px</b> (same content, packed: speed and compass in one row, the bar, the three numbers).
+      Top right: <b>Today across the full width</b>, the clock and the weather side by side, so both get bigger. The music row and sliders stay as they are.</p>
+    <div class="shot" id="a"></div>
+  </section>
+
+  <section>
+    <h2>Option B: bigger player</h2>
+    <p class="note">Left column the same as A. Right side: <b>Today on top, the player under it, both full width</b>, and the sliders become one
+      tall column on the far right. The player gets a taller panel with room for a bigger cassette and controls; the clock shrinks a little.</p>
+    <div class="shot" id="b"></div>
+  </section>
+
+  <section>
+    <h2>Trade-offs</h2>
+    <p class="note"><b>Map:</b> about 36% shorter (780 to 500 px), so less road shows ahead of the car; the car moves up to keep it at 75% of the height.
+      The turn card and ETA bar still fit. <b>Car panel:</b> loses nothing, only empty space. <b>Glass:</b> the same grid change works there too.</p>
+  </section>
+</div>
+
+<script>
+  // Panels as markup strings, assembled into the three frames.
+  const ICON = (n, bg) => `<div class="t" style="background:${bg}"><i class="ph-fill ph-${n}"></i></div>`;
+  const rail = `<div class="rail"><div class="st"></div><div class="t" style="background:var(--raised)"><i class="ph-fill ph-square-split-horizontal"></i></div>
+    <div class="sp"></div>${ICON('navigation-arrow', '#33ccff')}${ICON('radio', '#f26b1d')}${ICON('whatsapp-logo', '#25d366')}${ICON('spotify-logo', '#1db954')}
+    <div class="sp"></div><div class="t" style="background:var(--raised)"><i class="ph-fill ph-dots-nine"></i></div></div>`;
+  function map(area, h) {
+    const carTop = Math.round(h * 0.75);
+    return `<div class="p map" style="grid-area:${area}">
+      <div class="rd" style="left:44%;top:0;width:22px;height:100%"></div>
+      <div class="rd" style="left:0;top:${Math.round(h * 0.42)}px;width:100%;height:16px;transform:rotate(-8deg)"></div>
+      <div class="rd" style="left:8%;top:${Math.round(h * 0.18)}px;width:70%;height:10px;transform:rotate(14deg)"></div>
+      <div class="turn"><i class="ph-fill ph-arrow-bend-up-right"></i><div><b>300 m</b><small>Jl. Prabu Geusan Ulun</small></div></div>
+      <div class="car" style="top:${carTop - 26}px"></div>
+      <div class="street" style="top:${carTop + 32}px">Jalan Serma Muhtar Baru</div>
+      <div class="eta"><div><b>17:31</b><span>arrival</span></div><div><b>12 min</b><span>left</span></div><div><b>4.2 km</b><span>to go</span></div></div>
+    </div>`;
+  }
+  const bar = [...Array(24)].map((_, i) => `<i class="${i < 5 ? 'on' : i >= 18 ? 'red' : ''}"></i>`).join('');
+  function car(area, opt = {}) {
+    const big = opt.big, cls = opt.moved ? ' moved' : '';
+    return `<div class="p car-p${cls}" style="grid-area:${area}${big ? ';justify-content:space-between' : ''}">
+      <div class="head">Car<div class="chips"><span>GPS</span><span>&#8635;</span></div></div>
+      <div class="spd"><b style="font-size:${big ? 120 : 84}px">19</b><small>km/h</small>
+        <div class="rose" style="width:${big ? 80 : 64}px;height:${big ? 80 : 64}px"><i class="ph-fill ph-navigation-arrow" style="font-size:22px"></i></div></div>
+      <div><div class="bar" style="height:${big ? 60 : 26}px">${bar}</div><div class="scale" style="margin-top:6px"><span>0</span><span>40</span><span>80</span><span>120</span></div></div>
+      <div class="stats"><div><span>Trip</span><b>16.9</b><small> km</small></div><div><span>Drive</span><b>0:44</b></div><div><span>Average</span><b>23</b><small> km/h</small></div></div>
+    </div>`;
+  }
+  function today(area, o) {
+    const side = o.side;
+    return `<div class="p today${side ? ' side' : ''}" style="grid-area:${area};${side ? 'grid-template-columns:1.25fr 1fr;align-items:center;gap:28px' : 'grid-template-rows:auto auto 1fr auto'}">
+      <div><div class="flip" style="height:${o.clock}px"><div style="font-size:${o.clock * 0.8}px">14</div><div style="font-size:${o.clock * 0.8}px">48</div></div>
+        <div class="date" style="margin-top:12px">Thursday 29 October</div></div>
+      ${side ? '<div>' : '<div></div>'}
+      <div class="wx"><i class="ph-fill ph-cloud-rain"></i><div><b>27&deg;</b><span>Drizzle</span></div><div class="hl">32&deg; / 22&deg;</div></div>
+      <div class="place" style="margin-top:8px">Sumedang Utara, Sumedang</div>
+      ${side ? '</div>' : ''}
+    </div>`;
+  }
+  const music = area => `<div class="p music" style="grid-area:${area}"><div><b>Zona Nyaman (OST. Filosofi Kopi 2: Ben &amp; Jody)</b><span>Fourtwnty</span></div>
+    <div class="cass"><i></i><s></s><i></i></div><div class="ctrl"><i class="ph-fill ph-skip-back"></i><em><i class="ph-fill ph-pause"></i></em><i class="ph-fill ph-skip-forward"></i></div></div>`;
+  const sliders = area => `<div class="p sliders" style="grid-area:${area}"><div style="--v:62%"></div><div style="--v:45%"></div></div>`;
+  const frame = (cols, rows, areas, inner) => `<div class="frame"><div class="main" style='grid-template-columns:${cols};grid-template-rows:${rows};grid-template-areas:${areas}'>${inner}</div>${rail}</div>`;
+
+  // Now: Lite's grid as it is (0.95fr 1.15fr 0.5fr 0.4fr; top row 514 px).
+  document.getElementById('now').innerHTML = frame('0.95fr 1.15fr 0.5fr 0.4fr', '514px 1fr', '"map today car car" "map music music sliders"',
+    map('map', 780) + today('today', { clock: 170 }) + car('car', { big: true, moved: true }) + music('music') + sliders('sliders'));
+  // A and B: the left column (map over car) and the right side as two nested grids.
+  // A: Today full width on top right; music + sliders below. B: Today over the player, sliders one tall column.
+  const left = `<div style="grid-area:left;display:grid;grid-template-rows:1fr 270px;gap:10px;min-height:0">${map('auto', 500)}${car('auto', { moved: true })}</div>`;
+  document.getElementById('a').innerHTML = frame('380px 1fr', '1fr', '"left right"', left +
+    `<div style="grid-area:right;display:grid;grid-template-columns:1fr 160px;grid-template-rows:1fr 270px;gap:10px;grid-template-areas:'today today' 'music sliders';min-height:0">
+      ${today('today', { clock: 230, side: true })}${music('music')}${sliders('sliders')}</div>`);
+  document.getElementById('b').innerHTML = frame('380px 1fr', '1fr', '"left right"', left +
+    `<div style="grid-area:right;display:grid;grid-template-columns:1fr 110px;grid-template-rows:1fr 1fr;gap:10px;grid-template-areas:'today sliders' 'music sliders';min-height:0">
+      ${today('today', { clock: 150, side: true })}${music('music')}<div class="p sliders" style="grid-area:sliders;grid-template-columns:1fr;grid-template-rows:1fr 1fr"><div style="--v:62%"></div><div style="--v:45%"></div></div></div>`);
+</script>
+</body>
+</html>

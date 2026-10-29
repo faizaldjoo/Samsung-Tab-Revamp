@@ -37,11 +37,6 @@ public class MainActivity extends Activity {
     String startPage() {
         return "glass".equals(getSharedPreferences("carhome", MODE_PRIVATE).getString("theme", "lite")) ? "glass.html" : "lite.html";
     }
-    // Charger out (Assist): open the screensaver straight away, from a fresh start or over whatever page shows (#3).
-    static final String ACTION_SAVER = "me.faizal.carhome.SAVER";
-    String saverPage() {
-        return "glass.html".equals(startPage()) ? "screensaver.html?from=home" : "screensaver.html?from=home&home=lite.html&lite";
-    }
     private static final int PICK_IMAGE = 1, PERMS = 2;
 
     WebView web;
@@ -106,7 +101,7 @@ public class MainActivity extends Activity {
         bridge = new Bridge(this, web);
         web.addJavascriptInterface(bridge, "Android");
         setContentView(web);
-        web.loadUrl(ORIGIN + (ACTION_SAVER.equals(getIntent().getAction()) ? saverPage() : startPage()));
+        web.loadUrl(ORIGIN + startPage());
 
         if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION}, PERMS);
@@ -236,7 +231,6 @@ public class MainActivity extends Activity {
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         if (Intent.ACTION_MAIN.equals(intent.getAction())) bridge.home();   // also when the charger woke the tablet (Assist)
-        else if (ACTION_SAVER.equals(intent.getAction())) bridge.saver();
     }
 
     /** Back: leave the screensaver; on home it does nothing (a launcher has nowhere to go back to). */

@@ -45,7 +45,7 @@ import java.util.List;
 /**
  * window.Android in the pages. Calls from JS arrive on a binder thread, so anything touching views or starting
  * activities is posted to the main thread. Pushes go the other way as host.on(type, data) in the page:
- * battery, net, gps, place, media, home, saver.
+ * battery, net, gps, place, media, home.
  */
 public class Bridge {
     private final MainActivity act;
@@ -100,8 +100,6 @@ public class Bridge {
 
     void home() { push("home", new JSONObject()); }
 
-    /** Charger out (Assist): the home pages open the screensaver; the screensaver stays. */
-    void saver() { push("saver", new JSONObject()); }
 
     /** Run JS host.on(type, data) on the main thread. */
     private void push(String type, JSONObject data) {

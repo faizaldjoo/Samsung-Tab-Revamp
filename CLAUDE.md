@@ -93,7 +93,7 @@ Driven over ADB from a computer on the same Wi-Fi (Wireless debugging; pair once
   Prototype default source is now GPS (S.obd false).
 - Car panel: OBD (ELM327 over Bluetooth) shows car speed, RPM, coolant, fuel, battery V; without OBD it shows GPS speed,
   heading, trip km, drive time, average. Trip rules: distance summed from fixes with accuracy <= 20 m, drive time counts only
-  while speed > 3 km/h, average = trip / drive time. Trip auto-resets after 20 min stationary; manual reset = long-press the
+  while speed > 3 km/h, average = trip / drive time. Trip auto-resets after 20 min stationary and on unplug (2026-10-29, user: resetTrip() on any battery update with charging false, saved at once; fixes add nothing while unplugged); manual reset = long-press the
   reset button next to the source chip. Persist counters once a minute.
 - Navigation: Controls has "Navigation app: Waze / Google Maps" (default Waze). Decided 2026-10-27 after testing the
   pop-up idea on the tablet (see "Pop-up limit" below): the map panel is our own live map, and the nav app opens full screen.
@@ -123,6 +123,29 @@ Driven over ADB from a computer on the same Wi-Fi (Wireless debugging; pair once
 - Home grid (2026-10-27): one grid, areas "map today car car" / "map music music sliders", columns 0.95 / 1.15 /
   0.5 / 0.4 fr, rows 1fr / auto (the cassette is as tall as its content; the clock and car panels take the rest).
   The .col wrappers are display: contents. The sliders column is narrow so the cassette gets the width.
+- Driving view (2026-10-29, user, after TomTom's free-driving screenshot; TomTom's SDK itself was ruled out: native,
+  Gradle, 64-bit only, paid key after a 3-month trial): always on since the same day (user: "also when parked"; it
+  first switched on while moving and off 60 s after). mapView(): zoom 16.4, pitch 55, bearing = heading (the last
+  one while parked), top padding 50% (Lite) / 52% (Glass) so the position sits at 75-76%. maxPitch is 60 (it was 0,
+  which silently kept the map flat). One jumpTo per fix, plus once on the map's 'load' (parked, no fix may follow).
+  .driving is in the panel's markup: the puck is an inline SVG car seen from above (viewBox 40x80, nose up; drawn by hand, the user's reference was a
+  stock picture), colours from --car-* custom properties: white on the dark map, dark grey under .light; tipped back
+  with perspective rotateX(18deg), tinted drop-shadow, a radial accent pool as ::before; static, nothing animates), #road = nearest named line within 30 m from
+  querySourceFeatures('openmaptiles', transportation_name), #spdLim = the limit sign alone (the speed badge was removed 2026-10-29, user; the Car panel has the speed), from Overpass (way(around:25)
+  [highway][maxspeed], matched to the street name; at most every 30 s, 5 s after a street change; no answer = no
+  sign; .over = solid red sign above the limit). OSM maxspeed near Sumedang (checked 2026-10-29): only the Cisumdawu toll (90) and
+  Sersan Mayor Muchtar (30). Overpass rate-limits bursts (empty or non-JSON replies), so it must stay rare.
+  ?drive = demo: an OSRM route (3 km, over Sersan Mayor Muchtar) driven at 25-40 km/h. On the tablet 2026-10-29 (fake
+  fixes through host.on('gps', {fake}) over CDP, the real GPS ignored for the test): driving view ~20% CPU (app 6% +
+  WebView 14%), parked flat map ~2%. The tilted Dark map read very dark, so MAP_DARK lifts it (light grey roads, wider
+  minor streets, lighter labels, faint building outlines); checked on the tablet the same day.
+  Map colours follow Night mode (2026-10-29, user): Day = MAP_LIGHT (cool grey ground #e6e9ed, white roads with grey
+  casings, blue-grey water, green parks, dark labels on white halos, wood pattern hidden), Night = MAP_DARK. mapStyle()
+  bakes MAP_DARK into the style, keeps each original value MAP_LIGHT changes (mapPal.dark) and starts in the current
+  mode; mapTheme() (called where Night mode toggles: apply() and the minute tick) setPaintProperty's the other set, no
+  style reload. Keys are layer ids or groups (place_*, boundary_*, railway*, see mapGroup). The panel gets .light (lighter
+  .map-shade in Glass, darker attribution). mapPal/mapMode are var: apply() can run first.
+  The tablet's ABI list is arm64-v8a, armeabi-v7a, armeabi (so TomTom's arm64-only SDK would run).
 - Map: the Dark map only (2026-10-28, user's choice; the Controls > Map choice is gone, old S.mapSrc is deleted).
   OSM tiles darkened once per tile into a canvas are only the fallback when the Dark map can't load.
   Dark: openmaptiles/dark-matter-gl-style (BSD, sprites in vendor/dark-matter) on OpenFreeMap's free OpenMapTiles
@@ -162,6 +185,14 @@ Driven over ADB from a computer on the same Wi-Fi (Wireless debugging; pair once
 - Added back in Lite form (2026-10-27): HTC-style flip cards (static: digits change once a minute, no flip animation),
   a flat cassette music card (still reels, album art as the right reel, progress between them, controls on a trapezoid
   bridge), vertical volume / brightness bars. Measured on the tablet after: idle 2-17% CPU.
+- Reels (2026-10-29, user): no smooth spin anywhere now (Glass's .hub CSS animation removed, prototype included).
+  Both reels step 20deg on the 1 s progress tick while playing (Glass: hubs' style.transform; Lite: --turn on the
+  cassette window, used by the spokes and .hub.art). 40deg was two thirds of the 60deg spoke gap and read backwards.
+  Tablet (Glass): playing 11-18%, paused 1-2%.
+- Player title (2026-10-29, user): Lite now runs a long title like Glass (fitTitle(), Web Animations: rest 2.5 s,
+  slide at 45 px/s, two copies, paused with the music; a title that fits = .still, one centred copy). Time labels
+  (tNow / tLen) removed in both, progress bar only. Measured on the tablet, long title running: Lite ~84%, Glass
+  ~103% (app + WebView); still: 6-9%.
 - Dropped on purpose: wallpaper picker and Glass toggle (nothing to show through solid panels), flip animation, smooth
   spinning reels. Instead (2026-10-27) the left reel steps 20deg (a third of its 60deg spoke gap, so it reads as turning
   forward) on the existing one-second progress tick while playing, live radio included. Measured: playing 12% CPU with
@@ -206,13 +237,13 @@ Driven over ADB from a computer on the same Wi-Fi (Wireless debugging; pair once
   transport, setPrefs. Pushes host.on(type, data): battery, net, gps (1 Hz), place (Geocoder), media (MediaSessionManager via
   the MediaListener notification-listener), nav (Waze / Maps notification), home. Pages call Android.ready() when loaded.
 - Unplug / plug in (2026-10-28, issues #3 #4, user): Assist listens for ACTION_POWER_DISCONNECTED too. Unplugged:
-  media key PAUSE if music is active (AudioManager.dispatchMediaKeyEvent, no Notification access needed), start
-  MainActivity with ACTION_SAVER (me.faizal.carhome.SAVER: fresh start loads saverPage(), otherwise Bridge.saver()
-  pushes 'saver' and the home page calls goSaver()), then after 120 s, if still unplugged,
-  performGlobalAction(GLOBAL_ACTION_LOCK_SCREEN) = screen off. Plugged in: cancel that, wake if the screen is off
+  media key PAUSE if music is active (AudioManager.dispatchMediaKeyEvent, no Notification access needed), then
+  0.5 s later (SLEEP_AFTER_MS, time for the app to take the key), if still unplugged,
+  performGlobalAction(GLOBAL_ACTION_LOCK_SCREEN) = screen off. 2026-10-29 (user): sleep at once; the first version
+  opened the screensaver (ACTION_SAVER / 'saver' push, now removed) and slept after 120 s. Plugged in: cancel that, wake if the screen is off
   (as before), and 3 s later media key PLAY unless music is already playing (Android routes it to the last media app).
-  Fallback without the accessibility service: Lite/Glass see charging go false and call Android.media('pause') +
-  goSaver(); sleep then comes from the screen timeout.
+  Fallback without the accessibility service: Lite/Glass see charging go false and call Android.media('pause');
+  sleep then comes from the screen timeout.
 - Moving (2026-10-28, issues #1 #2): GPS speed alone was trusted, so the last fix of a drive (kept when GPS goes quiet)
   or one noisy fix blocked the idle screensaver, and the cached fix Bridge.ready() re-sends bounced a fresh screensaver
   home. Now: home pages count "moving" only after 3 fixes in a row > 5 km/h with accuracy <= 25 m and the newest < 5 s
