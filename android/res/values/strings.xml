@@ -1,4 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="assist_desc">Lets Car Home open the recent apps screen, and open split screen with the two apps you pick by tapping through One UI\'s recent apps menu for you. Also shows a volume and brightness strip on the screen edge over other apps. It only reads the recent apps screen, only while doing a split you asked for.</string>
+    <string name="assist_desc">Lets nDashMo open the recent apps screen, and open split screen with the two apps you pick by tapping through One UI\'s recent apps menu for you. Also shows a volume and brightness strip on the screen edge over other apps. It only reads the recent apps screen, only while doing a split you asked for.</string>
 </resources>

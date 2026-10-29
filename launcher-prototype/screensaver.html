@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<link rel="icon" href="data:,">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>bbot Screensaver</title>
 <!-- Fonts and icons are bundled (vendor/), so the page starts fast and works offline. -->
@@ -110,7 +111,10 @@
   // Opened from the launcher's screensaver button: a single tap goes back home (the other gestures still play with the face).
   const fromHome = new URLSearchParams(location.search).get('from') === 'home';
   // Which home to go back to (glass.html, or lite.html for Car Home Lite).
-  const HOME = /^[\w-]+\.html$/.test(new URLSearchParams(location.search).get('home') || '') ? new URLSearchParams(location.search).get('home') : 'glass.html';
+  // Without ?home=, the theme saved by the launcher (Controls > Theme), so it can't come back to the other one.
+  const savedTheme = (() => { try { return JSON.parse(localStorage.carhome || '{}').theme; } catch (e) { return ''; } })();
+  const HOME = /^[\w-]+\.html$/.test(new URLSearchParams(location.search).get('home') || '') ? new URLSearchParams(location.search).get('home')
+    : savedTheme === 'lite' ? 'lite.html' : 'glass.html';
   // Lite (screensaver.html?lite, from Car Home Lite): the face moves in bursts. It animates only while it has something
   // to do (a mood change, reaction or glance from the director below, spaced out in lite, or a touch), then holds still,
   // so the tablet draws nothing in between. While awake it draws at most 30 frames a
@@ -241,6 +245,7 @@
     if (timeEl.textContent === t) return;
     timeEl.textContent = t;
     dateEl.textContent = d.toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' });
+    if (wxCode != null) { const src = `vendor/weatherglass/${wxIcon(wxCode)}.png`; if (!iconEl.src.endsWith(src)) iconEl.src = src; }   // sun / moon on time
   }
   setInterval(tick, 5000); tick();
 
@@ -413,16 +418,21 @@
     // is seamless.
     songEl.classList.remove('still');
     songText.innerHTML = line;
-    const one = songText.scrollWidth, still = !PL.playing || one <= songEl.clientWidth * 0.84;
+    // Controls > Scroll song title (the launcher's setting) on: a line that fits runs too, the gap wide enough that one
+    // copy shows at a time.
+    const runAll = (() => { try { return !!JSON.parse(localStorage.carhome || '{}').titleRun; } catch (e) { return false; } })();
+    const one = songText.scrollWidth, fits = one <= songEl.clientWidth * 0.84, still = !PL.playing || (fits && !runAll);
     songEl.classList.toggle('still', still);
-    if (line && !still) songText.innerHTML = line + '<span style="display:inline-block;width:64px"></span>' + line;
+    const gap = fits ? Math.max(64, songEl.clientWidth - one) : 64;
+    if (line && !still) songText.innerHTML = line + `<span style="display:inline-block;width:${gap}px"></span>` + line;
+    songText.style.paddingRight = line && !still ? gap + 'px' : '';   // trailing gap = middle gap, so -50% loops seamlessly
     songEl.classList.toggle('on', !!PL.title);
     songEl.classList.toggle('paused', !PL.playing);
     mediaEl.classList.toggle('on', !!PL.title);
     playBtn.innerHTML = `<i class="ph-fill ph-${PL.playing ? 'pause' : 'play'}"></i>`;
     playBtn.setAttribute('aria-label', PL.playing ? 'Pause' : 'Play');
     // Same reading speed for any title length: about 45 px/s over one copy of the line.
-    if (line && !still) songText.style.animationDuration = Math.max(8, one / 45).toFixed(1) + 's';
+    if (line && !still) songText.style.animationDuration = Math.max(8, (one + gap) / 45).toFixed(1) + 's';
   }
   const player = {
     state: PL,
@@ -638,10 +648,11 @@
   const wxIcon = c => c <= 1 ? (dusk() ? 'clear_night' : 'sunny') : c === 2 ? (dusk() ? 'partly_cloudy_night' : 'partly_cloudy_day')
     : c === 3 ? 'cloud' : c <= 48 ? 'foggy' : (c >= 71 && c <= 77) || c === 85 || c === 86 ? 'snowflake' : c >= 95 ? 'thunderstorm' : 'rainy';
   let placePushed = false;
+  var wxCode = null;   // var: the clock's tick() reads it before this line runs
   const weather = {
     set({ temp, text, code, place }) {
       weatherEl.textContent = `${Math.round(temp)}\u00b0${text ? ' ' + text : ''}`;
-      if (code != null) iconEl.src = `vendor/weatherglass/${wxIcon(code)}.png`;
+      if (code != null) { wxCode = code; iconEl.src = `vendor/weatherglass/${wxIcon(code)}.png`; }
       if (place != null) { placePushed = true; placeEl.textContent = place; }
       else if (!placePushed && GS.last) placeEl.textContent = '';
     },

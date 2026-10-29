@@ -3,8 +3,8 @@
      Built without Gradle by build.sh (aapt2 + javac + d8 + apksigner). -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="me.faizal.carhome"
-    android:versionCode="3"
-    android:versionName="1.2">
+    android:versionCode="5"
+    android:versionName="1.0">
 
     <!-- Target 28: sideloaded only. It was chosen to reach the non-SDK pop-up window API (no longer used: One UI pop-ups
          stay on top of every app); kept because nothing here needs newer target behaviour yet. -->
@@ -36,7 +36,7 @@
     </queries>
 
     <application
-        android:label="Car Home"
+        android:label="nDashMo"
         android:icon="@drawable/ic_launcher"
         android:hardwareAccelerated="true"
         android:usesCleartextTraffic="false"
@@ -63,7 +63,7 @@
         <service
             android:name=".Assist"
             android:exported="true"
-            android:label="Car Home"
+            android:label="nDashMo"
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
             <intent-filter>
                 <action android:name="android.accessibilityservice.AccessibilityService" />
@@ -76,7 +76,7 @@
         <service
             android:name=".MediaListener"
             android:exported="true"
-            android:label="Car Home now playing"
+            android:label="nDashMo now playing"
             android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
             <intent-filter>
                 <action android:name="android.service.notification.NotificationListenerService" />

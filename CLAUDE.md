@@ -1,5 +1,8 @@
 # Tab A7 Lite car head unit
 
+> Theme naming (2026-10-29, user): the flat theme is shown as **Matte** (was "Lite"). Code, file (lite.html), ids
+> (S.theme 'lite', Bridge prefs, screensaver ?lite) and older notes below still say lite/Lite on purpose.
+
 Samsung Galaxy Tab A7 Lite LTE (SM-T225, Android 14 / One UI 6.1, ~2.8 GB RAM) used as a car head unit.
 Driven over ADB from a computer on the same Wi-Fi (Wireless debugging; pair once per computer).
 
@@ -125,7 +128,7 @@ Driven over ADB from a computer on the same Wi-Fi (Wireless debugging; pair once
   The .col wrappers are display: contents. The sliders column is narrow so the cassette gets the width.
 - Driving view (2026-10-29, user, after TomTom's free-driving screenshot; TomTom's SDK itself was ruled out: native,
   Gradle, 64-bit only, paid key after a 3-month trial): always on since the same day (user: "also when parked"; it
-  first switched on while moving and off 60 s after). mapView(): zoom 16.4, pitch 55, bearing = heading (the last
+  first switched on while moving and off 60 s after). mapView(): zoom 18 (16.4 until 2026-10-29, user: closer), pitch 55, bearing = heading (the last
   one while parked), top padding 50% (Lite) / 52% (Glass) so the position sits at 75-76%. maxPitch is 60 (it was 0,
   which silently kept the map flat). One jumpTo per fix, plus once on the map's 'load' (parked, no fix may follow).
   .driving is in the panel's markup: the puck is an inline SVG car seen from above (viewBox 40x80, nose up; drawn by hand, the user's reference was a
@@ -139,6 +142,8 @@ Driven over ADB from a computer on the same Wi-Fi (Wireless debugging; pair once
   fixes through host.on('gps', {fake}) over CDP, the real GPS ignored for the test): driving view ~20% CPU (app 6% +
   WebView 14%), parked flat map ~2%. The tilted Dark map read very dark, so MAP_DARK lifts it (light grey roads, wider
   minor streets, lighter labels, faint building outlines); checked on the tablet the same day.
+  MAP_TEXT (layout, both modes): road names 16 px Noto Sans Bold (OpenFreeMap fonts), no uppercase, spacing 220;
+  motorway refs 15 px; place labels 13 px (the style's 10 px was unreadable on the tablet at 1x pixel ratio).
   Map colours follow Night mode (2026-10-29, user): Day = MAP_LIGHT (cool grey ground #e6e9ed, white roads with grey
   casings, blue-grey water, green parks, dark labels on white halos, wood pattern hidden), Night = MAP_DARK. mapStyle()
   bakes MAP_DARK into the style, keeps each original value MAP_LIGHT changes (mapPal.dark) and starts in the current
@@ -182,7 +187,9 @@ Driven over ADB from a computer on the same Wi-Fi (Wireless debugging; pair once
   Any moving line costs: CSS marquee nonstop ~120%, JS-stepped 30 fps ~150% (main thread), 10 fps ~76%, 5 fps ~40%;
   the fade mask made no difference. Tried and dropped: one pass every 30 s (face + passes averaged 66% over 2 min). The face's frame
   loop runs through one shared timer (lite requestAnimationFrame wrapper) so things woken together draw in the same frame.
-- Added back in Lite form (2026-10-27): HTC-style flip cards (static: digits change once a minute, no flip animation),
+- Added back in Lite form (2026-10-27): HTC-style flip cards (static at first; since 2026-10-29, user, Glass's flip clock: same .fcard
+  layers, build()/flipTo() and flip animation, --ch 150px / 106px digits to fit Lite's narrower panel; measured on the
+  tablet: flipping every second ~140% vs ~16% idle, so the once-a-minute flip averages ~+2%),
   a flat cassette music card (still reels, album art as the right reel, progress between them, controls on a trapezoid
   bridge), vertical volume / brightness bars. Measured on the tablet after: idle 2-17% CPU.
 - Reels (2026-10-29, user): no smooth spin anywhere now (Glass's .hub CSS animation removed, prototype included).
@@ -193,7 +200,7 @@ Driven over ADB from a computer on the same Wi-Fi (Wireless debugging; pair once
   slide at 45 px/s, two copies, paused with the music; a title that fits = .still, one centred copy). Time labels
   (tNow / tLen) removed in both, progress bar only. Measured on the tablet, long title running: Lite ~84%, Glass
   ~103% (app + WebView); still: 6-9%.
-- Dropped on purpose: wallpaper picker and Glass toggle (nothing to show through solid panels), flip animation, smooth
+- Dropped on purpose: wallpaper picker and Glass toggle (nothing to show through solid panels), smooth
   spinning reels. Instead (2026-10-27) the left reel steps 20deg (a third of its 60deg spoke gap, so it reads as turning
   forward) on the existing one-second progress tick while playing, live radio included. Measured: playing 12% CPU with
   the step, 9% without.
@@ -335,8 +342,31 @@ Driven over ADB from a computer on the same Wi-Fi (Wireless debugging; pair once
   idle CPU ~11% app + ~6% renderer; opens in 1.8 s. What did it:
   1. Baked glass (glass.html bakeGlass): wallpaper blurred once into a half-size JPEG, each .glass shows its slice
      (--gx/--gy); gradients are see-through; live backdrop-filter only as a fallback.
+  S.titleRun (Controls > Scroll title, default off): fitTitle() runs a title that fits too, widening the <i> gaps to
+  the label width so one copy shows at a time; screensaver.html reads it from localStorage.carhome in renderPlayer()
+  (gap = trailing padding, so translateX(-50%) still loops seamlessly).
+  Canvas: the tablet's WebView page is 1006 x 601 CSS px (1340 x 800 at DPR 1.33). glass.html is drawn at 1340 x 800
+  and scaled (0.75 on the tablet); lite.html is drawn at 1006 x 601 on body and scaled by fit() (1 on the tablet),
+  so in a browser window of another shape both keep the tablet's proportions (Lite used to stretch to the window).
+  Controls (2026-10-29, user, option A of controls-wireframe.html): a full page (#cc) beside the rail in three columns
+  (.cc-cols: Quick / Display and driving / About card; CSS order puts Quick next to the sidebar, so with the sidebar
+  on the right the columns read About / Display / Quick, user 2026-10-29), plus #about (About nDashMo). Matte: .page sections shown by
+  body.show-cc / show-about (show()). Glass: .cc and .ab-page share home's grid cell and cross-fade like .apps-page,
+  frosted .pnl columns over the wallpaper (no live blur), screen.show-cc / show-about (showCC, showAbout). The old
+  drawer, its scrim and bottom bar are gone. Content and checks live in about.js (window.APPINFO: name, tagline, version, blurb,
+  creator, credits; AppInfo.renderCard/renderPage/click; version only, no change list, user 2026-10-29), copied into the app by build.sh. Bridge: version(),
+  locationOn(), isHome(); openPanel('location' | 'home' | 'media'). Checks refresh on visibilitychange (back from
+  Android's settings). MainActivity opens a tapped outside link (isForMainFrame + hasGesture) with ACTION_VIEW,
+  for the creator's Threads link; everything else outside carhome.app stays blocked. Installing an update turned Assist (accessibility) off on the tablet (2026-10-29).
+  Tablet check 2026-10-29: idle 0-1% CPU in both themes; memory (PSS) Lite ~118 MB + WebView ~90 MB, Glass ~199 MB +
+  ~101 MB (baked glass). Start the app for tests with the HOME intent (am start -a MAIN -c HOME), never am start -n:
+  an explicit start makes a second MainActivity in its own task (Assist.pluggedIn did that until 2026-10-29).
+  Bridge "charging" = EXTRA_PLUGGED != 0 (status FULL at 100% stayed 'charging' with the charger out).
   2. Calm mode (#screen.calm, always on in the app): no decorative loops (weather bob/glow/rain, warning and LIVE pulses);
-     reels stop when nothing plays.
+     reels stop when nothing plays. The weather icon stays still: playing its animation only for 3 s when the weather
+     changed was tried 2026-10-29 and cost 150-175% CPU while it ran (drops, sun glow; storm flash ~27%), without the
+     bob too, so it was dropped (user: best CPU). Still rain drops are staggered (--dy) and slanted; only clear / partly
+     glow. Icon kinds: clear, partly, cloudy, fog, rain, snow, storm; the minute tick swaps sun / moon at 06:00 / 18:00.
   3. WebView onPause while Car Home is not visible (stops drawing and animations). Never WebView.pauseTimers(): it is
      process-wide, and a second Car Home instance going to the background froze the screensaver page half-loaded.
   5. Cost model measured on the tablet: every screen update costs roughly 10% CPU per update per second, wherever it is

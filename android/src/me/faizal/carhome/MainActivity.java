@@ -76,7 +76,13 @@ public class MainActivity extends Activity {
 
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest req) {
-                return !HOST.equals(req.getUrl().getHost());   // stay on our pages; never open other sites in here
+                if (HOST.equals(req.getUrl().getHost())) return false;   // our pages
+                // Never open other sites in here. A link the user tapped (the creator's Threads link on the About page)
+                // opens in its own app or the browser instead.
+                if (req.isForMainFrame() && req.hasGesture()) {
+                    try { startActivity(new Intent(Intent.ACTION_VIEW, req.getUrl()).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); } catch (Exception ignored) { }
+                }
+                return true;
             }
         });
         web.setWebChromeClient(new WebChromeClient() {

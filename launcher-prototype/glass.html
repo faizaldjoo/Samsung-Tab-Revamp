@@ -2,8 +2,9 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<link rel="icon" href="data:,">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<title>Car Home Glass</title>
+<title>nDashMo Glass</title>
 <!-- Fonts and icons are bundled (vendor/), so the page starts fast and works offline. -->
 <link rel="stylesheet" href="vendor/fonts/fonts.css">
 <link rel="stylesheet" href="vendor/phosphor/fill/style.css">
@@ -42,10 +43,10 @@
   }
   .main { min-height: 0; }
   .rail { grid-column: 2; grid-row: 1; }
-  .main, .apps-page, .wp-page { grid-column: 1; grid-row: 1; }
+  .main, .apps-page, .wp-page, .cc, .ab-page { grid-column: 1; grid-row: 1; }
   #screen.side-left { grid-template-columns: 112px 1fr; padding: 20px 20px 20px 16px; }
   #screen.side-left .rail { grid-column: 1; }
-  #screen.side-left .main, #screen.side-left .apps-page, #screen.side-left .wp-page { grid-column: 2; }
+  #screen.side-left .main, #screen.side-left .apps-page, #screen.side-left .wp-page, #screen.side-left .cc, #screen.side-left .ab-page { grid-column: 2; }
 
   .wall { position: absolute; inset: -20px; background: #1a1d22 center / cover no-repeat; transition: opacity 0.6s ease, filter 0.6s ease; }
   /* Darken the photo toward the bottom so white text always clears contrast. */
@@ -126,13 +127,16 @@
   @keyframes slot-in { from { opacity: 0; transform: translateY(-10px) scale(0.9); } }
 
   /* Home and the all-apps page share the same grid cell and cross-fade. */
-  .main, .apps-page, .wp-page { transition: opacity 0.32s var(--ease), transform 0.32s var(--ease); }
+  .main, .apps-page, .wp-page, .cc, .ab-page { transition: opacity 0.32s var(--ease), transform 0.32s var(--ease); }
   .apps-page { opacity: 0; transform: scale(1.03); pointer-events: none; }
   #screen.show-apps .main { opacity: 0; transform: scale(0.97); pointer-events: none; }
   #screen.show-apps .apps-page { opacity: 1; transform: none; pointer-events: auto; }
   .wp-page { opacity: 0; transform: scale(1.03); pointer-events: none; }
   #screen.show-wp .main { opacity: 0; transform: scale(0.97); pointer-events: none; }
   #screen.show-wp .wp-page { opacity: 1; transform: none; pointer-events: auto; }
+  .cc, .ab-page { opacity: 0; transform: scale(1.03); pointer-events: none; }
+  #screen.show-cc .main, #screen.show-about .main { opacity: 0; transform: scale(0.97); pointer-events: none; }
+  #screen.show-cc .cc, #screen.show-about .ab-page { opacity: 1; transform: none; pointer-events: auto; }
 
   .main { display: grid; grid-template-columns: 1.08fr 2fr; gap: 18px; min-width: 0; }
   /* minmax(0, 1fr): the top row must shrink to what is left above the 312px row, never push the page past the screen. */
@@ -248,7 +252,7 @@
   .today .flapT::after { content: ""; position: absolute; inset: 0; background: rgba(0,0,0,0); }
   .today .fcard.go .flapT::after { animation: shade 0.28s ease-in forwards; }
   @keyframes shade { to { background: rgba(0,0,0,0.25); } }
-  @media (prefers-reduced-motion: reduce) { .card.go .flapT, .card.go .flapB, .card.go .flapT::after { animation-duration: 0.01s; animation-delay: 0s; } }
+  @media (prefers-reduced-motion: reduce) { .fcard.go .flapT, .fcard.go .flapB, .fcard.go .flapT::after { animation-duration: 0.01s; animation-delay: 0s; } }
 
   /* Weather icon, centred over the cards' feet and the slab. Animated exactly as in weather.html. */
   .today .iconwrap { position: absolute; left: 50%; top: 168px; width: 170px; height: 128px; margin-left: -85px; z-index: 2; transform: scale(1.14); transform-origin: 50% 40%;
@@ -271,13 +275,18 @@
   @keyframes flash { 0%, 80%, 84%, 88%, 100% { opacity: 0; } 82% { opacity: 0.9; } 86% { opacity: 0.6; } }
   .ibox.k-cloudy .base { animation: drift 7s ease-in-out infinite alternate; }
   @keyframes drift { from { transform: translate(0, 0); } to { transform: translate(-6px, -2px); } }
-  @media (prefers-reduced-motion: reduce) { .ibox, .ibox *, .ibox .drops i { animation: none !important; } .ibox .drops i { opacity: 0.8; } }
+  /* Still drops (no animation): staggered and slanted like rain caught mid-fall, not one level row. */
+  .ibox .drops i:nth-child(1) { --dy: 4px; } .ibox .drops i:nth-child(2) { --dy: 17px; } .ibox .drops i:nth-child(3) { --dy: 0px; }
+  .ibox .drops i:nth-child(4) { --dy: 13px; } .ibox .drops i:nth-child(5) { --dy: 2px; } .ibox .drops i:nth-child(6) { --dy: 15px; }
+  @media (prefers-reduced-motion: reduce) { .ibox, .ibox *, .ibox .drops i { animation: none !important; } .ibox .drops i { opacity: 0.8; transform: translateY(var(--dy)) rotate(12deg); } }
   /* Calm mode (always on in the app; glass.html?calm in a browser): no decorative loops. On this tablet each loop made the
      whole screen redraw 60 times a second for nothing. What stays: reels while music plays, a long title scrolling,
      the clock flip once a minute, the speed bar and compass on GPS updates (they step, never ease). */
   #screen.calm .ibox, #screen.calm .ibox *, #screen.calm .status .warn, #screen.calm .live-badge i { animation: none !important; }
-  #screen.calm .ibox .drops i { opacity: 0.8; }
-  #screen.calm .ibox .glow { opacity: 0.85; }
+  #screen.calm .ibox .drops i { opacity: 0.8; transform: translateY(var(--dy)) rotate(12deg); }
+  /* Tried 2026-10-29: playing the icon's animation for 3 s when the weather changes cost 150-175% CPU on the tablet
+     while it ran (drops, glow; the thunderstorm flash ~27%), so the icon stays still. */
+  #screen.calm .ibox.k-clear .glow, #screen.calm .ibox.k-partly .glow { opacity: 0.85; }   /* only the sun / moon icons glow */
   /* Same for the cassette: on this tablet each screen update costs about 10% CPU per update per second, so anything that
      moves every frame costs over a full core (measured: 170% with the reels spinning, 24% still). The reels turn a
      step on the one-second progress tick, in the prototype too since 2026-10-29 (it used to spin them smoothly). In
@@ -468,28 +477,75 @@
   /* Controls: slides out from the rail over a dimmed home screen. Tap outside or X to close. */
   /* A dark scrim covers the home screen (the rail stays on top) and the panel is near-opaque,
      so the map and app icons behind it do not bleed through the cards. */
-  .cc-scrim { position: absolute; inset: 0; grid-area: auto; z-index: 3; background: rgba(5, 7, 10, 0.4); opacity: 0; pointer-events: none; transition: opacity 0.28s var(--ease); }
-  #screen.show-cc .cc-scrim { opacity: 1; pointer-events: auto; }
   .rail { z-index: 5; }
-  .cc { position: absolute; z-index: 4; right: 146px; top: 20px; bottom: 20px; width: 700px; padding: 24px 24px 20px;
-    display: flex; flex-direction: column; gap: 16px;
-    /* Glass kept, but frosted much harder than the home panels: a 40px blur turns the map and icons behind into soft colour,
-       and the dark tint keeps the cards readable. Only drawn while the drawer is open, so the heavier blur costs nothing at rest. */
-    background: linear-gradient(160deg, rgba(255,255,255,0.10), rgba(255,255,255,0.02) 45%, rgba(10,14,22,0.42));
-    backdrop-filter: blur(40px) saturate(1.5) brightness(0.62);
-    -webkit-backdrop-filter: blur(40px) saturate(1.5) brightness(0.62);
-    opacity: 0; transform: translateX(16px) scale(0.98); transform-origin: right center; pointer-events: none;
-    transition: opacity 0.28s var(--ease), transform 0.28s var(--ease); }
-  #screen.side-left .cc { right: auto; left: 146px; transform: translateX(-16px) scale(0.98); transform-origin: left center; }
-  #screen.show-cc .cc { opacity: 1; transform: none; pointer-events: auto; }
-  .cc-foot { display: flex; gap: 10px; align-items: center; padding-top: 2px; }
-  .theme-lbl { font-size: 15px; font-weight: 600; color: var(--muted); margin: 0 4px 0 6px; }
-  .theme-seg { width: 240px; margin-right: auto; }
-  .theme-seg button { height: 52px; }
-  .theme-seg button i { font-size: 20px; }
-  .pill-btn { height: 48px; padding: 0 20px 0 16px; border-radius: 999px; display: inline-flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 600;
-    background: rgba(255,255,255,0.12); box-shadow: var(--rim); }
-  .pill-btn i { font-size: 20px; }
+  /* Controls and About (2026-10-29, user): pages in home's cell, three columns by job. Each column is a frosted panel
+     (a dark tint over the wallpaper, no live blur), settings inside are rows and segmented controls, so it reads as
+     three groups instead of a grid of identical cards. */
+  .cc, .ab-page { position: relative; z-index: 2; display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 18px; min-width: 0; min-height: 0; }
+  .pnl { border-radius: var(--r-glass); background: linear-gradient(160deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02) 48%), rgba(14, 18, 25, 0.72);
+    box-shadow: var(--rim); min-width: 0; min-height: 0; }
+  #screen.night .pnl { background: rgba(8, 10, 14, 0.82); }
+  .cc-head { display: flex; align-items: center; gap: 14px; padding: 12px 12px 12px 24px; }
+  .ab-page .cc-head { padding-left: 12px; }
+  .cc-head h2 { font-size: 28px; font-weight: 600; letter-spacing: -0.02em; }
+  .cc .cc-head .round { margin-left: auto; width: 60px; height: 60px; font-size: 24px; }
+  .ab-page .cc-head .round { width: 60px; height: 60px; font-size: 24px; }
+  .cc-cols { display: grid; grid-template-columns: 1fr 1.15fr 1fr; gap: 18px; min-height: 0; }
+  /* Quick sits next to the sidebar, within reach (user, 2026-10-29): sidebar right = Quick right and the nDashMo card
+     left; sidebar left = the other way round. Display and driving stays in the middle. */
+  .cc-cols > * { order: 2; }
+  .cc-cols > :first-child { order: 1; } .cc-cols > .about-card { order: 3; }
+  #screen:not(.side-left) .cc-cols > :first-child { order: 3; } #screen:not(.side-left) .cc-cols > .about-card { order: 1; }
+  .ab-cols { display: grid; grid-template-columns: 1fr 1.15fr; gap: 18px; min-height: 0; }
+  .ccol { padding: 20px; display: flex; flex-direction: column; gap: 14px; overflow: hidden; }
+  .ccol > .lbl { margin-bottom: 0; }
+  .quick { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .quick .card { height: 136px; }
+  .quick .tog > span:last-child { min-width: 0; max-width: 100%; }
+  .quick .tog b, .quick .tog small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .field { display: grid; gap: 8px; }
+  .flbl { font-size: 15px; font-weight: 600; color: var(--muted); display: flex; align-items: baseline; gap: 8px; }
+  .flbl .hint { margin: 0; font-weight: 500; }
+  .rows { display: grid; }
+  .rows.sep { border-top: 1px solid rgba(255,255,255,0.12); padding-top: 4px; }
+  .cc .row { display: flex; flex-direction: row; justify-content: flex-start; align-items: center; gap: 14px; min-height: 72px; width: 100%; text-align: left; }
+  .cc .row > span:not(.disc):not(.sw) { min-width: 0; }
+  .cc .row b { display: block; font-size: 18px; font-weight: 600; margin: 0; } .cc .row small { display: block; font-size: 14px; color: var(--muted); margin-top: 2px; }
+  .cc .row .disc { width: 46px; height: 46px; font-size: 22px; }
+  .cc .row .chev { margin-left: auto; font-size: 20px; color: var(--muted); }
+  .seg.mini { width: 190px; flex: none; margin-left: auto; }
+  .seg.mini button { height: 44px; }
+  /* About card and page */
+  .ab-app { display: flex; align-items: center; gap: 16px; }
+  .mark { width: 68px; height: 68px; border-radius: 18px; background: linear-gradient(160deg, #2a3c58, #121822); display: grid; place-items: center; font-size: 34px; color: var(--accent); flex: none; box-shadow: var(--rim); }
+  .ab-app b { display: block; font-size: 25px; font-weight: 700; letter-spacing: -0.01em; } .ab-app small { display: block; font-size: 15px; color: var(--muted); margin-top: 2px; }
+  .chk { display: grid; gap: 2px; }
+  .chk-row { display: flex; align-items: center; gap: 12px; min-height: 44px; font-size: 17px; width: 100%; text-align: left; }
+  .chk-row i { font-size: 22px; color: #34c759; } .chk-row.off i, .chk-row.off small { color: var(--warn); }
+  .chk-row small { margin-left: auto; color: var(--muted); font-size: 15px; }
+  .meter { display: flex; gap: 12px; }
+  .meter > button { flex: 1; min-width: 0; border-radius: 16px; background: rgba(255,255,255,0.08); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.1); padding: 12px 14px;
+    display: flex; align-items: center; gap: 12px; text-align: left; }
+  .meter > button > span { min-width: 0; }
+  .meter i { font-size: 26px; color: var(--muted); } .meter b { display: block; font-size: 21px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .meter small { display: block; font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .meter .bad { background: rgba(255,122,107,0.16); box-shadow: inset 0 0 0 1px rgba(255,122,107,0.45); } .meter .bad i, .meter .bad b { color: var(--warn); }
+  .btn { margin-top: auto; height: 60px; border-radius: 999px; background: rgba(255,255,255,0.12); box-shadow: var(--rim); font-size: 17px; font-weight: 600;
+    display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; }
+  .btn.solid { background: #f5f6f7; color: #14171c; text-shadow: none; }
+  .btn[hidden] { display: none; }
+  .blurb { font-size: 17px; line-height: 1.5; color: var(--muted); }
+  .cred { font-size: 14px; line-height: 1.5; color: var(--muted); opacity: 0.8; margin-top: auto; }
+  .ab-meta { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 12px; font-size: 16px; color: var(--muted); }
+  .ab-meta > span:first-child { white-space: nowrap; }
+  .ab-ver { font-size: 18px; font-weight: 600; color: var(--muted); }
+  .ab-need { font-size: 15px; font-weight: 600; color: var(--muted); }
+  .creator { display: inline-flex; align-items: center; gap: 10px; height: 52px; padding: 0 20px 0 14px; border-radius: 999px; background: rgba(255,255,255,0.12);
+    box-shadow: var(--rim); color: var(--text); text-decoration: none; font-size: 17px; white-space: nowrap; }
+  .creator i { font-size: 26px; } .creator b { font-weight: 600; }
+  .chk-row > span { min-width: 0; text-align: left; }
+  .chk-row em { display: block; font-style: normal; font-size: 15px; color: var(--muted); margin-top: 2px; }
+  #abChk .chk-row { min-height: 76px; }
 
   /* Wallpaper picker: a page in the same cell as home and all apps. "From gallery" first, then the user's photo (if any),
      then the built-in set; the current one is outlined and ticked. Tapping a tile previews it on the real home screen. */
@@ -518,13 +574,7 @@
   .wp-bar .wp-set { background: #f5f6f7; color: #14171c; text-shadow: none; }
   .wp-bar .wp-cancel { background: rgba(255,255,255,0.12); box-shadow: var(--rim); }
   .round { width: 48px; height: 48px; border-radius: 999px; display: grid; place-items: center; font-size: 22px; background: rgba(255,255,255,0.12); box-shadow: var(--rim); }
-  .cc-grid { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(12, 1fr); grid-template-rows: minmax(0, 1fr) auto auto minmax(0, 1fr); gap: 14px; }
-  /* 12 columns: toggles a quarter each (Glass effect lines up under Hotspot), navigation and the two health cards in halves. */
-  .cc-grid > * { grid-column: span 3; }
   .card { border-radius: var(--r-tile); background: var(--card); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.1); padding: 16px; min-width: 0; }
-  .cc-grid > .s2 { grid-column: span 6; }
-  .cc-grid > .s4 { grid-column: span 4; }
-  .cc-grid > .s5 { grid-column: span 5; }
   .lbl { font-size: 13px; font-weight: 600; color: var(--muted); margin-bottom: 12px; }
   .hint { display: block; font-size: 13px; color: var(--muted); margin-top: 10px; }
   /* Toggle card: the icon disc fills with the accent when on. */
@@ -559,18 +609,11 @@
   .seg button img { width: 18px; height: 18px; opacity: 0.7; }
   .seg button[aria-pressed="true"] { background: rgba(255,255,255,0.92); color: #14171c; text-shadow: none; }
   .seg button[aria-pressed="true"] img { filter: invert(1); opacity: 1; }
-  .health { display: flex; flex-direction: column; justify-content: space-between; }
-  .health > i { font-size: 34px; }
-  .health b { display: block; font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; }
-  .health small { display: block; font-size: 13px; color: var(--muted); margin-top: 2px; }
-  .health.bad { background: rgba(255,122,107,0.16); box-shadow: inset 0 0 0 1px rgba(255,122,107,0.45); }
-  .health.bad > i, .health.bad b { color: var(--warn); }
 
   /* Night mode: darker wallpaper and glass, dimmer whites, so the screen does not glare at night. */
   #screen.night { --text: #e4e6ea; --muted: rgba(228, 230, 234, 0.66); }
   #screen.night .wall { filter: brightness(0.38) saturate(0.6); }
   #screen.night .glass { background: linear-gradient(160deg, rgba(255,255,255,0.06), rgba(8,10,14,0.55)); }
-  #screen.night .cc { background: linear-gradient(160deg, rgba(255,255,255,0.05), rgba(8,10,14,0.6)); }
   #screen.night .track .fill { opacity: 0.7; }
   #screen.night .today { --card-top: #d6d7d8; --card-top2: #c9cacb; --card-bot: #c3c4c6; --card-bot2: #aeb0b3; --digit: #1f2125; }
   #screen.night .map-tiles .grid { filter: invert(1) hue-rotate(180deg) brightness(0.6) contrast(0.9) saturate(0.3); }
@@ -580,7 +623,6 @@
      Placed after the night rules so they win at equal specificity; !important also beats the ?lens inline filter. */
   #screen.fx-transparent .glass { backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
     background: linear-gradient(160deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02) 48%), rgba(10, 14, 20, 0.5); }
-  #screen.fx-transparent .cc { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; background: #171b22; }
 
   /* Baked glass (bakeGlass()): the wallpaper is blurred once into --glass-img, and each panel paints its own slice of it
      (--gx/--gy = minus its offset in the wallpaper layer, which starts 20px outside the screen and is 1380x840). Same look
@@ -590,7 +632,6 @@
     background: linear-gradient(160deg, rgba(255,255,255,0.10), rgba(255,255,255,0.03) 48%, rgba(255,255,255,0.07)),
       linear-gradient(rgba(8,12,18,0.14), rgba(8,12,18,0.14)), var(--glass-img) var(--gx, 0) var(--gy, 0) / 1380px 840px no-repeat; }
   #screen.see-through .glass:not(.cc) { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
-  #screen.baked .cc, #screen.see-through .cc { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; background: rgba(18, 22, 28, 0.95); }
   #screen.night.fx-transparent .glass { background: rgba(6, 8, 12, 0.62); }
   #screen.night.fx-transparent .cc { background: #101318; }
 
@@ -750,59 +791,74 @@
   </section>
   <div class="wp-bar" id="wpBar"><button class="wp-cancel press" id="wpCancel">Cancel</button><button class="wp-set press" id="wpSet">Set wallpaper</button></div>
 
-  <div class="cc-scrim" id="ccScrim"></div>
-  <section class="glass cc" id="cc" aria-label="Controls">
-    <div class="cc-grid">
-      <!-- In the Android app Wi-Fi and Bluetooth open Settings.Panel (apps cannot toggle them since Android 10);
-           data, DND and auto brightness can toggle directly once WRITE_SECURE_SETTINGS is granted over ADB. -->
-      <button class="card tog press" data-t="wifi"><span class="disc"><i class="ph-bold ph-wifi-high"></i></span><span><b>Wi-Fi</b><small></small></span></button>
-      <button class="card tog press" data-t="bt"><span class="disc"><i class="ph-fill ph-bluetooth-connected"></i></span><span><b>Bluetooth</b><small></small></span></button>
-      <button class="card tog press" data-t="data"><span class="disc"><i class="ph-fill ph-cell-signal-high"></i></span><span><b>Mobile data</b><small></small></span></button>
-      <button class="card tog press" data-t="hotspot"><span class="disc"><i class="ph-bold ph-broadcast"></i></span><span><b>Hotspot</b><small></small></span></button>
-
-      <div class="card s5">
-        <div class="lbl">Night mode</div>
-        <div class="seg" data-seg="night"><button data-v="auto">Auto</button><button data-v="day">Day</button><button data-v="night">Night</button></div>
-        <small class="hint" id="nightHint"></small>
-      </div>
-      <div class="card s4">
-        <div class="lbl">Sidebar</div>
-        <div class="seg" data-seg="side"><button data-v="left">Left</button><button data-v="right">Right</button></div>
-        <small class="hint">Right sits closer to the driver</small>
-      </div>
-      <button class="card tog press" data-t="glass"><span class="disc"><i class="ph-fill ph-drop"></i></span><span><b>Glass effect</b><small></small></span></button>
-
-      <div class="card s2">
-        <div class="lbl">Navigation app</div>
-        <div class="seg" data-seg="nav">
-          <button data-v="waze"><img src="vendor/simpleicons/waze.svg" alt="">Waze</button>
-          <button data-v="maps"><img src="vendor/simpleicons/googlemaps.svg" alt="">Google Maps</button>
+  <!-- Controls, full screen (2026-10-29, user, option A of controls-wireframe.html): a page in the same cell as home, like
+       All apps and Wallpaper, with three frosted columns by job over the wallpaper: Quick, Display and driving, nDashMo
+       (the About card). Same data-t / data-seg wiring as before. -->
+  <section class="cc" id="cc" aria-label="Controls">
+    <div class="cc-head pnl"><h2>Controls</h2><button class="round press" id="ccClose" aria-label="Close controls"><i class="ph-bold ph-x"></i></button></div>
+    <div class="cc-cols">
+      <div class="ccol pnl">
+        <div class="lbl">Quick</div>
+        <div class="quick">
+          <button class="card tog press" data-t="wifi"><span class="disc"><i class="ph-bold ph-wifi-high"></i></span><span><b>Wi-Fi</b><small></small></span></button>
+          <button class="card tog press" data-t="bt"><span class="disc"><i class="ph-fill ph-bluetooth-connected"></i></span><span><b>Bluetooth</b><small></small></span></button>
+          <button class="card tog press" data-t="data"><span class="disc"><i class="ph-fill ph-cell-signal-high"></i></span><span><b>Mobile data</b><small></small></span></button>
+          <button class="card tog press" data-t="hotspot"><span class="disc"><i class="ph-bold ph-broadcast"></i></span><span><b>Hotspot</b><small></small></span></button>
         </div>
-        <small class="hint">Map tap and turn info use this app</small>
+        <div class="rows">
+          <button class="row tog press" data-t="dnd"><span class="disc"><i class="ph-fill ph-moon"></i></span><span><b>Do Not Disturb</b><small></small></span><span class="sw"></span></button>
+          <button class="row tog press" data-t="autoBri"><span class="disc"><i class="ph-fill ph-sun-dim"></i></span><span><b>Auto brightness</b><small></small></span><span class="sw"></span></button>
+        </div>
       </div>
+      <div class="ccol pnl">
+        <div class="lbl">Display and driving</div>
+        <div class="field"><span class="flbl">Theme</span><div class="seg" data-seg="theme"><button data-v="lite"><i class="ph-fill ph-square"></i>Matte</button><button data-v="glass"><i class="ph-fill ph-drop"></i>Glass</button></div></div>
+        <div class="field"><span class="flbl">Night mode <small class="hint" id="nightHint"></small></span><div class="seg" data-seg="night"><button data-v="auto">Auto</button><button data-v="day">Day</button><button data-v="night">Night</button></div></div>
+        <div class="field"><span class="flbl">Navigation app</span><div class="seg" data-seg="nav">
+          <button data-v="waze"><img src="vendor/simpleicons/waze.svg" alt="">Waze</button>
+          <button data-v="maps"><img src="vendor/simpleicons/googlemaps.svg" alt="">Google Maps</button></div></div>
+        <div class="rows sep">
+          <div class="row"><span><b>Sidebar side</b><small>Right sits closer to the driver</small></span><div class="seg mini" data-seg="side"><button data-v="left">Left</button><button data-v="right">Right</button></div></div>
+          <button class="row tog press" data-t="glass"><span><b>Glass effect</b><small></small></span><span class="sw"></span></button>
+          <button class="row tog press" data-t="titleRun"><span><b>Scroll song title</b><small></small></span><span class="sw"></span></button>
+          <button class="row press" id="wpBtn"><span><b>Wallpaper</b><small>Photos, gradients, your gallery</small></span><i class="ph-bold ph-caret-right chev"></i></button>
+        </div>
+      </div>
+      <div class="ccol pnl about-card">
+        <div class="ab-app"><span class="mark"><i class="ph-fill ph-steering-wheel"></i></span><span><b>nDashMo</b><small id="aboutTag"></small></span></div>
+        <div class="ab-meta"><span id="aboutVer"></span><span id="aboutBy"></span></div>
+        <div class="chk" id="aboutChk"></div>
+        <!-- Prototype only: tap these two to preview the warning states. -->
+        <div class="meter"><button class="press" id="batCard"><i></i><span><b></b><small></small></span></button><button class="press" id="tempCard"><i></i><span><b></b><small></small></span></button></div>
+        <button class="btn press" id="aboutBtn"><i class="ph-fill ph-info"></i>Details</button>
+      </div>
+    </div>
+  </section>
 
-      <button class="card tog press" data-t="dnd"><span class="disc"><i class="ph-fill ph-moon"></i></span><span><b>Do Not Disturb</b><small></small></span></button>
-      <button class="card tog press" data-t="autoBri"><span class="disc"><i class="ph-fill ph-sun-dim"></i></span><span><b>Auto brightness</b><small></small></span></button>
-      <!-- Prototype only: tap these two cards to preview the warning states. -->
-      <button class="card s2 health press" id="batCard"><i></i><span><b></b><small></small></span></button>
-      <button class="card s2 health press" id="tempCard"><i></i><span><b></b><small></small></span></button>
-    </div>
-    <!-- Bottom bar (2026-10-28, user): on the 7.8" tablet the top of the drawer is a stretch from the driver's seat, so
-         Theme, Wallpaper and Close sit here, within thumb reach. The card grid keeps exactly four rows. -->
-    <div class="cc-foot">
-      <span class="theme-lbl">Theme</span>
-      <div class="seg theme-seg" data-seg="theme">
-        <button data-v="lite"><i class="ph-fill ph-feather"></i>Lite</button>
-        <button data-v="glass"><i class="ph-fill ph-drop"></i>Glass</button>
+  <!-- About nDashMo (from the About card): name, tagline, version and creator on the left, what it needs from
+       Android on the right (version only, no change list: user, 2026-10-29). Content in about.js. -->
+  <section class="ab-page" id="about" aria-label="About nDashMo">
+    <div class="cc-head pnl"><button class="round press" id="aboutBack" aria-label="Back to controls"><i class="ph-bold ph-arrow-left"></i></button><h2>About nDashMo</h2></div>
+    <div class="ab-cols">
+        <div class="ccol pnl ab-id">
+          <div class="ab-app"><span class="mark"><i class="ph-fill ph-steering-wheel"></i></span><span><b>nDashMo</b><small id="abTag"></small></span></div>
+          <p class="ab-ver" id="abVer"></p>
+          <p class="blurb" id="abBlurb"></p>
+          <div id="abBy"></div>
+          <p class="cred" id="abCred"></p>
+        </div>
+        <div class="ccol pnl">
+          <div class="ab-need">What nDashMo needs</div>
+          <div class="chk" id="abChk"></div>
+          <button class="btn solid press" id="abFix" hidden><i class="ph-fill ph-gear"></i>Open settings</button>
+        </div>
       </div>
-      <button class="pill-btn press" id="wpBtn"><i class="ph-fill ph-image"></i>Wallpaper</button>
-      <button class="pill-btn press" id="ccClose" aria-label="Close controls"><i class="ph-bold ph-x"></i>Close</button>
-    </div>
   </section>
 
   <div class="glass toast" id="toast"></div>
 </div>
 
+<script src="about.js"></script>
 <script>
   const screen = document.getElementById('screen');
   const $ = id => document.getElementById(id);
@@ -866,7 +922,7 @@
   // degrees, closer in, the position low in the panel so more road ahead shows.
   function mapView() {
     const H = $('vmap').clientHeight, pad = p => ({ top: Math.round(H * p), bottom: 0, left: 0, right: 0 });
-    return { center: [pos.lon, pos.lat], zoom: 16.4, pitch: 55, bearing: heading, padding: pad(0.52) };
+    return { center: [pos.lon, pos.lat], zoom: 18, pitch: 55, bearing: heading, padding: pad(0.52) };
   }
   vmUse();
 
@@ -902,11 +958,18 @@
     highway_major_casing: { 'line-color': '#aeb5bf' }, highway_major_inner: { 'line-color': '#ffffff' },
     highway_major_subtle: { 'line-color': '#ffffff' }, highway_motorway_subtle: { 'line-color': '#ffffff' },
     highway_motorway_casing: { 'line-color': '#959eaa' }, highway_motorway_inner: { 'line-color': '#f4f6f8' },
-    highway_name_other: { 'text-color': '#353a41', 'text-halo-color': '#ffffff' },
+    highway_name_other: { 'text-color': '#353a41', 'text-halo-color': '#ffffff', 'text-halo-width': 2 },
     highway_name_motorway: { 'text-color': '#353a41' },
     rail: { 'line-color': '#c2c7ce' }, rail_dash: { 'line-color': '#e6e9ed' },
     boundary: { 'line-color': '#a9b0b9' },
     place: { 'text-color': '#4d535b', 'text-halo-color': 'rgba(255,255,255,0.85)' },
+  };
+  // Street names big enough to read at arm's length on the tilted map (user, 2026-10-29): the style's 10 px uppercase
+  // road labels become 16 px bold in normal case (faster to read), repeated more often along the road.
+  const MAP_TEXT = {
+    highway_name_other: { 'text-size': 16, 'text-font': ['Noto Sans Bold'], 'text-transform': 'none', 'symbol-spacing': 220 },
+    highway_name_motorway: { 'text-size': 15, 'text-font': ['Noto Sans Bold'] },
+    place: { 'text-size': 13 },
   };
   const mapGroup = id => id.startsWith('place_') ? 'place' : id.startsWith('boundary_') ? 'boundary'
     : id.startsWith('railway') ? (id.endsWith('dashline') ? 'rail_dash' : 'rail') : id;
@@ -918,6 +981,7 @@
     for (const l of style.layers) {
       const g = mapGroup(l.id), light = MAP_LIGHT[g];
       l.paint = Object.assign(l.paint || {}, MAP_DARK[g]);
+      Object.assign(l.layout || {}, MAP_TEXT[g]);
       if (!light) continue;
       mapPal.light[l.id] = light;
       mapPal.dark[l.id] = Object.fromEntries(Object.keys(light).map(k => [k, l.paint[k]]));
@@ -1129,7 +1193,7 @@
   let pick = null;   // while choosing: [] or [left]
   const assist = () => {
     if (!NATIVE || (Android.assistOn && Android.assistOn())) return true;
-    say('Turn on Car Home in Accessibility first'); setTimeout(() => Android.openAssistSettings(), 900); return false;
+    say('Turn on nDashMo in Accessibility first'); setTimeout(() => Android.openAssistSettings(), 900); return false;
   };
   function renderPick() {
     screen.classList.toggle('picking', !!pick);
@@ -1224,10 +1288,17 @@
 
   // Controls panel.
   // Controls and All apps are never open together: opening one closes the other.
-  const showCC = on => { if (on) showApps(false); screen.classList.toggle('show-cc', on); };
-  $('statusBtn').addEventListener('click', () => showCC(!screen.classList.contains('show-cc')));
+  const showCC = on => { if (on) { showApps(false); AppInfo.renderCard(); } screen.classList.remove('show-about'); screen.classList.toggle('show-cc', on); };
+  // About nDashMo: a page of its own, reached from the About card; Back returns to Controls.
+  const showAbout = on => { screen.classList.toggle('show-cc', !on); screen.classList.toggle('show-about', on); if (on) { AppInfo.renderPage(); } };
+  $('statusBtn').addEventListener('click', () => showCC(!screen.classList.contains('show-cc') && !screen.classList.contains('show-about')));
+  $('aboutBtn').addEventListener('click', () => showAbout(true));
+  $('aboutBack').addEventListener('click', () => showAbout(false));
+  $('about').addEventListener('click', e => AppInfo.click(e));
+  $('aboutChk').addEventListener('click', e => AppInfo.click(e));
+  // Back from Android's settings (an access turned on): show the checks as they are now.
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) { AppInfo.renderCard(); AppInfo.renderPage(); } });
   $('ccClose').addEventListener('click', () => showCC(false));
-  $('ccScrim').addEventListener('click', () => showCC(false));
 
   // ---- Two-finger swipes on home. Up / down: volume up / down, a step every 50 px, with One UI's volume indicator.
   //      Right: recent apps. Left: the last split screen pair (none yet: All apps, to pick two). The first 24 px of
@@ -1238,7 +1309,7 @@
     addEventListener('touchstart', e => {
       if (e.touches.length !== 2) return;
       const m = mid(e.touches);
-      s = !['show-apps', 'show-cc', 'show-wp'].some(c => screen.classList.contains(c)) ? { x: m.x, y: m.y, y0: m.y, dx: 0, way: null } : null;
+      s = !['show-apps', 'show-cc', 'show-wp', 'show-about'].some(c => screen.classList.contains(c)) ? { x: m.x, y: m.y, y0: m.y, dx: 0, way: null } : null;
     }, { passive: true });
     addEventListener('touchmove', e => {
       if (!s || e.touches.length !== 2) return;
@@ -1271,7 +1342,7 @@
     if (!sw) return;
     const s = sw, dx = e.clientX - s.x, dy = e.clientY - s.y; sw = null;
     if (Date.now() - s.t > 700) return;
-    const page = ['show-apps', 'show-cc', 'show-wp'].some(c => screen.classList.contains(c));
+    const page = ['show-apps', 'show-cc', 'show-wp', 'show-about'].some(c => screen.classList.contains(c));
     const home = () => { showCC(false); showApps(false); showWp(false); };
     if (s.bottom && dy < -80 && Math.abs(dx) < -dy) { swiped = true; if (page) home(); return; }
     if (Math.abs(dx) < 120 || Math.abs(dy) > Math.abs(dx) * 0.6) return;
@@ -1450,6 +1521,7 @@
     wifi: on => on ? (NATIVE ? NET.ssid || 'Connected' : 'Faizal iPhone') : 'Off', bt: on => on ? (NATIVE ? 'On' : 'Car audio') : 'Off',
     data: on => on ? (NATIVE ? 'In use' : 'Telkomsel LTE') : (NATIVE && S.wifi ? 'Standby' : 'Off'),
     hotspot: on => on ? 'On' : 'Off', glass: on => on ? 'On' : 'Off, clear panels', dnd: on => on ? 'On while driving' : 'Off', autoBri: on => on ? 'On' : 'Off',
+    titleRun: on => on ? 'Every song' : 'Long titles only',   // on: about 100% more CPU while music plays
   };
   // In the app, connectivity and Do Not Disturb open the system panel (Android 10+ does not let apps switch them);
   // their state comes back from the tablet. Auto brightness switches directly once "Modify system settings" is allowed.
@@ -1465,7 +1537,7 @@
     if (sb && sb.closest('[data-seg]').dataset.seg === 'theme') { setTheme(sb.dataset.v); return; }
     if (t && NATIVE && PANEL.includes(t.dataset.t)) { Android.openPanel(t.dataset.t); return; }
     if (t && NATIVE && t.dataset.t === 'autoBri' && !Android.setAutoBrightness(!S.autoBri)) return;
-    if (t) S[t.dataset.t] = !S[t.dataset.t];
+    if (t) { S[t.dataset.t] = !S[t.dataset.t]; if (t.dataset.t === 'titleRun') fitTitle(); }
     else if (sb) S[sb.closest('[data-seg]').dataset.seg] = sb.dataset.v;
     else return;
     save(); apply();
@@ -1594,6 +1666,7 @@
     const a = new Date(d.getTime() + 17 * 60000);
     if (!NATIVE) $('arrive').textContent = `${pad(a.getHours())}:${pad(a.getMinutes())}`;
     if (S.night === 'auto') { screen.classList.toggle('night', isNight()); mapTheme(); if (wallSrc) bakeGlass(); }
+    if (wxKind && ICON[wxKind]() !== wxName) setIcon(wxKind);   // sun / moon at 06:00 and 18:00
   }
 
   // ---- Weather icon (Weatherglass TV glass icons, vendor/weatherglass, MIT). Same mapping and animation as weather.html. ----
@@ -1601,7 +1674,8 @@
   const GLOW = { sunny: [86, 65, 96, 'rgba(255,190,70,0.55)'], partly_cloudy_day: [129, 38, 72, 'rgba(255,190,70,0.6)'],
                  clear_night: [78, 73, 92, 'rgba(190,200,255,0.45)'], partly_cloudy_night: [113, 52, 70, 'rgba(190,200,255,0.5)'] };
   const ICON = { partly: () => night() ? 'partly_cloudy_night' : 'partly_cloudy_day', rain: () => 'rainy',
-                 clear: () => night() ? 'clear_night' : 'sunny', cloudy: () => 'cloud', storm: () => 'thunderstorm' };
+                 clear: () => night() ? 'clear_night' : 'sunny', cloudy: () => 'cloud', storm: () => 'thunderstorm',
+                 fog: () => 'foggy', snow: () => 'snowflake' };   // as Lite and the screensaver
   // Preview conditions. In the app: Open-Meteo current weather at the last GPS fix.
   const STATES = [
     { kind: 'partly', temp: 31, cond: 'Partly cloudy', hi: 33, lo: 25 },
@@ -1611,15 +1685,20 @@
     { kind: 'storm',  temp: 25, cond: 'Thunderstorm',  hi: 28, lo: 23 },
   ];
   let wxi = 0;
+  var wxKind = '', wxName = '';   // var: the clock's tick() reads them before this line runs
+  function setIcon(kind) {
+    const name = ICON[kind](), box = $('ibox'), src = `vendor/weatherglass/${name}.png`;
+    wxKind = kind; wxName = name;
+    $('icon').src = src; $('flash').src = kind === 'storm' ? src : '';
+    box.className = `ibox k-${kind}`;
+    const g = GLOW[name];
+    if (g) { box.style.setProperty('--gx', g[0] + 'px'); box.style.setProperty('--gy', g[1] + 'px'); box.style.setProperty('--gr', g[2] + 'px'); box.style.setProperty('--gc', g[3]); }
+  }
   function show(s) {
     $('temp').textContent = `${s.temp}°C`;
     $('hl').textContent = `${s.hi}° / ${s.lo}°`;
     $('cond').textContent = s.cond;
-    const name = ICON[s.kind](), box = $('ibox'), src = `vendor/weatherglass/${name}.png`;
-    $('icon').src = src; $('flash').src = s.kind === 'storm' ? src : '';
-    box.className = `ibox k-${s.kind}`;
-    const g = GLOW[name];
-    if (g) { box.style.setProperty('--gx', g[0] + 'px'); box.style.setProperty('--gy', g[1] + 'px'); box.style.setProperty('--gr', g[2] + 'px'); box.style.setProperty('--gc', g[3]); }
+    setIcon(s.kind);
     const d = new Date(); $('upd').textContent = `Updated ${pad(d.getHours())}:${pad(d.getMinutes())}`;
   }
   show(STATES[0]);
@@ -1628,7 +1707,8 @@
   const WX_AT = { lat: -6.842, lon: 107.921 };
   const WX_TEXT = { 0: 'Clear', 1: 'Mostly clear', 2: 'Partly cloudy', 3: 'Cloudy', 45: 'Fog', 48: 'Fog', 51: 'Drizzle', 53: 'Drizzle', 55: 'Drizzle',
                     61: 'Rain', 63: 'Rain', 65: 'Heavy rain', 80: 'Showers', 81: 'Showers', 82: 'Heavy showers', 95: 'Thunderstorm', 96: 'Thunderstorm', 99: 'Thunderstorm' };
-  const kindOf = c => c <= 1 ? 'clear' : c === 2 ? 'partly' : c <= 48 ? 'cloudy' : c >= 95 ? 'storm' : 'rain';
+  const kindOf = c => c <= 1 ? 'clear' : c === 2 ? 'partly' : c === 45 || c === 48 ? 'fog' : c <= 48 ? 'cloudy'
+    : (c >= 71 && c <= 77) || c === 85 || c === 86 ? 'snow' : c >= 95 ? 'storm' : 'rain';
   function fetchWx(lat, lon) {
     fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min&forecast_days=1&timezone=auto`)
       .then(r => r.json())
@@ -1715,8 +1795,12 @@
     const box = $('title'), run = box.firstChild; if (!run) return;
     titleAnim && titleAnim.cancel(); titleAnim = null;
     box.classList.remove('still');
-    const travel = run.scrollWidth / 2;                    // one copy plus its gap
-    if (travel - 56 <= box.clientWidth || reduceMotion) { box.classList.add('still'); return; }
+    const gaps = run.querySelectorAll('i'); gaps.forEach(g => g.style.width = '');
+    let travel = run.scrollWidth / 2;                      // one copy plus its gap
+    const fits = travel - 56 <= box.clientWidth;
+    if ((fits && !S.titleRun) || reduceMotion) { box.classList.add('still'); return; }
+    // Controls > Scroll song title on: a title that fits runs too, with a gap wide enough that one copy shows at a time.
+    if (fits) { gaps.forEach(g => g.style.width = (box.clientWidth - travel + 2 * 56) + 'px'); travel = run.scrollWidth / 2; }
     const slide = travel / SPEED * 1000, total = REST + slide;
     titleAnim = run.animate([
       { transform: 'translateX(0)', offset: 0 },
@@ -1852,7 +1936,10 @@
       fixAt = Date.now(); moveRun = kmh > 5 && f.accuracy <= 25 ? moveRun + 1 : 0;
       if (f.heading != null && kmh > 3) heading = f.heading;
       if (f.accuracy <= 20) {
-        if (lastFix && charging) { const dt = (f.t - lastFix.t) / 1000; if (dt > 0 && dt < 10 && kmh > 3) { driveS += dt; tripKm += km(lastFix, f); } }   // unplugged: no trip
+        // A GPS jump (cold start, out of a tunnel) is not driving: a step faster than 200 km/h between two fixes is
+        // skipped, distance and time both (found 2026-10-29: a 1 km jump made the average 189 km/h).
+        if (lastFix && charging) { const dt = (f.t - lastFix.t) / 1000, d = km(lastFix, f);
+          if (dt > 0 && dt < 10 && kmh > 3 && d / (dt / 3600) < 200) { driveS += dt; tripKm += d; } }   // unplugged: no trip
         lastFix = f;
       }
       if (kmh > 3) stillSince = Date.now();
@@ -1864,7 +1951,7 @@
       if (!m.pkg || !m.title) {   // nothing playing (or a paused app with no song loaded), or no Notification access yet
         const access = Android.mediaAccess(), app = (m.pkg && appByPkg(m.pkg)) || byId.ytmusic || APPS[0];
         applySource({ idle: true, id: access ? app.id : null, app: access ? app.name : 'Allow music access', icon: access ? app.icon : '<i class="ph-fill ph-lock-key"></i>',
-          title: 'Nothing playing', artist: access ? `Open ${app.name} to start` : 'Car Home needs Notification access', len: null, skip: false });
+          title: 'Nothing playing', artist: access ? `Open ${app.name} to start` : 'nDashMo needs Notification access', len: null, skip: false });
         if (!access) { $('appPill').removeAttribute('data-app'); $('appPill').onclick = () => Android.openPanel('media'); }
         setPlaying(false);
         return;

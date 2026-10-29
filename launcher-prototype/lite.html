@@ -2,12 +2,13 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<link rel="icon" href="data:,">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<title>Car Home Lite</title>
+<title>nDashMo Matte</title>
 <link rel="stylesheet" href="vendor/fonts/fonts.css">
 <link rel="stylesheet" href="vendor/phosphor/fill/style.css">
 <style>
-  /* Car Home Lite: the same features as glass.html on a UI the Galaxy Tab A7 Lite can draw cheaply.
+  /* Car Home Matte (shown as "Matte" since 2026-10-29, user; the file, ids and setting stay "lite"): the same features as glass.html on a UI the Galaxy Tab A7 Lite can draw cheaply.
      Measured on the tablet, every screen update costs about 10% CPU per update per second, so this page:
      - uses solid surfaces only: no wallpaper, blur, backdrop-filter, filters, shadows or translucent layers;
      - has no CSS animation or transition: things change in place, at most once a second;
@@ -23,7 +24,12 @@
   /* Night: darker surfaces and softer whites; still no filters. */
   body.night { --bg: #08090b; --panel: #101216; --raised: #171a1f; --line: #1f2329; --text: #d9dde2; --muted: #9098a2; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body { height: 100%; overflow: hidden; background: var(--bg); color: var(--text);
+  /* A fixed canvas the size of the tablet's page (1006 x 601 CSS px: its 1340 x 800 screen at 1.33 pixel density),
+     scaled to fit the window like glass.html's (fit()): 1:1 on the tablet, and in a browser window of another shape
+     the layout keeps the tablet's proportions instead of stretching. (Glass is drawn at 1340 x 800 and scaled 0.75.) */
+  html { height: 100%; }
+  body { position: absolute; left: 50%; top: 50%; width: 1006px; height: 601px; transform: translate(-50%, -50%); transform-origin: center center; }
+  html, body { overflow: hidden; background: var(--bg); color: var(--text);
     font-family: "Geist", system-ui, sans-serif; -webkit-font-smoothing: antialiased; -webkit-tap-highlight-color: transparent; user-select: none; }
   button { font: inherit; color: inherit; background: none; border: 0; text-align: left; cursor: pointer; }
   .press:active { opacity: 0.6; }
@@ -131,17 +137,33 @@
 
   /* Today: plain text clock, date, weather with a still icon. */
   .today { padding: 16px 20px; display: grid; grid-template-rows: auto 1fr auto; }
-  /* HTC Sense style flip cards, drawn once: light card, centre seam, hinge notches. The digits change in place once a
-     minute; no flip animation (each animated frame costs ~10% CPU on this tablet). */
-  .flip { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-  .card2 { position: relative; height: 128px; border-radius: 14px; background: #eceef0; color: #25282d; display: grid; place-items: center;
-    font-size: 108px; font-weight: 300; letter-spacing: -0.04em; line-height: 1; overflow: hidden; }
-  .card2::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 50%; background: #dfe1e4; }
-  .card2::after { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 2px; margin-top: -1px; background: #b9bdc3; }
-  .card2 span { position: relative; z-index: 1; }
-  .card2 .notch { position: absolute; z-index: 2; top: 50%; width: 6px; height: 14px; margin-top: -7px; border-radius: 3px; background: var(--panel); }
-  .card2 .notch.l { left: -3px; } .card2 .notch.r { right: -3px; }
-  body.night .card2 { background: #c9ccd1; } body.night .card2::before { background: #bcc0c5; }
+  /* HTC Sense flip clock, the same as Glass's (2026-10-29, user): two light cards with shaded halves, a hinge line and
+     side notches. Each card is four layers: static top and bottom halves, plus two flaps that turn over when its value
+     changes, so only the card that changed flips, once a minute (0.56 s). */
+  .today { --card-top: #fbfbfa; --card-top2: #eceded; --card-bot: #e4e5e6; --card-bot2: #cfd1d4; --digit: #2b2d31; --ch: 150px; }
+  body.night .today { --card-top: #d6d7d8; --card-top2: #c9cacb; --card-bot: #c3c4c6; --card-bot2: #aeb0b3; --digit: #1f2125; }
+  .flip { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .today .fcard { position: relative; height: var(--ch); perspective: 600px; filter: drop-shadow(0 8px 12px rgba(0,0,0,0.38)); }
+  .today .half { position: absolute; left: 0; right: 0; height: 50%; overflow: hidden; backface-visibility: hidden; }
+  .today .half span { position: absolute; left: 0; right: 0; height: var(--ch); line-height: var(--ch); text-align: center; color: var(--digit);
+    font-size: 106px; font-weight: 200; letter-spacing: -0.05em; font-variant-numeric: tabular-nums; }
+  .today .half.t { top: 0; border-radius: 16px 16px 0 0; background: linear-gradient(180deg, var(--card-top), var(--card-top2)); transform-origin: 50% 100%; }
+  .today .half.b { bottom: 0; border-radius: 0 0 16px 16px; background: linear-gradient(180deg, var(--card-bot), var(--card-bot2)); transform-origin: 50% 0%; }
+  .today .half.b span { top: calc(var(--ch) / -2); }
+  .today .fcard::after { content: ""; position: absolute; left: 0; right: 0; top: calc(50% - 1px); height: 2px; z-index: 3;
+    background: linear-gradient(180deg, rgba(0,0,0,0.55), rgba(255,255,255,0.35)); }
+  .today .fcard::before { content: ""; position: absolute; left: -3px; right: -3px; top: calc(50% - 6px); height: 12px; z-index: 4;
+    background: linear-gradient(90deg, #4a4e55 0 5px, transparent 5px calc(100% - 5px), #4a4e55 calc(100% - 5px)); border-radius: 3px; }
+  .today .flapT, .today .flapB { z-index: 2; }
+  .today .flapB { transform: rotateX(90deg); }
+  .today .fcard.go .flapT { animation: flipT 0.28s ease-in forwards; }
+  .today .fcard.go .flapB { animation: flipB 0.28s 0.28s ease-out forwards; }
+  @keyframes flipT { to { transform: rotateX(-90deg); } }
+  @keyframes flipB { from { transform: rotateX(90deg); } to { transform: rotateX(0deg); } }
+  .today .flapT::after { content: ""; position: absolute; inset: 0; background: rgba(0,0,0,0); }
+  .today .fcard.go .flapT::after { animation: shade 0.28s ease-in forwards; }
+  @keyframes shade { to { background: rgba(0,0,0,0.25); } }
+  @media (prefers-reduced-motion: reduce) { .fcard.go .flapT, .fcard.go .flapB, .fcard.go .flapT::after { animation-duration: 0.01s; animation-delay: 0s; } }
   .date { font-size: 17px; font-weight: 500; color: var(--muted); margin-top: 10px; }
   .wx { align-self: end; display: flex; align-items: center; gap: 12px; }
   .wx img { width: 56px; height: 42px; object-fit: contain; }
@@ -236,7 +258,7 @@
   .page { display: none; position: absolute; inset: 10px; z-index: 5; background: var(--bg); }
   body.left .page { inset: 10px 10px 10px 100px; }
   body:not(.left) .page { inset: 10px 100px 10px 10px; }
-  body.show-apps #apps, body.show-cc #cc { display: grid; }
+  body.show-apps #apps, body.show-cc #cc, body.show-about #about { display: grid; }
   #apps { grid-template-rows: auto 1fr auto auto; gap: 12px; padding: 10px 6px 0; }
   .page h1 { font-size: 26px; font-weight: 600; }
   .page .sub { font-size: 14px; color: var(--muted); margin-top: 3px; }
@@ -279,28 +301,73 @@
   /* Horizontal swipes reach the page (see "Swipes"); vertical drags still scroll All apps. */
   #app, .page { touch-action: pan-y; }
   .apps-grid { touch-action: pan-x; }   /* the pages scroll sideways (the browser checks touch-action only up to the scroller) */
-  /* Controls is a drawer beside the rail, as in Glass (2026-10-28, user): home stays in view next to it. Solid, no shadow,
-     no slide; a tap outside it (the transparent #ccOut, nothing drawn) closes it. */
-  #cc { grid-template-rows: minmax(0, 1fr) auto; gap: 8px; padding: 10px; width: min(620px, calc(100% - 110px));
-    background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); }
-  body:not(.left) #cc { left: auto; }
-  body.left #cc { right: auto; }
-  #cc .card { background: var(--raised); border-color: var(--raised); }
-  #cc .seg, #cc .tog .disc, #cc .close { background: var(--bg); }
-  #cc .tog.on .disc { background: var(--accent); }
-  #cc .tog { flex-direction: column; align-items: flex-start; justify-content: space-between; text-align: left; }
-  #cc .tog > span:last-child { min-width: 0; max-width: 100%; }
-  #cc .tog b, #cc .tog small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  #ccOut { display: none; position: absolute; inset: 0; z-index: 4; }
-  body.show-cc #ccOut { display: block; }
-  .cc-grid { display: grid; grid-template-columns: repeat(4, 1fr); grid-template-rows: repeat(4, minmax(0, 1fr)); gap: 10px; }
-  .cc-grid > .card:not(.tog):not(.health) { display: flex; flex-direction: column; justify-content: center; }
-  .cc-foot { display: flex; align-items: center; gap: 12px; padding: 0 0 0 6px; }
-  .cc-foot .seg { margin-top: 0; width: 240px; flex: none; margin-right: auto; }
-  .cc-foot .seg button { height: 44px; display: flex; align-items: center; justify-content: center; gap: 8px; }
-  .cc-foot .seg button i { font-size: 18px; }
-  .close { height: 52px; padding: 0 22px 0 18px; border-radius: 10px; background: var(--raised); font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 8px; flex: none; }
-  .close i { font-size: 18px; }
+  /* Controls and About: full-screen pages beside the rail, like All apps (2026-10-29, user). Three columns by job; each
+     column is one solid panel, settings inside are plain rows and segmented controls, so it reads as groups, not as a
+     grid of identical cards. */
+  #cc, #about { grid-template-rows: auto minmax(0, 1fr); gap: 10px; }
+  .cc-head { display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 4px 4px 4px 16px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); }
+  #about .cc-head { padding-left: 4px; }
+  .cc-head h2 { font-size: 21px; font-weight: 600; letter-spacing: -0.01em; }
+  .cc-head .x { margin-left: auto; width: 48px; height: 48px; border-radius: 12px; background: var(--raised); display: grid; place-items: center; font-size: 20px; }
+  #about .cc-head .x { margin-left: 0; }
+  .cc-cols { display: grid; grid-template-columns: 1fr 1.15fr 1fr; gap: 10px; min-height: 0; }
+  /* Quick sits next to the sidebar, within reach (user, 2026-10-29): sidebar right = Quick right and the nDashMo card
+     left; sidebar left = the other way round. Display and driving stays in the middle. */
+  .cc-cols > * { order: 2; }
+  .cc-cols > :first-child { order: 1; } .cc-cols > .about-card { order: 3; }
+  body:not(.left) .cc-cols > :first-child { order: 3; } body:not(.left) .cc-cols > .about-card { order: 1; }
+  .ab-cols { display: grid; grid-template-columns: 1fr 1.15fr; gap: 10px; min-height: 0; }
+  .cc-col { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 14px; display: flex; flex-direction: column; gap: 10px; min-height: 0; min-width: 0; overflow: hidden; }
+  .cc-col > .lbl { font-size: 13px; font-weight: 600; color: var(--faint); }
+  #cc .seg, #about .seg { margin-top: 0; background: var(--bg); }
+  #cc .seg button { display: flex; align-items: center; justify-content: center; gap: 6px; }
+  #cc .seg.mini { width: 150px; flex: none; margin-left: auto; }
+  .field { display: grid; gap: 6px; }
+  .flbl { font-size: 13px; font-weight: 600; color: var(--muted); }
+  /* Quick: the four connectivity switches as big tiles (they open Android's panels); the disc fills when on. */
+  .quick { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  #cc .qt { height: 96px; border-radius: 14px; background: var(--raised); padding: 12px; display: flex; flex-direction: column; align-items: flex-start; justify-content: space-between; min-width: 0; }
+  #cc .qt .disc { width: 36px; height: 36px; border-radius: 50%; background: var(--bg); display: grid; place-items: center; font-size: 18px; }
+  #cc .qt.on .disc { background: var(--accent); color: #fff; }
+  .qt > span:last-child { max-width: 100%; min-width: 0; }
+  .qt b { display: block; font-size: 15px; font-weight: 600; } .qt small { display: block; font-size: 12px; color: var(--muted); }
+  .qt b, .qt small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  /* Rows: a setting with its switch or choice on the right. */
+  .rows { display: grid; }
+  .rows.sep { border-top: 1px solid var(--line); margin-top: 4px; padding-top: 4px; }
+  #cc .row { display: flex; align-items: center; gap: 12px; min-height: 56px; text-align: left; width: 100%; }
+  .row > span:not(.ic):not(.sw) { min-width: 0; }
+  .row .ic { width: 36px; height: 36px; border-radius: 10px; background: var(--raised); display: grid; place-items: center; font-size: 18px; color: var(--muted); flex: none; }
+  .row b { display: block; font-size: 15px; font-weight: 600; } .row small { display: block; font-size: 13px; color: var(--muted); margin-top: 1px; }
+  #cc .sw { margin-left: auto; } #cc .tog:not(.on) .sw { background: var(--bg); }
+  /* About card and page */
+  .ab-app { display: flex; align-items: center; gap: 12px; }
+  .mark { width: 52px; height: 52px; border-radius: 14px; background: linear-gradient(160deg, #23324a, #121822); display: grid; place-items: center; font-size: 26px; color: var(--accent); flex: none; }
+  .ab-app b { display: block; font-size: 19px; font-weight: 700; letter-spacing: -0.01em; } .ab-app small { display: block; font-size: 13px; color: var(--muted); margin-top: 2px; }
+  .chk { display: grid; gap: 2px; }
+  .chk-row { display: flex; align-items: center; gap: 10px; min-height: 34px; font-size: 14px; width: 100%; }
+  .chk-row i { font-size: 18px; color: var(--ok); } .chk-row.off i, .chk-row.off small { color: var(--warn); }
+  .chk-row small { margin-left: auto; color: var(--muted); font-size: 13px; }
+  .meter { display: flex; gap: 10px; }
+  .meter > div { flex: 1; border-radius: 12px; background: var(--raised); padding: 10px 12px; display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .meter i { font-size: 20px; color: var(--muted); } .meter b { display: block; font-size: 17px; font-variant-numeric: tabular-nums; }
+  .meter small { display: block; font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .meter .bad i, .meter .bad small { color: var(--warn); }
+  .btn { margin-top: auto; height: 48px; border-radius: 12px; background: var(--raised); font-size: 15px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; }
+  .btn.solid { background: var(--text); color: var(--bg); }
+  .btn[hidden] { display: none; }
+  .blurb { font-size: 14px; line-height: 1.5; color: var(--muted); }
+  .cred { font-size: 12px; line-height: 1.5; color: var(--faint); margin-top: auto; }
+  .ab-meta { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 10px; font-size: 13px; color: var(--muted); }
+  .ab-meta > span:first-child { white-space: nowrap; }
+  .ab-ver { font-size: 14px; font-weight: 600; color: var(--muted); }
+  .ab-need { font-size: 13px; font-weight: 600; color: var(--faint); }
+  .creator { display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 14px 0 10px; border-radius: 999px; background: var(--raised);
+    color: var(--text); text-decoration: none; font-size: 14px; white-space: nowrap; }
+  .creator i { font-size: 20px; } .creator b { font-weight: 600; }
+  .chk-row > span { min-width: 0; text-align: left; }
+  .chk-row em { display: block; font-style: normal; font-size: 12.5px; color: var(--muted); margin-top: 1px; }
+  #abChk .chk-row { min-height: 58px; }
   .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 12px; min-width: 0; }
   .card.s2 { grid-column: span 2; }
   .tog { display: flex; align-items: center; gap: 10px; }
@@ -348,7 +415,7 @@
 
     <div class="col">
       <section class="panel today" aria-label="Today">
-        <div><div class="flip num" id="time"><div class="card2"><span id="cH">--</span><i class="notch l"></i><i class="notch r"></i></div><div class="card2"><span id="cM">--</span><i class="notch l"></i><i class="notch r"></i></div></div><div class="date" id="date"></div></div>
+        <div><div class="flip" id="time"><div class="fcard" id="cH"></div><div class="fcard" id="cM"></div></div><div class="date" id="date"></div></div>
         <div></div>
         <div>
           <div class="wx"><img id="wxIcon" alt="" src="vendor/weatherglass/partly_cloudy_day.png"><div><div class="t num" id="wxTemp">--&deg;</div><div class="c" id="wxCond"></div></div><div class="hl num" id="wxHL"></div></div>
@@ -413,30 +480,71 @@
 
 <div id="ccOut"></div>
 <section class="page" id="cc" aria-label="Controls">
-  <div class="cc-grid">
-    <button class="card tog press" data-t="wifi"><span class="disc"><i class="ph-fill ph-wifi-high"></i></span><span><b>Wi-Fi</b><small></small></span></button>
-    <button class="card tog press" data-t="bt"><span class="disc"><i class="ph-fill ph-bluetooth"></i></span><span><b>Bluetooth</b><small></small></span></button>
-    <button class="card tog press" data-t="data"><span class="disc"><i class="ph-fill ph-cell-signal-high"></i></span><span><b>Mobile data</b><small></small></span></button>
-    <button class="card tog press" data-t="hotspot"><span class="disc"><i class="ph-fill ph-broadcast"></i></span><span><b>Hotspot</b><small></small></span></button>
-    <div class="card s2"><div class="label">Night mode</div><div class="seg" data-seg="night"><button data-v="auto">Auto</button><button data-v="day">Day</button><button data-v="night">Night</button></div></div>
-    <div class="card s2"><div class="label">Sidebar</div><div class="seg" data-seg="side"><button data-v="left">Left</button><button data-v="right">Right</button></div></div>
-    <div class="card s2"><div class="label">Navigation app</div><div class="seg" data-seg="nav"><button data-v="waze">Waze</button><button data-v="maps">Google Maps</button></div></div>
-    <button class="card tog press" data-t="dnd"><span class="disc"><i class="ph-fill ph-moon"></i></span><span><b>Do Not Disturb</b><small></small></span></button>
-    <button class="card tog press" data-t="autoBri"><span class="disc"><i class="ph-fill ph-sun-dim"></i></span><span><b>Auto brightness</b><small></small></span></button>
-    <div class="card health s2" id="batCard"></div>
-    <div class="card health s2" id="tempCard"></div>
+  <!-- Controls, full screen (2026-10-29, user, option A of controls-wireframe.html): three columns by job. Quick switches
+       on the left, how the screen behaves in the middle, the app itself (About card) on the right. Same data-t / data-seg
+       wiring as before. -->
+  <div class="cc-head"><h2>Controls</h2><button class="x press" id="ccClose" aria-label="Close controls"><i class="ph-fill ph-x"></i></button></div>
+  <div class="cc-cols">
+    <div class="cc-col">
+      <span class="lbl">Quick</span>
+      <div class="quick">
+        <button class="qt tog press" data-t="wifi"><span class="disc"><i class="ph-fill ph-wifi-high"></i></span><span><b>Wi-Fi</b><small></small></span></button>
+        <button class="qt tog press" data-t="bt"><span class="disc"><i class="ph-fill ph-bluetooth"></i></span><span><b>Bluetooth</b><small></small></span></button>
+        <button class="qt tog press" data-t="data"><span class="disc"><i class="ph-fill ph-cell-signal-high"></i></span><span><b>Mobile data</b><small></small></span></button>
+        <button class="qt tog press" data-t="hotspot"><span class="disc"><i class="ph-fill ph-broadcast"></i></span><span><b>Hotspot</b><small></small></span></button>
+      </div>
+      <div class="rows">
+        <button class="row tog press" data-t="dnd"><span class="ic"><i class="ph-fill ph-moon"></i></span><span><b>Do Not Disturb</b><small></small></span><span class="sw"></span></button>
+        <button class="row tog press" data-t="autoBri"><span class="ic"><i class="ph-fill ph-sun-dim"></i></span><span><b>Auto brightness</b><small></small></span><span class="sw"></span></button>
+      </div>
+    </div>
+    <div class="cc-col">
+      <span class="lbl">Display and driving</span>
+      <div class="field"><span class="flbl">Theme</span><div class="seg" data-seg="theme"><button data-v="lite"><i class="ph-fill ph-square"></i>Matte</button><button data-v="glass"><i class="ph-fill ph-drop"></i>Glass</button></div></div>
+      <div class="field"><span class="flbl">Night mode</span><div class="seg" data-seg="night"><button data-v="auto">Auto</button><button data-v="day">Day</button><button data-v="night">Night</button></div></div>
+      <div class="field"><span class="flbl">Navigation app</span><div class="seg" data-seg="nav"><button data-v="waze">Waze</button><button data-v="maps">Google Maps</button></div></div>
+      <div class="rows sep">
+        <div class="row"><span><b>Sidebar side</b><small>Right sits closer to the driver</small></span><div class="seg mini" data-seg="side"><button data-v="left">Left</button><button data-v="right">Right</button></div></div>
+        <button class="row tog press" data-t="titleRun"><span><b>Scroll song title</b><small></small></span><span class="sw"></span></button>
+      </div>
+    </div>
+    <div class="cc-col about-card">
+      <div class="ab-app"><span class="mark"><i class="ph-fill ph-steering-wheel"></i></span><span><b>nDashMo</b><small id="aboutTag"></small></span></div>
+      <div class="ab-meta"><span id="aboutVer"></span><span id="aboutBy"></span></div>
+      <div class="chk" id="aboutChk"></div>
+      <div class="meter"><div id="batCard"></div><div id="tempCard"></div></div>
+      <button class="btn press" id="aboutBtn"><i class="ph-fill ph-info"></i>Details</button>
+    </div>
   </div>
-  <!-- Bottom bar, as in Glass (2026-10-28, user): within thumb reach on the 7.8" tablet. Flat, in Lite's own style. -->
-  <div class="cc-foot">
-    <span class="label">Theme</span>
-    <div class="seg" data-seg="theme"><button data-v="lite"><i class="ph-fill ph-feather"></i>Lite</button><button data-v="glass"><i class="ph-fill ph-drop"></i>Glass</button></div>
-    <button class="close press" id="ccClose"><i class="ph-fill ph-x"></i>Close</button>
-  </div>
+</section>
+
+<section class="page" id="about" aria-label="About nDashMo">
+  <!-- About nDashMo (from the About card): name, tagline, version and creator on the left, what it needs from
+       Android on the right (version only, no change list: user, 2026-10-29). Content in about.js. -->
+  <div class="cc-head"><button class="x press" id="aboutBack" aria-label="Back to controls"><i class="ph-fill ph-arrow-left"></i></button><h2>About nDashMo</h2></div>
+  <div class="ab-cols">
+      <div class="cc-col ab-id">
+        <div class="ab-app"><span class="mark"><i class="ph-fill ph-steering-wheel"></i></span><span><b>nDashMo</b><small id="abTag"></small></span></div>
+        <p class="ab-ver" id="abVer"></p>
+        <p class="blurb" id="abBlurb"></p>
+        <div id="abBy"></div>
+        <p class="cred" id="abCred"></p>
+      </div>
+      <div class="cc-col">
+        <div class="ab-need">What nDashMo needs</div>
+        <div class="chk" id="abChk"></div>
+        <button class="btn solid press" id="abFix" hidden><i class="ph-fill ph-gear"></i>Open settings</button>
+      </div>
+    </div>
 </section>
 
 <div class="toast" id="toast"></div>
 
+<script src="about.js"></script>
 <script>
+  // Fit the 1006x601 canvas to the window (see the html/body CSS); 1:1 on the tablet.
+  function fit() { document.body.style.transform = `translate(-50%, -50%) scale(${Math.min(innerWidth / 1006, innerHeight / 601)})`; }
+  addEventListener('resize', fit); fit();
   const $ = id => document.getElementById(id);
   const NATIVE = !!window.Android;     // the Android app (Bridge.java); otherwise a browser prototype with sample data
   const pad = n => String(n).padStart(2, '0');
@@ -554,13 +662,22 @@
     if (page === 'apps') memText();
     document.body.classList.toggle('show-apps', page === 'apps');
     document.body.classList.toggle('show-cc', page === 'cc');
+    document.body.classList.toggle('show-about', page === 'about');
+    if (page === 'cc') AppInfo.renderCard();
+    if (page === 'about') { AppInfo.renderPage(); }
     if (page === 'apps') { layoutApps(); $('appsGrid').scrollLeft = 0; dots(); }   // opens on the first page
     $('homeBtn').innerHTML = `<span class="face"><i class="ph-fill ph-${page === 'apps' ? 'house' : 'dots-nine'}"></i></span>`;
-    $('statusBtn').classList.toggle('on', page === 'cc');
+    $('statusBtn').classList.toggle('on', page === 'cc' || page === 'about');
   }
   $('homeBtn').onclick = () => show(document.body.classList.contains('show-apps') ? null : 'apps');
-  $('statusBtn').onclick = () => show(document.body.classList.contains('show-cc') ? null : 'cc');
+  $('statusBtn').onclick = () => show(document.body.classList.contains('show-cc') || document.body.classList.contains('show-about') ? null : 'cc');
   $('ccClose').onclick = $('ccOut').onclick = () => show(null);
+  $('aboutBtn').onclick = () => show('about');
+  $('aboutBack').onclick = () => show('cc');
+  $('about').addEventListener('click', e => AppInfo.click(e));
+  $('aboutChk').addEventListener('click', e => AppInfo.click(e));
+  // Back from Android's settings (an access turned on): show the checks as they are now.
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) { AppInfo.renderCard(); AppInfo.renderPage(); } });
 
   // ---- Split screen and recent apps, through Car Home's accessibility service (Assist.java): One UI lets no app start
   //      split screen itself, so the service taps through One UI's recent apps menu (takes a few seconds). Split screen
@@ -568,7 +685,7 @@
   let pick = null;   // while choosing: [] or [left]
   const assist = () => {
     if (!NATIVE || (Android.assistOn && Android.assistOn())) return true;
-    say('Turn on Car Home in Accessibility first'); setTimeout(() => Android.openAssistSettings(), 900); return false;
+    say('Turn on nDashMo in Accessibility first'); setTimeout(() => Android.openAssistSettings(), 900); return false;
   };
   function renderPick() {
     document.body.classList.toggle('picking', !!pick);
@@ -630,7 +747,7 @@
     addEventListener('touchstart', e => {
       if (e.touches.length !== 2) return;
       const m = mid(e.touches);
-      s = !document.body.classList.contains('show-apps') && !document.body.classList.contains('show-cc') ? { x: m.x, y: m.y, y0: m.y, dx: 0, way: null } : null;
+      s = !['show-apps', 'show-cc', 'show-about'].some(c => document.body.classList.contains(c)) ? { x: m.x, y: m.y, y0: m.y, dx: 0, way: null } : null;
     }, { passive: true });
     addEventListener('touchmove', e => {
       if (!s || e.touches.length !== 2) return;
@@ -663,7 +780,7 @@
     if (!sw) return;
     const s = sw, dx = e.clientX - s.x, dy = e.clientY - s.y; sw = null;
     if (Date.now() - s.t > 700) return;
-    const page = document.body.classList.contains('show-apps') || document.body.classList.contains('show-cc');
+    const page = ['show-apps', 'show-cc', 'show-about'].some(c => document.body.classList.contains(c));
     if (s.bottom && dy < -80 && Math.abs(dx) < -dy) { swiped = true; if (page) show(null); return; }
     if (Math.abs(dx) < 120 || Math.abs(dy) > Math.abs(dx) * 0.6) return;
     swiped = true; clearTimeout(holdT);
@@ -685,13 +802,14 @@
     wifi: on => on ? (NATIVE ? NET.ssid || 'Connected' : 'Faizal iPhone') : 'Off', bt: on => on ? 'On' : 'Off',
     data: on => on ? (NATIVE ? 'In use' : 'Telkomsel LTE') : 'Off', hotspot: on => on ? 'On' : 'Off',
     dnd: on => on ? 'On while driving' : 'Off', autoBri: on => on ? 'On' : 'Off',
+    titleRun: on => on ? 'Every song' : 'Long titles only',   // on: about 80% more CPU while music plays
   };
   $('cc').addEventListener('click', e => {
     const t = e.target.closest('[data-t]'), sb = e.target.closest('[data-seg] button');
     if (sb && sb.closest('[data-seg]').dataset.seg === 'theme') { setTheme(sb.dataset.v); return; }
     if (t && NATIVE && ['wifi', 'bt', 'data', 'hotspot', 'dnd'].includes(t.dataset.t)) { Android.openPanel(t.dataset.t); return; }
     if (t && NATIVE && t.dataset.t === 'autoBri' && !Android.setAutoBrightness(!S.autoBri)) return;
-    if (t) S[t.dataset.t] = !S[t.dataset.t];
+    if (t) { S[t.dataset.t] = !S[t.dataset.t]; if (t.dataset.t === 'titleRun') fitTitle(); }
     else if (sb) S[sb.closest('[data-seg]').dataset.seg] = sb.dataset.v;
     else return;
     save(); apply();
@@ -720,18 +838,39 @@
       : S.wifi ? 'ph-wifi-high' : S.data ? 'ph-cell-signal-high' : 'ph-cell-signal-slash off');
     $('stBt').className = 'ph-fill ' + (S.bt ? 'ph-bluetooth' : 'ph-bluetooth-slash off');
     $('stWarn').innerHTML = (hot ? '<i class="ph-fill ph-thermometer-hot warn"></i>' : '') + (charging ? '' : '<i class="ph-fill ph-plugs warn"></i>');
-    $('batCard').className = 'card health s2' + (charging ? '' : ' bad');
+    $('batCard').className = charging ? '' : 'bad';
     $('batCard').innerHTML = `<i class="ph-fill ph-battery-${charging ? 'charging-vertical' : 'high'}"></i><span><b class="num">${level}%</b><small>${charging ? 'Charging' : 'Not charging, check the cable'}</small></span>`;
-    $('tempCard').className = 'card health s2' + (hot ? ' bad' : '');
+    $('tempCard').className = hot ? 'bad' : '';
     $('tempCard').innerHTML = `<i class="ph-fill ph-thermometer-simple"></i><span><b class="num">${temp}&deg;C</b><small>${hot ? 'Too hot, shade it' : 'Normal'}</small></span>`;
+  }
+
+  // ---- Flip clock, as Glass's: on a change only that card flips, the old top half falls (flapT), then the new
+  //      bottom half lands (flapB). Minute-aligned, nothing runs in between. ----
+  function build(card, v) {
+    card.innerHTML = `<div class="half t"><span>${v}</span></div><div class="half b"><span>${v}</span></div>
+      <div class="half t flapT"><span>${v}</span></div><div class="half b flapB"><span>${v}</span></div>`;
+    card.dataset.v = v;
+  }
+  function flipTo(card, v) {
+    if (card.dataset.v === v) return;
+    const old = card.dataset.v;
+    const [t, b, ft, fb] = card.children;
+    t.firstChild.textContent = v;        // behind the falling flap: the new top
+    b.firstChild.textContent = old;      // under the landing flap: the old bottom, until it is covered
+    ft.firstChild.textContent = old;
+    fb.firstChild.textContent = v;
+    card.classList.remove('go'); void card.offsetWidth; card.classList.add('go');
+    clearTimeout(card._t);
+    card._t = setTimeout(() => { b.firstChild.textContent = v; card.classList.remove('go'); ft.firstChild.textContent = v; card.dataset.v = v; }, 600);
   }
 
   // ---- Clock, once a minute. ----
   function tick() {
-    const d = new Date();
-    $('cH').textContent = pad(d.getHours()); $('cM').textContent = pad(d.getMinutes());
+    const d = new Date(), h = pad(d.getHours()), m = pad(d.getMinutes());
+    if (!$('cH').dataset.v) { build($('cH'), h); build($('cM'), m); } else { flipTo($('cH'), h); flipTo($('cM'), m); }
     $('date').textContent = d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
     if (S.night === 'auto') { document.body.classList.toggle('night', isNight()); mapTheme(); }
+    if (wxCode != null) wxIconNow();
   }
   (function minute() { tick(); setTimeout(minute, 60000 - Date.now() % 60000 + 30); })();
 
@@ -740,10 +879,13 @@
                61: 'Rain', 63: 'Rain', 65: 'Heavy rain', 80: 'Showers', 81: 'Showers', 82: 'Heavy showers', 95: 'Thunderstorm', 96: 'Thunderstorm', 99: 'Thunderstorm' };
   const wxIcon = c => { const n = new Date().getHours(), night = n >= 18 || n < 6;
     return c <= 1 ? (night ? 'clear_night' : 'sunny') : c === 2 ? (night ? 'partly_cloudy_night' : 'partly_cloudy_day') : c === 3 ? 'cloud'
-      : c <= 48 ? 'foggy' : (c >= 71 && c <= 77) ? 'snowflake' : c >= 95 ? 'thunderstorm' : 'rainy'; };
+      : c <= 48 ? 'foggy' : (c >= 71 && c <= 77) || c === 85 || c === 86 ? 'snowflake' : c >= 95 ? 'thunderstorm' : 'rainy'; };
+  var wxCode = null;   // var: the clock's tick() reads it before this line runs
+  // Sun or moon on time: the clock tick swaps the icon at 06:00 and 18:00, between weather updates.
+  function wxIconNow() { const src = `vendor/weatherglass/${wxIcon(wxCode)}.png`; if (!$('wxIcon').src.endsWith(src)) $('wxIcon').src = src; }
   function fetchWx(lat, lon) {
     fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min&forecast_days=1&timezone=auto`)
-      .then(r => r.json()).then(j => { const c = j.current.weather_code;
+      .then(r => r.json()).then(j => { const c = wxCode = j.current.weather_code;
         $('wxTemp').textContent = `${Math.round(j.current.temperature_2m)}°`; $('wxCond').textContent = WX[c] || 'Cloudy';
         $('wxHL').textContent = `${Math.round(j.daily.temperature_2m_max[0])}° / ${Math.round(j.daily.temperature_2m_min[0])}°`;
         $('wxIcon').src = `vendor/weatherglass/${wxIcon(c)}.png`; }).catch(() => {});
@@ -874,7 +1016,7 @@
   // degrees, closer in, the position low in the panel so more road ahead shows.
   function mapView() {
     const H = $('map').clientHeight, pad = p => ({ top: Math.round(H * p), bottom: 0, left: 0, right: 0 });
-    return { center: [pos.lon, pos.lat], zoom: 16.4, pitch: 55, bearing: heading, padding: pad(0.5) };
+    return { center: [pos.lon, pos.lat], zoom: 18, pitch: 55, bearing: heading, padding: pad(0.5) };
   }
 
   // ---- Driving view (2026-10-29, user, after TomTom's free-driving view), all the time: the map follows the car
@@ -909,11 +1051,18 @@
     highway_major_casing: { 'line-color': '#aeb5bf' }, highway_major_inner: { 'line-color': '#ffffff' },
     highway_major_subtle: { 'line-color': '#ffffff' }, highway_motorway_subtle: { 'line-color': '#ffffff' },
     highway_motorway_casing: { 'line-color': '#959eaa' }, highway_motorway_inner: { 'line-color': '#f4f6f8' },
-    highway_name_other: { 'text-color': '#353a41', 'text-halo-color': '#ffffff' },
+    highway_name_other: { 'text-color': '#353a41', 'text-halo-color': '#ffffff', 'text-halo-width': 2 },
     highway_name_motorway: { 'text-color': '#353a41' },
     rail: { 'line-color': '#c2c7ce' }, rail_dash: { 'line-color': '#e6e9ed' },
     boundary: { 'line-color': '#a9b0b9' },
     place: { 'text-color': '#4d535b', 'text-halo-color': 'rgba(255,255,255,0.85)' },
+  };
+  // Street names big enough to read at arm's length on the tilted map (user, 2026-10-29): the style's 10 px uppercase
+  // road labels become 16 px bold in normal case (faster to read), repeated more often along the road.
+  const MAP_TEXT = {
+    highway_name_other: { 'text-size': 16, 'text-font': ['Noto Sans Bold'], 'text-transform': 'none', 'symbol-spacing': 220 },
+    highway_name_motorway: { 'text-size': 15, 'text-font': ['Noto Sans Bold'] },
+    place: { 'text-size': 13 },
   };
   const mapGroup = id => id.startsWith('place_') ? 'place' : id.startsWith('boundary_') ? 'boundary'
     : id.startsWith('railway') ? (id.endsWith('dashline') ? 'rail_dash' : 'rail') : id;
@@ -925,6 +1074,7 @@
     for (const l of style.layers) {
       const g = mapGroup(l.id), light = MAP_LIGHT[g];
       l.paint = Object.assign(l.paint || {}, MAP_DARK[g]);
+      Object.assign(l.layout || {}, MAP_TEXT[g]);
       if (!light) continue;
       mapPal.light[l.id] = light;
       mapPal.dark[l.id] = Object.fromEntries(Object.keys(light).map(k => [k, l.paint[k]]));
@@ -1052,8 +1202,12 @@
     const box = $('title'), run = box.firstChild; if (!run) return;
     titleAnim && titleAnim.cancel(); titleAnim = null;
     box.classList.remove('still');
-    const travel = run.scrollWidth / 2;                    // one copy plus its gap
-    if (travel - 48 <= box.clientWidth || reduceMotion) { box.classList.add('still'); return; }
+    const gaps = run.querySelectorAll('i'); gaps.forEach(g => g.style.width = '');
+    let travel = run.scrollWidth / 2;                      // one copy plus its gap
+    const fits = travel - 48 <= box.clientWidth;
+    if ((fits && !S.titleRun) || reduceMotion) { box.classList.add('still'); return; }
+    // Controls > Scroll song title on: a title that fits runs too, with a gap wide enough that one copy shows at a time.
+    if (fits) { gaps.forEach(g => g.style.width = (box.clientWidth - travel + 2 * 48) + 'px'); travel = run.scrollWidth / 2; }
     const slide = travel / SPEED * 1000, total = REST + slide;
     titleAnim = run.animate([
       { transform: 'translateX(0)', offset: 0 },
@@ -1144,7 +1298,10 @@
       fixAt = Date.now(); moveRun = kmh > 5 && f.accuracy <= 25 ? moveRun + 1 : 0;
       if (f.heading != null && kmh > 3) heading = f.heading;
       if (f.accuracy <= 20) {
-        if (lastFix && charging) { const dt = (f.t - lastFix.t) / 1000; if (dt > 0 && dt < 10 && kmh > 3) { driveS += dt; tripKm += km(lastFix, f); } }   // unplugged: no trip
+        // A GPS jump (cold start, out of a tunnel) is not driving: a step faster than 200 km/h between two fixes is
+        // skipped, distance and time both (found 2026-10-29: a 1 km jump made the average 189 km/h).
+        if (lastFix && charging) { const dt = (f.t - lastFix.t) / 1000, d = km(lastFix, f);
+          if (dt > 0 && dt < 10 && kmh > 3 && d / (dt / 3600) < 200) { driveS += dt; tripKm += d; } }   // unplugged: no trip
         lastFix = f;
       }
       if (kmh > 3) stillSince = Date.now(); else if (Date.now() - stillSince > 20 * 60000 && (tripKm || driveS)) { tripKm = 0; driveS = 0; }
@@ -1155,7 +1312,7 @@
       if (!m.pkg || !m.title) {
         const access = Android.mediaAccess(), app = (m.pkg && appByPkg(m.pkg)) || byId.ytmusic || APPS[0];
         setSource({ idle: true, id: access ? app.id : null, app: access ? app.name : 'Allow music access', icon: access ? app.icon : ph('lock-key'),
-          title: 'Nothing playing', artist: access ? `Open ${app.name} to start` : 'Car Home needs Notification access', len: null, skip: false });
+          title: 'Nothing playing', artist: access ? `Open ${app.name} to start` : 'nDashMo needs Notification access', len: null, skip: false });
         $('appPill').onclick = access ? null : () => Android.openPanel('media');
         setPlaying(false); return;
       }

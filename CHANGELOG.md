@@ -1,6 +1,22 @@
 # Changelog
 
-## Unreleased
+## v1.0 as nDashMo (in progress)
+
+- **The app is now called nDashMo**, "Dashboard meets Motion." (app name, accessibility service and music listener in Android, page titles and
+  messages). The package stays me.faizal.carhome, so it installs over Car Home and keeps the settings. Version 1.0.
+- **Controls, redone** (Matte and Glass): a full-screen page beside the rail, like All apps, in three columns by job:
+  Quick (big Wi-Fi, Bluetooth, data and hotspot tiles, Do Not Disturb and auto brightness switches), Display and
+  driving (theme, night mode, navigation app, sidebar side, scroll title; in Glass also Glass effect and Wallpaper),
+  and an nDashMo card with the name, tagline, version, the creator (@faizald.jo on Threads), what it needs from
+  Android (with "Turn on" when off), battery and temperature, and Details. Close at the top right, or the status button, or swipe right.
+- **About nDashMo** (Details): name, tagline, version, the creator's Threads link and credits on the left; the four
+  things it needs from Android (accessibility, notification access, location, default home app, each with why) on the
+  right, with a red mark and Open settings when one is off. Version only, no change list in the app.
+- Updating the app turns nDashMo's accessibility service off on this tablet (seen 2026-10-29): after an update, the
+  About card shows Accessibility "Turn on".
+
+- The Lite theme is now called **Matte** (Controls > Theme: Matte / Glass). Only the name on screen changed: the
+  saved choice carries over.
 
 Tested on the tablet 2026-10-29 (simulated drive and charger): the driving view, unplug = pause + sleep within 2 s,
 plug in = the last music resumes. Not yet tried in the car.
@@ -11,10 +27,19 @@ plug in = the last music resumes. Not yet tried in the car.
   limit). The speed itself is not on the map (removed on request; the Car panel shows it). Speed limits are rare around
   Sumedang in OSM (the Cisumdawu toll road and a few streets). Try it in a browser: lite.html?drive or glass.html?drive.
   Roads are brighter in the driving view (light grey streets, lighter labels), so they read at a glance when tilted.
+  The map is closer in (zoom 18, was 16.4) and street names are bigger: 16 px bold in normal case instead of 10 px
+  capitals, repeated more often along the road.
   Light and dark map (Lite and Glass): the map follows Night mode in Controls, light by day (white roads on a cool grey
   ground, blue-grey water, dark street names) and dark at night; Auto switches at 18:00 and 06:00 with the rest of the
   screen. Your position is a car seen from above instead of an arrow: white on the dark
   map, dark grey on the light map, tipped back to lie on the tilted road, with a soft shadow and a faint blue pool.
+- Lite clock: the same flip clock as Glass, with shaded card halves, a hinge, and the flip when a digit changes (only the
+  card that changed, once a minute). On the tablet the flip costs about 2% CPU on average.
+- Matte in a browser window keeps the tablet's proportions, like Glass (it used to stretch to the window's height,
+  leaving tall empty panels). Nothing changes on the tablet.
+- Controls > Scroll title (Lite and Glass, off by default): on, every song title scrolls while it plays, short ones
+  too (one copy at a time), on the home player and the screensaver. Off: only titles too long to fit scroll. On costs
+  about 80-100% more CPU while music plays. The battery and temperature cards are a bit narrower to make room.
 - Home player (Lite and Glass): the time labels are gone, only the progress bar stays. In Lite a title too long for
   the label now scrolls like Glass's (rests at the start, slides, repeats; stops while paused); a title that fits stays
   still and centred. Scrolling costs CPU on the tablet: about 84% (Lite) and 103% (Glass) while a long title runs,
@@ -23,6 +48,20 @@ plug in = the last music resumes. Not yet tried in the car.
   tick, in the browser prototype too (it used to spin them smoothly, which costs over a full CPU core on the tablet).
   Glass's step was 40 degrees, which on the 6-spoke reel looked like turning backwards. In Lite the album art now
   turns too. On the tablet: about 10-18% CPU playing, 1-2% paused.
+- Glass weather icon on the tablet: rain no longer shows the sun's orange glow behind the cloud, and the still rain
+  drops are staggered and slanted instead of one level row.
+- Weather icons, all pages: Glass shows fog and snow with their own icons (fog was a plain cloud), like Lite and the
+  screensaver; snow showers are snow everywhere; the sun / moon icon switches at 06:00 and 18:00 instead of at the
+  next weather update (up to 20 minutes late). All nine icons checked in Lite and Glass, day and night. The icon stays still on the tablet: even
+  3 seconds of its animation when the weather changes cost 150-175% CPU, so it was left out.
+- Fixed (full check on the tablet, 2026-10-29):
+  - Plugging in (car start) opened a second copy of Car Home next to the home one, both running (double CPU and GPS).
+    It now comes back the way the Home button does, so there is only ever one.
+  - Unplugging a full (100%) tablet didn't count as unplugged, so the trip didn't reset and the screensaver rules
+    thought it was still charging. Charging now means power is plugged in.
+  - A GPS jump (cold start, out of a tunnel) was added to the trip: a 1 km jump made the average 189 km/h. Steps
+    faster than 200 km/h between two fixes are now skipped.
+  - The screensaver opened without a theme goes back to the saved theme, not always Glass.
 - Screensaver song line: a title that fits, or any paused song, shows once and centred; only a long title scrolls,
   and only while it plays. (A short or paused song sat off-centre with its scrolling copy showing.)
 - Unplugging the charger (car off) resets the trip: distance and drive time go back to 0, and nothing adds to them

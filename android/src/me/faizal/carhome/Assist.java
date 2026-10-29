@@ -73,7 +73,10 @@ public class Assist extends AccessibilityService {
             @SuppressWarnings("deprecation")
             PowerManager.WakeLock wl = pm.newWakeLock(PowerManager.SCREEN_BRIGHT_WAKE_LOCK | PowerManager.ACQUIRE_CAUSES_WAKEUP, "carhome:carstart");
             wl.acquire(3000);
-            startActivity(new Intent(this, MainActivity.class).setAction(Intent.ACTION_MAIN).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+            // As the Home button does (HOME category): an explicit start of MainActivity made a second copy of Car Home
+            // in its own task, next to the home one, both running (found 2026-10-29).
+            startActivity(new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME).setPackage(getPackageName())
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
         }
         main.removeCallbacks(resume);
         main.postDelayed(resume, RESUME_AFTER_MS);

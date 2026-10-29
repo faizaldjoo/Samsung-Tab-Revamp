@@ -256,6 +256,8 @@ public class Bridge {
                 case "hotspot": i = new Intent().setComponent(new ComponentName("com.android.settings", "com.android.settings.TetherSettings")); break;
                 case "dnd": i = new Intent("android.settings.ZEN_MODE_SETTINGS"); break;
                 case "media": i = new Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS); break;
+                case "location": i = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + act.getPackageName())); break;
+                case "home": i = new Intent(Settings.ACTION_HOME_SETTINGS); break;
                 default: i = new Intent(Settings.ACTION_SETTINGS);
             }
             i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
@@ -359,8 +361,9 @@ public class Bridge {
             String a = i.getAction();
             if (Intent.ACTION_BATTERY_CHANGED.equals(a)) {
                 int level = i.getIntExtra(BatteryManager.EXTRA_LEVEL, 0), scale = i.getIntExtra(BatteryManager.EXTRA_SCALE, 100);
-                int status = i.getIntExtra(BatteryManager.EXTRA_STATUS, 0);
-                boolean charging = status == BatteryManager.BATTERY_STATUS_CHARGING || status == BatteryManager.BATTERY_STATUS_FULL;
+                // "Charging" = power plugged in (the car is on), as Assist decides it. The battery status said FULL at
+                // 100% even with the charger out, so unplugging a full tablet didn't reset the trip (found 2026-10-29).
+                boolean charging = i.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0) != 0;
                 try {
                     battery = new JSONObject().put("level", Math.round(100f * level / scale)).put("charging", charging)
                             .put("temp", Math.round(i.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, 0) / 10f));
@@ -470,6 +473,26 @@ public class Bridge {
         @Override public void onPlaybackStateChanged(PlaybackState s) { pushMedia(); }
         @Override public void onSessionDestroyed() { pickController(null); }
     };
+
+    // ---- About page (Controls > About): the version and what nDashMo needs turned on
+
+    @JavascriptInterface
+    public String version() {
+        try { return act.getPackageManager().getPackageInfo(act.getPackageName(), 0).versionName; } catch (Exception e) { return ""; }
+    }
+
+    @JavascriptInterface
+    public boolean locationOn() {
+        return act.checkSelfPermission(android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED;
+    }
+
+    /** nDashMo is the default Home app (the Home button and swipe-up open it). */
+    @JavascriptInterface
+    public boolean isHome() {
+        android.content.pm.ResolveInfo r = act.getPackageManager().resolveActivity(
+                new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME), PackageManager.MATCH_DEFAULT_ONLY);
+        return r != null && r.activityInfo != null && act.getPackageName().equals(r.activityInfo.packageName);
+    }
 
     @JavascriptInterface
     public boolean mediaAccess() {
