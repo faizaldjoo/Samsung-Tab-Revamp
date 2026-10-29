@@ -18,6 +18,13 @@ python3 -m http.server 8765 --directory launcher-prototype
 Then open http://localhost:8765/lite.html (Matte) or http://localhost:8765/glass.html (Glass). Add `?drive` to either
 for a simulated drive. The browser shows sample data; the real data comes from the tablet.
 
+## Moving to another computer
+
+1. Clone this repo.
+2. Copy `android/carhome.keystore` and `android/keystore.properties` from the old computer into `android/` (they are
+   not in the repo, see "Signing key" below).
+3. Set up the tools in "What you need", then follow "Steps".
+
 ## Build and install on the tablet
 
 ### What you need
