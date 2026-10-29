@@ -6,6 +6,9 @@ dashboard, with two themes (Matte and Glass). It runs as an Android Home app tha
 
 Project notes for working on it are in `CLAUDE.md`.
 
+`android-native/` is an early start of a native version without the WebView (package me.faizal.carnative: map,
+media listener, UI helpers, tablet data). It is not built by `android/build.sh` yet.
+
 ## Try it in a browser
 
 ```bash
