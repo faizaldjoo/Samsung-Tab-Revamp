@@ -20,6 +20,7 @@
     --text: #f1f3f5; --muted: #aab1bb; --faint: #7d8590;
     --accent: #007aff; --warn: #ff7a6b; --ok: #34c759;
     --r: 18px;
+    --pill-pad: 16px;   /* status pill: space above the battery % and below the gear */
   }
   /* Night: darker surfaces and softer whites; still no filters. */
   body.night { --bg: #08090b; --panel: #101216; --raised: #171a1f; --line: #1f2329; --text: #d9dde2; --muted: #9098a2; }
@@ -58,10 +59,11 @@
   .rail { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); display: flex; flex-direction: column; padding: 6px 0; min-height: 0; }
   .rail > button, .dock-item { flex: 1 1 0; min-height: 0; width: 100%; display: grid; place-items: center; position: relative; }
   .rail .face { width: 60px; height: 60px; border-radius: 16px; display: grid; place-items: center; background: var(--raised); font-size: 26px; }
-  /* 3 apps (user, 2026-10-30): the fourth app's slot goes to the status pill, so each app keeps the slot and gap it had
-     with 4, and the pill has room for warnings next to the gear without the layout moving when one appears. */
-  .rail > .status { flex-grow: 2.7; }
-  .status .face { height: calc(100% - 12px); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; }
+  /* Status pill (user, 2026-10-30: consistent padding): as tall as its content (battery, icons, warnings, gear) plus
+     --pill-pad above and below, instead of a fixed share of the rail with the content centred in it. The app rows
+     share what is left; a warning appearing makes the pill one row taller. */
+  .rail > .status { flex: none; padding: 6px 0; }
+  .status .face { height: auto; padding: var(--pill-pad) 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; }
   .status .bat { font-size: 18px; font-weight: 700; letter-spacing: -0.01em; }   /* bigger, readable at a glance (user, 2026-10-30) */
   .status i { font-size: 18px; }
   .status .st-icons { display: flex; gap: 6px; }

@@ -39,6 +39,9 @@ to work, carried here so a Claude Code session on any computer follows it:
 - android/build.sh installs with --no-incremental (2026-10-30: the default streamed install left files missing, every
   weather icon 404). A fresh install (not -r) wipes files/: the offline map and the drive log; push the map again.
   Sidebar shows 3 apps (RAIL / RAIL_MAX = 3, user 2026-10-30) so the status pill fits the gear and warnings.
+  Status pill (2026-10-30, user: consistent padding): as tall as its content (flex: none) with --pill-pad above the
+  battery % and below the gear (Matte 16px, Glass 21 canvas px = 16 on screen), instead of a fixed 2.7 share with the
+  content centred; the app rows share the rest. Matte pill 119 px tall, 153 with warnings; Glass 131 / 148 (screen px).
 - Accessibility going off (2026-10-30, from the drive log + logcat): installs with -r keep it on; force-stop and a fresh
   install turn it off; and twice it went off ~10 s after Android's Accessibility screen was opened from the About card's
   "On" row (the switch tapped off there). Check rows now open settings only when that item is off.
@@ -294,7 +297,11 @@ Driven over ADB from a computer on the same Wi-Fi (Wireless debugging; pair once
 - Unplug / plug in (2026-10-28, issues #3 #4, user): Power.java, attached from Assist and from MediaListener (2026-10-29:
   on a drive nothing happened, Assist had gone off with the install; notification access survives installs), so pause
   and resume work with either; sleep needs Assist (lock action), the status pill shows a power warning icon while it is
-  off. Resume sends PLAY at 3 s and again at 10 s if nothing plays (car Bluetooth connecting). Unplugged:
+  off. Resume sends PLAY at 3 s and again at 10 s if nothing plays (car Bluetooth connecting).
+  Bluetooth (2026-10-30, user: after unplugging, Bluetooth had to be reconnected by hand): nDashMo never switches it;
+  Power logs car audio (A2DP output via AudioDeviceCallback, no permission) connect / disconnect and Bluetooth on / off
+  to the drive log, and 15 s after plug-in without car audio opens One UI's Bluetooth pop-up (apps can't reconnect a
+  device themselves). Read the drive log after the next drive for the cause. Unplugged:
   media key PAUSE if music is active (AudioManager.dispatchMediaKeyEvent, no Notification access needed), then
   0.5 s later (SLEEP_AFTER_MS, time for the app to take the key), if still unplugged,
   performGlobalAction(GLOBAL_ACTION_LOCK_SCREEN) = screen off. 2026-10-29 (user): sleep at once; the first version

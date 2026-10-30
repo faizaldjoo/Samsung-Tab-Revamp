@@ -25,6 +25,7 @@
     --warn: #ff7a6b;
     --card: rgba(255,255,255,0.09);
     --r-glass: 32px;
+    --pill-pad: 21px;   /* status pill: space above the battery % and below the gear (Matte's 16 at Glass's scale) */
     --r-tile: 20px;
     --ease: cubic-bezier(0.16, 1, 0.3, 1);
   }
@@ -89,12 +90,13 @@
      split screen, pinned apps then recent apps (4 slots), all-apps / home at the bottom. */
   .rail { display: flex; flex-direction: column; padding: 10px 0; }
   .rail > button, .dock-item { flex: 1 1 0; min-height: 0; width: 100%; display: grid; place-items: center; position: relative; }
-  /* 3 apps (user, 2026-10-30): the fourth app's slot goes to the status pill, so each app keeps the slot and gap it had
-     with 4, and the pill has room for warnings next to the gear without the layout moving when one appears. */
-  .rail > .status { flex-grow: 2.7; }
+  /* Status pill (user, 2026-10-30: consistent padding): as tall as its content (battery, icons, warnings, gear) plus
+     --pill-pad above and below, instead of a fixed share of the rail with the content centred in it. The app rows
+     share what is left; a warning appearing makes the pill one row taller. */
+  .rail > .status { flex: none; padding: 8px 0; }
   .rf { width: 80px; height: 80px; border-radius: 999px; display: grid; place-items: center; font-size: 32px;
     background: rgba(255,255,255,0.10); box-shadow: var(--rim); }
-  .status .rf { height: calc(100% - 16px); display: flex; flex-direction: column; justify-content: center; gap: 12px; align-items: center; color: var(--text); }
+  .status .rf { height: auto; padding: var(--pill-pad) 0; display: flex; flex-direction: column; justify-content: center; gap: 12px; align-items: center; color: var(--text); }
   .status .st-gear { font-size: 26px; color: var(--muted); }
   #screen.show-cc .status .rf { background: var(--accent); box-shadow: none; }
   #screen.show-cc .status .st-gear { color: #fff; }
