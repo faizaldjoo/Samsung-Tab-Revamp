@@ -1,7 +1,7 @@
 #!/bin/bash
 # Build Car Home without Gradle: aapt2 (resources + manifest) -> javac -> d8 (dex) -> zipalign -> apksigner.
 # Usage:  android/build.sh            build android/build/carhome.apk
-#         android/build.sh install    build, then adb install -r (uses $ADB_SERIAL if set)
+#         android/build.sh install    build, then adb install -r --no-incremental (uses $ADB_SERIAL if set)
 # Needs the Android SDK (build-tools + platforms;android-34) and a JDK. The pages are copied from launcher-prototype/.
 set -euo pipefail
 
@@ -51,5 +51,7 @@ PASS="$(sed -n 's/^storePassword=//p' "$KSPROPS")"
 echo "Built $OUT/carhome.apk ($(du -h "$OUT/carhome.apk" | cut -f1))"
 
 if [ "${1:-}" = "install" ]; then
-    adb ${ADB_SERIAL:+-s "$ADB_SERIAL"} install -r "$OUT/carhome.apk"
+    # --no-incremental: a full install. The default incremental install starts the app before all of it has arrived and
+    # streams the rest over Wi-Fi; when that stream was cut, files went missing (2026-10-30: every weather icon 404).
+    adb ${ADB_SERIAL:+-s "$ADB_SERIAL"} install -r --no-incremental "$OUT/carhome.apk"
 fi

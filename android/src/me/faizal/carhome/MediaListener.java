@@ -29,6 +29,7 @@ public class MediaListener extends NotificationListenerService {
 
     @Override
     public void onListenerConnected() {
+        DriveLog.add(this, "notification access connected");
         Power.attach(this, this);   // charger out / in (Power.java), also while accessibility is off
         try {
             for (StatusBarNotification n : getActiveNotifications()) onNotificationPosted(n);
@@ -36,7 +37,7 @@ public class MediaListener extends NotificationListenerService {
     }
 
     @Override
-    public void onListenerDisconnected() { Power.detach(this); }
+    public void onListenerDisconnected() { DriveLog.add(this, "notification access disconnected"); Power.detach(this); }
 
     @Override
     public void onNotificationPosted(StatusBarNotification sbn) {

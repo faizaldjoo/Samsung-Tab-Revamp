@@ -16,6 +16,38 @@ to work, carried here so a Claude Code session on any computer follows it:
   moves: this tablet pays ~10% CPU per screen update per second, and the user prefers the cheaper option.
 - Never change Android security settings from adb: the user turns on nDashMo's accessibility service themselves
   (it goes off after each install). Never commit android/carhome.keystore or keystore.properties.
+- Before a build goes in the car, run the car-condition tests (2026-10-30, after a drive failed where desk tests
+  passed): accessibility OFF (as after any install); unplug / plug in with music playing (dumpsys battery, and a real
+  cable by the user); a quick unplug-replug (engine crank); plug in with the screen off; the idle screensaver during a
+  simulated drive (lite.html?idle=20 + sim.js) and staying up while driving; no internet (CDP
+  Network.emulateNetworkConditions offline, then reload). Note: the tablet may really be on battery at the desk, so a
+  dumpsys "unplug" can be a no-op; check `dumpsys battery` first.
+- Drive log (DriveLog.java, 2026-10-30): one line per event in /sdcard/Android/data/me.faizal.carhome/files/drivelog.txt
+  (adb pull, or Android.driveLog(n) over CDP, or About > Drive log on the tablet). Power in/out and what was done
+  (pause, sleep or why not, resume), services on/off, app shown/hidden, and page events through Bridge.log / dlog()
+  (home shown, screensaver started and why, closed and how, driving / stopped, weather offline, script errors).
+  After a drive, read it before guessing.
+- Offline map (2026-10-30, user: Sumedang + greater Bandung only, network elsewhere): offline-map/build.sh runs
+  fetch.py, which fetches OpenFreeMap's own tiles for bounds 107.25,-7.35,108.30,-6.55 at z0-14 (2,494 tiles, 55 MB,
+  4 at a time) into sumedang-bandung.mbtiles; `install` pushes it to /sdcard/Android/data/me.faizal.carhome/files/.
+  (Planetiler from OSM was tried first: 2+ GB of downloads, hours on the user's connection; and running it from Claude
+  Code was blocked as outside code.) In the app the style's source is https://carhome.app/tiles/{z}/{x}/{y}.pbf and
+  glyphs /fonts/...: OfflineMap.java answers from the file (TMS row flip, gunzip) and fetches anything missing from
+  OpenFreeMap (TileJSON template); fonts are kept in files/fonts once fetched. Each tile response says X-Tile-Source:
+  file / network. Checked 2026-10-30: Lembang, Soreang, Jatinangor, Sumedang from the file; Cianjur, south Garut from the
+  network. The browser prototype still uses OpenFreeMap directly. The drive log says at start whether the file is there.
+- android/build.sh installs with --no-incremental (2026-10-30: the default streamed install left files missing, every
+  weather icon 404). A fresh install (not -r) wipes files/: the offline map and the drive log; push the map again.
+  Sidebar shows 3 apps (RAIL / RAIL_MAX = 3, user 2026-10-30) so the status pill fits the gear and warnings.
+- Accessibility going off (2026-10-30, from the drive log + logcat): installs with -r keep it on; force-stop and a fresh
+  install turn it off; and twice it went off ~10 s after Android's Accessibility screen was opened from the About card's
+  "On" row (the switch tapped off there). Check rows now open settings only when that item is off.
+  offline-map/build.sh pushes to .part and renames; OfflineMap opens with a no-op DatabaseErrorHandler (Android's default
+  renamed the half-copied file to .corrupt).
+- Never `am force-stop me.faizal.carhome`: Android switches the app's accessibility service OFF on a force stop (found
+  2026-10-30: the test routine install + force-stop kept turning it off). After an install, start it with the HOME intent
+  only; to reload a page, location.reload() over CDP. Samsung's battery care force-stopping the app would do the same, so
+  nDashMo should be battery "Unrestricted" / never sleeping.
 - Testing: start the app with the HOME intent (`am start -a android.intent.action.MAIN -c android.intent.category.HOME`),
   never `am start -n` (that makes a second copy). Mute music for tests and restore the volume after.
 
@@ -367,6 +399,14 @@ Driven over ADB from a computer on the same Wi-Fi (Wireless debugging; pair once
   Canvas: the tablet's WebView page is 1006 x 601 CSS px (1340 x 800 at DPR 1.33). glass.html is drawn at 1340 x 800
   and scaled (0.75 on the tablet); lite.html is drawn at 1006 x 601 on body and scaled by fit() (1 on the tablet),
   so in a browser window of another shape both keep the tablet's proportions (Lite used to stretch to the window).
+  App icon (2026-10-30, user's ndashmo-icon-kit, "C3 Cluster": blue disc behind a frosted glass dial): adaptive icon in
+  android/res/mipmap-*/ (PNG foreground, the glass needs SVG filters), background #F3F5F8 by day and #0E1117 in dark
+  mode (values-night), monochrome vector for themed icons; manifest icon / roundIcon = @mipmap/ic_launcher(_round).
+  The About card and page show the kit's mark (launcher-prototype/vendor/brand: ndashmo-mark-matte.svg in Matte,
+  ndashmo-mark-glass.svg in Glass) on the icon's dark #0E1117 tile, instead of the old steering-wheel glyph.
+  Accent blue is #007AFF (user, 2026-10-30; was #5aa7ff) in both themes, the app icon and android-native.
+  Controls 2026-10-30 (user): the title bar (Controls / About with Close or Back) at the bottom, within reach; no
+  Hotspot tile (Mobile data spans the Quick grid's second row); battery card says just "Not charging".
   Controls (2026-10-29, user, option A of controls-wireframe.html): a full page (#cc) beside the rail in three columns
   (.cc-cols: Quick / Display and driving / About card; CSS order puts Quick next to the sidebar, so with the sidebar
   on the right the columns read About / Display / Quick, user 2026-10-29), plus #about (About nDashMo). Matte: .page sections shown by

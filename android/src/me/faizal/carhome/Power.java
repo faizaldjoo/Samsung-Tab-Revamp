@@ -34,7 +34,9 @@ final class Power {
     private static Context app;
 
     static void attach(Object owner, Context c) {
-        if (!owners.add(owner) || owners.size() > 1) return;
+        if (!owners.add(owner)) return;
+        DriveLog.add(c, "power: watching from " + owner.getClass().getSimpleName());
+        if (owners.size() > 1) return;
         app = c.getApplicationContext();
         IntentFilter f = new IntentFilter(Intent.ACTION_POWER_CONNECTED);
         f.addAction(Intent.ACTION_POWER_DISCONNECTED);
@@ -42,7 +44,9 @@ final class Power {
     }
 
     static void detach(Object owner) {
-        if (!owners.remove(owner) || !owners.isEmpty()) return;
+        if (!owners.remove(owner)) return;
+        if (app != null) DriveLog.add(app, "power: " + owner.getClass().getSimpleName() + " stopped" + (owners.isEmpty() ? ", nothing watches the charger now" : ""));
+        if (!owners.isEmpty()) return;
         main.removeCallbacksAndMessages(null);
         try { app.unregisterReceiver(power); } catch (Exception ignored) { }
     }
@@ -57,7 +61,10 @@ final class Power {
 
     private static void unplugged() {
         main.removeCallbacks(resume);
-        if (app.getSystemService(AudioManager.class).isMusicActive()) mediaKey(KeyEvent.KEYCODE_MEDIA_PAUSE);
+        boolean music = app.getSystemService(AudioManager.class).isMusicActive();
+        DriveLog.add(app, "UNPLUGGED (car off): " + (music ? "music playing, pause sent" : "no music playing")
+                + (Assist.current != null ? ", sleep in 0.5 s" : ", accessibility OFF so no sleep (screen times out)"));
+        if (music) mediaKey(KeyEvent.KEYCODE_MEDIA_PAUSE);
         main.removeCallbacks(sleep);
         main.postDelayed(sleep, SLEEP_AFTER_MS);
     }
@@ -65,6 +72,8 @@ final class Power {
     private static void pluggedIn() {
         main.removeCallbacks(sleep);
         PowerManager pm = app.getSystemService(PowerManager.class);
+        DriveLog.add(app, "PLUGGED IN (car on): screen " + (pm.isInteractive() ? "was on" : "was off, waking")
+                + (Assist.current != null ? "" : ", accessibility OFF so home can't be brought up from the background"));
         if (!pm.isInteractive()) {
             @SuppressWarnings("deprecation")
             PowerManager.WakeLock wl = pm.newWakeLock(PowerManager.SCREEN_BRIGHT_WAKE_LOCK | PowerManager.ACQUIRE_CAUSES_WAKEUP, "carhome:carstart");
@@ -76,7 +85,7 @@ final class Power {
             try {
                 from.startActivity(new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME).setPackage(app.getPackageName())
                         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
-            } catch (Exception ignored) { }
+            } catch (Exception e) { DriveLog.add(app, "plug in: couldn't open home: " + e); }
         }
         main.removeCallbacks(resume);
         main.postDelayed(resume, RESUME_AFTER_MS);
@@ -85,12 +94,18 @@ final class Power {
 
     /** Still unplugged: screen off (this tablet has no lock screen, so "lock" just means sleep). */
     private static final Runnable sleep = () -> {
-        if (!plugged() && Assist.current != null) Assist.current.performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_LOCK_SCREEN);
+        if (plugged()) { DriveLog.add(app, "sleep skipped: power back already"); return; }
+        if (Assist.current == null) return;
+        boolean ok = Assist.current.performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_LOCK_SCREEN);
+        DriveLog.add(app, ok ? "screen off (sleep)" : "sleep FAILED (lock screen action refused)");
     };
 
     /** Play: Android hands the key to the app that played last (YT Music, Spotify, radio) and restarts it if needed. */
     private static final Runnable resume = () -> {
-        if (plugged() && !app.getSystemService(AudioManager.class).isMusicActive()) mediaKey(KeyEvent.KEYCODE_MEDIA_PLAY);
+        if (!plugged()) { DriveLog.add(app, "resume skipped: unplugged again"); return; }
+        if (app.getSystemService(AudioManager.class).isMusicActive()) { DriveLog.add(app, "resume: music already playing"); return; }
+        mediaKey(KeyEvent.KEYCODE_MEDIA_PLAY);
+        DriveLog.add(app, "resume: play sent");
     };
 
     private static boolean plugged() {

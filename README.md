@@ -53,6 +53,19 @@ first and lose its settings.
    ```
    Without `install`, the script only builds `android/build/carhome.apk`.
 
+### Offline map (Sumedang + greater Bandung)
+
+The map works without signal inside Sumedang regency, Bandung, Cimahi, Bandung regency and West Bandung; elsewhere it
+uses the network. The map file (about 55 MB) is not in the repo or the APK: build it and copy it to the tablet with
+
+```bash
+ADB_SERIAL=<tablet-serial> offline-map/build.sh install
+```
+
+It fetches the area's map tiles from OpenFreeMap (about 2,500 tiles, a few minutes; needs Python 3) into
+`offline-map/data/sumedang-bandung.mbtiles` (git-ignored), then copies it to the tablet. The file survives app
+updates; run it again every few months for new roads. Uninstalling the app deletes it.
+
 ### After installing
 
 - Updating the app turns its accessibility service off on this tablet. Turn it back on: Controls > nDashMo card >

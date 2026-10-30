@@ -104,6 +104,9 @@
 </div>
 
 <script type="module">
+  // Drive log (Bridge.log): when the screensaver goes home, and why.
+  const dlog = m => { try { if (window.Android && Android.log) Android.log(m); } catch (e) { } };
+  addEventListener('error', e => dlog(`ERROR screensaver:${e.lineno}: ${e.message}`));
   import { createFace } from './vendor/bbot/face.js';
 
   const W = 1340, H = 800;
@@ -301,7 +304,7 @@
     const dt = performance.now() - d.t, dx = e.clientX - d.x, dy = e.clientY - d.y;
     if (d.long || d.flips >= 3) return;
     // Swipe right to left: back home (the mirror of home's swipe right, which opens this screensaver).
-    if (fromHome && dt < 700 && dx < -120 && Math.abs(dy) < -dx * 0.6) { location.href = HOME; return; }
+    if (fromHome && dt < 700 && dx < -120 && Math.abs(dy) < -dx * 0.6) { dlog('screensaver closed: swipe'); location.href = HOME; return; }
     // Swipe: a quick, mostly straight drag.
     if (dt < 350 && Math.hypot(dx, dy) > 160) { show('dizzy', ['spin'], 3500); return; }
     if (d.path > MOVE) return;
@@ -311,7 +314,7 @@
     tapTimer = setTimeout(() => {
       if (taps >= 3) show('annoyed', ['shake'], 3500);
       else if (taps === 2) { show('surprised', ['pop'], 4000); setTimeout(() => face.setExpression('joy'), 900); }
-      else if (fromHome) location.href = HOME;
+      else if (fromHome) { dlog('screensaver closed: tap'); location.href = HOME; }
       else show(asleep() ? 'surprised' : 'happy', ['bounce'], 3500);
       taps = 0;
     }, 280);
@@ -758,7 +761,7 @@
         } else if (type === 'place') {
           const area = strip(d.area), district = strip(d.district);
           if (area || district) weather.place(district && district !== area ? `${district}, ${area}` : area || district);
-        } else if (type === 'home') location.href = HOME;
+        } else if (type === 'home') { dlog('screensaver closed: Home button or plug-in'); location.href = HOME; }
       },
     };
     Android.ready();

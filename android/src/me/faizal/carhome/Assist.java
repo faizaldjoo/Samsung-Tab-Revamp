@@ -29,6 +29,7 @@ public class Assist extends AccessibilityService {
     @Override
     protected void onServiceConnected() {
         current = this;
+        DriveLog.add(this, "accessibility service ON");
         strip = new EdgeStrip(this);
         Power.attach(this, this);
     }
@@ -36,6 +37,7 @@ public class Assist extends AccessibilityService {
     @Override
     public boolean onUnbind(Intent i) {
         current = null;
+        DriveLog.add(this, "accessibility service OFF");
         Power.detach(this);
         if (strip != null) strip.destroy();
         return super.onUnbind(i);

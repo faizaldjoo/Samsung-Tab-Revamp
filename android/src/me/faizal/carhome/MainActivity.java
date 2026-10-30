@@ -46,6 +46,8 @@ public class MainActivity extends Activity {
     @Override
     protected void onCreate(Bundle state) {
         super.onCreate(state);
+        DriveLog.add(this, "app started");
+        new Thread(() -> DriveLog.add(this, OfflineMap.describe(this))).start();
         setShowWhenLocked(true);   // woken by the charger: show over the lock screen and turn the screen on
         setTurnScreenOn(true);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS);
@@ -71,7 +73,16 @@ public class MainActivity extends Activity {
             @Override
             public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest req) {
                 Uri u = req.getUrl();
-                return HOST.equals(u.getHost()) ? asset(u.getPath()) : null;
+                if (!HOST.equals(u.getHost())) return null;
+                String p = u.getPath();
+                // The map: tiles from the offline map file where it covers, the network elsewhere (OfflineMap.java).
+                if (p != null && p.startsWith("/tiles/")) {
+                    String[] zxy = p.substring(7).replace(".pbf", "").split("/");
+                    try { return OfflineMap.tile(MainActivity.this, Integer.parseInt(zxy[0]), Integer.parseInt(zxy[1]), Integer.parseInt(zxy[2])); }
+                    catch (Exception e) { return null; }
+                }
+                if (p != null && p.startsWith("/fonts/")) return OfflineMap.font(MainActivity.this, p.substring(7));
+                return asset(p);
             }
 
             @Override
@@ -215,6 +226,7 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onDestroy() {
+        DriveLog.add(this, "app closed");
         bridge.stop();
         web.destroy();
         super.onDestroy();
@@ -223,7 +235,14 @@ public class MainActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
+        DriveLog.add(this, "app shown");
         immersive();
+    }
+
+    @Override
+    protected void onPause() {
+        DriveLog.add(this, "app hidden (another app or the screen off)");
+        super.onPause();
     }
 
     @Override

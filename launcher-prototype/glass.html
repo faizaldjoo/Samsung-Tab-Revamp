@@ -20,7 +20,7 @@
        500 weight, 14px minimum, rather than thin and grey. */
     --muted: rgba(247, 248, 250, 0.84);
     --faint: rgba(247, 248, 250, 0.68);
-    --accent: #5aa7ff;
+    --accent: #007aff;
     --sun: #ffd36b;
     --warn: #ff7a6b;
     --card: rgba(255,255,255,0.09);
@@ -89,7 +89,9 @@
      split screen, pinned apps then recent apps (4 slots), all-apps / home at the bottom. */
   .rail { display: flex; flex-direction: column; padding: 10px 0; }
   .rail > button, .dock-item { flex: 1 1 0; min-height: 0; width: 100%; display: grid; place-items: center; position: relative; }
-  .rail > .status { flex-grow: 1.7; }
+  /* 3 apps (user, 2026-10-30): the fourth app's slot goes to the status pill, so each app keeps the slot and gap it had
+     with 4, and the pill has room for warnings next to the gear without the layout moving when one appears. */
+  .rail > .status { flex-grow: 2.7; }
   .rf { width: 80px; height: 80px; border-radius: 999px; display: grid; place-items: center; font-size: 32px;
     background: rgba(255,255,255,0.10); box-shadow: var(--rim); }
   .status .rf { height: calc(100% - 16px); display: flex; flex-direction: column; justify-content: center; gap: 12px; align-items: center; color: var(--text); }
@@ -103,13 +105,17 @@
   .status .off { color: var(--faint); }
   .status small { font-size: 12px; font-weight: 600; color: var(--muted); font-variant-numeric: tabular-nums; }
   /* Battery: percentage only, first in the pill. */
-  .status .bat { font-size: 15px; font-weight: 600; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
+  .status .bat { font-size: 21px; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }   /* bigger (user, 2026-10-30) */
   .status .warn { color: var(--warn); animation: pulse 1.6s ease-in-out infinite; }
+  /* Warnings side by side, smaller, and the pill a little tighter while any shows, so two warnings (not charging,
+     accessibility off) still fit above the gear (seen on the tablet 2026-10-30: the gear spilled out of the pill). */
+  .status .row.warn { flex-direction: row; gap: 4px; } .status .warn i { font-size: 18px; }
+  .status .rf:has(.warn:not(:empty)) { gap: 10px; }
   /* Screensaver button: the home screen fades to black, then the screensaver opens. */
   #screen::after { content: ""; position: absolute; inset: 0; z-index: 20; background: #07080a; opacity: 0; pointer-events: none; transition: opacity 0.4s var(--ease); }
   #screen.to-saver::after { opacity: 1; }
   @keyframes pulse { 50% { opacity: 0.45; } }
-  .dock { flex: 4 1 0; min-height: 0; display: flex; flex-direction: column; }
+  .dock { flex: 3 1 0; min-height: 0; display: flex; flex-direction: column; }
   /* Hairline between pinned apps (fixed order) and recent apps (newest first). */
   .dock .split { flex: none; align-self: center; width: 32px; height: 1px; background: rgba(255,255,255,0.32); }
   /* Pin badge on a pinned app's tile, in the rail and on the all-apps page. Hold an app to pin or unpin it. */
@@ -178,7 +184,7 @@
      a faint accent pool under it. Drawn once; nothing about it animates. */
   #mapPanel.light .puck { --car-body: #30343b; --car-roof: #4b515b; --car-glass: #0b0c0f; --car-edge: #5b626c; --car-lamp: #eef2f7; }
   #mapPanel.driving .puck::before { content: ""; position: absolute; left: 50%; top: 56%; width: 300%; height: 56%; transform: translate(-50%, -50%);
-    border-radius: 50%; background: radial-gradient(closest-side, rgba(90,167,255,0.3), rgba(90,167,255,0)); }
+    border-radius: 50%; background: radial-gradient(closest-side, rgba(0,122,255,0.3), rgba(0,122,255,0)); }
   .puck svg { position: relative; display: block; width: 100%; height: 100%; overflow: visible;
     transform: perspective(220px) rotateX(18deg); filter: drop-shadow(0 4px 5px rgba(8,16,32,0.5)); }
   .puck .car { fill: var(--car-body); stroke: var(--car-edge); stroke-width: 0.8; }
@@ -200,7 +206,7 @@
     font-variant-numeric: tabular-nums; box-shadow: 0 6px 14px rgba(0,0,0,0.3); }
   #mapPanel.driving .lim:not([hidden]) { display: grid; }
   .lim.over { background: #d8322d; color: #fff; }
-  .puck { position: absolute; left: 50%; top: 66%; width: 28px; height: 28px; margin: -14px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 6px rgba(90,167,255,0.28), 0 0 0 3px #fff inset; }
+  .puck { position: absolute; left: 50%; top: 66%; width: 28px; height: 28px; margin: -14px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 6px rgba(0,122,255,0.28), 0 0 0 3px #fff inset; }
   .maneuver { position: relative; margin: 14px; align-self: flex-start; display: flex; gap: 14px; align-items: center; padding: 12px 18px 12px 12px; border-radius: 24px; }
   .maneuver .arrow { width: 50px; height: 50px; border-radius: 16px; background: var(--accent); display: grid; place-items: center; font-size: 28px; color: #fff; }
   .maneuver .dist { font-size: 27px; font-weight: 700; letter-spacing: -0.02em; }
@@ -481,7 +487,9 @@
   /* Controls and About (2026-10-29, user): pages in home's cell, three columns by job. Each column is a frosted panel
      (a dark tint over the wallpaper, no live blur), settings inside are rows and segmented controls, so it reads as
      three groups instead of a grid of identical cards. */
-  .cc, .ab-page { position: relative; z-index: 2; display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 18px; min-width: 0; min-height: 0; }
+  .cc, .ab-page { position: relative; z-index: 2; display: grid; grid-template-rows: minmax(0, 1fr) auto; gap: 18px; min-width: 0; min-height: 0; }
+  /* The title bar (title, Close / Back) sits at the bottom, within thumb reach (user, 2026-10-30). */
+  .cc > .cc-head, .ab-page > .cc-head { grid-row: 2; } .cc > .cc-cols, .ab-page > .ab-cols { grid-row: 1; }
   .pnl { border-radius: var(--r-glass); background: linear-gradient(160deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02) 48%), rgba(14, 18, 25, 0.72);
     box-shadow: var(--rim); min-width: 0; min-height: 0; }
   #screen.night .pnl { background: rgba(8, 10, 14, 0.82); }
@@ -501,6 +509,9 @@
   .ccol > .lbl { margin-bottom: 0; }
   .quick { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .quick .card { height: 136px; }
+  /* No Hotspot (user, 2026-10-30): Mobile data is one wide tile under Wi-Fi and Bluetooth. */
+  .quick .card[data-t="data"] { grid-column: span 2; height: 96px; flex-direction: row; align-items: center; justify-content: flex-start; gap: 16px; }
+  .quick .card[data-t="data"] b { margin-top: 0; }
   .quick .tog > span:last-child { min-width: 0; max-width: 100%; }
   .quick .tog b, .quick .tog small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .field { display: grid; gap: 8px; }
@@ -517,7 +528,9 @@
   .seg.mini button { height: 44px; }
   /* About card and page */
   .ab-app { display: flex; align-items: center; gap: 16px; }
-  .mark { width: 68px; height: 68px; border-radius: 18px; background: linear-gradient(160deg, #2a3c58, #121822); display: grid; place-items: center; font-size: 34px; color: var(--accent); flex: none; box-shadow: var(--rim); }
+  /* The nDashMo mark from the app icon kit (vendor/brand), on the icon's dark tile (user, 2026-10-30). */
+  .mark { width: 68px; height: 68px; border-radius: 18px; background: #0e1117; display: grid; place-items: center; flex: none; box-shadow: var(--rim); }
+  .mark img { width: 88%; height: 88%; }
   .ab-app b { display: block; font-size: 25px; font-weight: 700; letter-spacing: -0.01em; } .ab-app small { display: block; font-size: 15px; color: var(--muted); margin-top: 2px; }
   .chk { display: grid; gap: 2px; }
   .chk-row { display: flex; align-items: center; gap: 12px; min-height: 44px; font-size: 17px; width: 100%; text-align: left; }
@@ -540,6 +553,13 @@
   .ab-meta > span:first-child { white-space: nowrap; }
   .ab-ver { font-size: 18px; font-weight: 600; color: var(--muted); }
   .ab-need { font-size: 15px; font-weight: 600; color: var(--muted); }
+  .ab-links { display: flex; flex-wrap: wrap; gap: 10px; }
+  /* Drive log: newest first, one event a line, scrolls; warnings (OFF, FAILED, ERROR) in the warning colour. */
+  .ab-log { flex: 1; min-height: 0; overflow-y: auto; font-size: 15px; line-height: 1.5; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .ab-log div { padding: 4px 0; border-bottom: 1px solid rgba(255,255,255,0.08); } .ab-log b { color: var(--text); opacity: 0.6; font-weight: 500; margin-right: 10px; }
+  .ab-log .hot { color: var(--warn); }
+  .chk[hidden], .ab-log[hidden] { display: none; }
+
   .creator { display: inline-flex; align-items: center; gap: 10px; height: 52px; padding: 0 20px 0 14px; border-radius: 999px; background: rgba(255,255,255,0.12);
     box-shadow: var(--rim); color: var(--text); text-decoration: none; font-size: 17px; white-space: nowrap; }
   .creator i { font-size: 26px; } .creator b { font-weight: 600; }
@@ -671,7 +691,7 @@
       <div class="map-inner">
         <div class="map-tiles"><div class="grid" id="tiles"></div><div class="vmap" id="vmap"></div></div>
         <svg class="route" viewBox="0 0 400 760" preserveAspectRatio="none" aria-hidden="true">
-          <path d="M200 520 L200 420 Q200 380 240 360 L300 330 Q330 315 330 280 L330 120" fill="none" stroke="#5aa7ff" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M200 520 L200 420 Q200 380 240 360 L300 330 Q330 315 330 280 L330 120" fill="none" stroke="#007aff" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
         <div class="map-shade"></div>
         <div class="puck"><svg viewBox="0 0 40 80" aria-hidden="true"><defs><linearGradient id="carShade" x1="0" x2="1"><stop offset="0" stop-color="#fff" stop-opacity="0.22"/><stop offset="0.5" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity="0.14"/></linearGradient></defs><path class="mirror" d="M6.2 26.5 2.6 25q-1.1 1.7 0 3.3l3.6.5ZM33.8 26.5l3.6-1.5q1.1 1.7 0 3.3l-3.6.5Z"/><path class="car" d="M20 2C29 2 33.5 5 34 13l.5 51c0 10-4.5 14-14.5 14S5.5 74 5.5 64L6 13C6.5 5 11 2 20 2Z"/><path fill="url(#carShade)" d="M20 2C29 2 33.5 5 34 13l.5 51c0 10-4.5 14-14.5 14S5.5 74 5.5 64L6 13C6.5 5 11 2 20 2Z"/><path class="glass" d="M9.5 26Q20 20.5 30.5 26l-2 9Q20 33 11.5 35ZM8.6 29l2 6.5v21l-2 4.5ZM31.4 29l-2 6.5v21l2 4.5ZM11.5 58.5Q20 60 28.5 58.5l1 8.5Q20 69.5 10.5 67Z"/><path class="roof" d="M11.5 35Q20 33 28.5 35v22Q20 58.5 11.5 57Z"/><path class="lamp" d="M8 9q2-3.5 6-4.8L13 7.5Q10 8.5 8 11ZM32 9q-2-3.5-6-4.8l1 3.3q3 1 5 3.5Z"/><path class="tail" d="M7 71.5q2 3.6 6 4.9l-.5-2.1q-3-1-5-3.9ZM33 71.5q-2 3.6-6 4.9l.5-2.1q3-1 5-3.9Z"/></svg></div>
@@ -803,7 +823,6 @@
           <button class="card tog press" data-t="wifi"><span class="disc"><i class="ph-bold ph-wifi-high"></i></span><span><b>Wi-Fi</b><small></small></span></button>
           <button class="card tog press" data-t="bt"><span class="disc"><i class="ph-fill ph-bluetooth-connected"></i></span><span><b>Bluetooth</b><small></small></span></button>
           <button class="card tog press" data-t="data"><span class="disc"><i class="ph-fill ph-cell-signal-high"></i></span><span><b>Mobile data</b><small></small></span></button>
-          <button class="card tog press" data-t="hotspot"><span class="disc"><i class="ph-bold ph-broadcast"></i></span><span><b>Hotspot</b><small></small></span></button>
         </div>
         <div class="rows">
           <button class="row tog press" data-t="dnd"><span class="disc"><i class="ph-fill ph-moon"></i></span><span><b>Do Not Disturb</b><small></small></span><span class="sw"></span></button>
@@ -825,7 +844,7 @@
         </div>
       </div>
       <div class="ccol pnl about-card">
-        <div class="ab-app"><span class="mark"><i class="ph-fill ph-steering-wheel"></i></span><span><b>nDashMo</b><small id="aboutTag"></small></span></div>
+        <div class="ab-app"><span class="mark"><img src="vendor/brand/ndashmo-mark-glass.svg" alt=""></span><span><b>nDashMo</b><small id="aboutTag"></small></span></div>
         <div class="ab-meta"><span id="aboutVer"></span><span id="aboutBy"></span></div>
         <div class="chk" id="aboutChk"></div>
         <!-- Prototype only: tap these two to preview the warning states. -->
@@ -841,15 +860,16 @@
     <div class="cc-head pnl"><button class="round press" id="aboutBack" aria-label="Back to controls"><i class="ph-bold ph-arrow-left"></i></button><h2>About nDashMo</h2></div>
     <div class="ab-cols">
         <div class="ccol pnl ab-id">
-          <div class="ab-app"><span class="mark"><i class="ph-fill ph-steering-wheel"></i></span><span><b>nDashMo</b><small id="abTag"></small></span></div>
+          <div class="ab-app"><span class="mark"><img src="vendor/brand/ndashmo-mark-glass.svg" alt=""></span><span><b>nDashMo</b><small id="abTag"></small></span></div>
           <p class="ab-ver" id="abVer"></p>
           <p class="blurb" id="abBlurb"></p>
-          <div id="abBy"></div>
+          <div class="ab-links"><span id="abBy"></span><button class="creator press" id="abLogBtn"><i class="ph-fill ph-clock-counter-clockwise"></i><span>Drive log</span></button></div>
           <p class="cred" id="abCred"></p>
         </div>
         <div class="ccol pnl">
-          <div class="ab-need">What nDashMo needs</div>
+          <div class="ab-need" id="abNeed">What nDashMo needs</div>
           <div class="chk" id="abChk"></div>
+          <div class="ab-log" id="abLog" hidden></div>
           <button class="btn solid press" id="abFix" hidden><i class="ph-fill ph-gear"></i>Open settings</button>
         </div>
       </div>
@@ -898,6 +918,12 @@
       try {
         const style = await (await fetch('vendor/dark-matter/style.json')).json();
         style.sprite = new URL(style.sprite, location.href).href;
+        // In the app, tiles and label fonts come through the app (OfflineMap.java): the offline map file inside Sumedang +
+        // greater Bandung, OpenFreeMap elsewhere, fonts kept once fetched. Same OpenMapTiles data either way.
+        if (window.Android) {
+          style.sources.openmaptiles = { type: 'vector', tiles: ['https://carhome.app/tiles/{z}/{x}/{y}.pbf'], minzoom: 0, maxzoom: 14 };
+          style.glyphs = 'https://carhome.app/fonts/{fontstack}/{range}.pbf';
+        }
         mapStyle(style);
         vm = new maplibregl.Map({
           container: 'vmap', style, zoom: 15, center: pos ? [pos.lon, pos.lat] : [107.921, -6.842],
@@ -1104,7 +1130,8 @@
 
   // Rail slots: pinned apps first (in the order they were pinned, kept in S.pins), then the most recent other apps.
   // recents is newest first; its first entry is the app that is open now.
-  const RAIL_MAX = 4;
+  // 3 apps on the sidebar (user, 2026-10-30), so the status pill has room for the gear and any warnings.
+  const RAIL_MAX = 3;
   let recents = ['waze', 'prambors', 'whatsapp', 'spotify', 'ytmusic'].filter(id => byId[id]);
   S.pins = S.pins.filter(id => byId[id]);
   const PIN = '<span class="pin" aria-hidden="true"><i class="ph-fill ph-push-pin"></i></span>';
@@ -1266,7 +1293,8 @@
   // so does the car starting. In the app only (a browser prototype can try it with glass.html?idle=<sec>).
   // Built into the launcher rather than Android's screen saver (DreamService): that one only starts when the screen would
   // turn off while charging, and this tablet is set to stay on while charging.
-  function goSaver() {
+  function goSaver(why) {
+    dlog(`screensaver: ${why || 'swipe'}`);
     screen.classList.add('to-saver');
     setTimeout(() => { location.href = 'screensaver.html?from=home'; }, 420);
   }
@@ -1279,14 +1307,14 @@
   if (NATIVE || idleParam) setInterval(() => {
     if (document.hidden || screen.classList.contains('wp-preview')) return;   // not showing, or trying a wallpaper
     if (NATIVE && !charging) { lastTouch = Date.now(); return; }              // unplugged: no screensaver, the tablet sleeps
-    if (Date.now() - lastTouch > IDLE_MS) { lastTouch = Date.now(); goSaver(); }
+    if (Date.now() - lastTouch > IDLE_MS) { lastTouch = Date.now(); goSaver(`idle ${IDLE_MS >= 60000 ? IDLE_MS / 60000 + " min" : IDLE_MS / 1000 + " s"}, ${speed} km/h`); }
   }, idleParam ? 1000 : 15000);
 
   // Controls panel.
   // Controls and All apps are never open together: opening one closes the other.
   const showCC = on => { if (on) { showApps(false); AppInfo.renderCard(); } screen.classList.remove('show-about'); screen.classList.toggle('show-cc', on); };
   // About nDashMo: a page of its own, reached from the About card; Back returns to Controls.
-  const showAbout = on => { screen.classList.toggle('show-cc', !on); screen.classList.toggle('show-about', on); if (on) { AppInfo.renderPage(); } };
+  const showAbout = on => { screen.classList.toggle('show-cc', !on); screen.classList.toggle('show-about', on); if (on) { AppInfo.reset(); AppInfo.renderPage(); } };
   $('statusBtn').addEventListener('click', () => showCC(!screen.classList.contains('show-cc') && !screen.classList.contains('show-about')));
   $('aboutBtn').addEventListener('click', () => showAbout(true));
   $('aboutBack').addEventListener('click', () => showAbout(false));
@@ -1525,6 +1553,7 @@
   // Theme: only the chosen page is ever loaded; Lite opens lite.html and this page is gone. The app starts on the last
   // one shown (Bridge setPrefs "theme").
   const THEME = 'glass';
+  dlog('home shown: Glass');
   S.theme = THEME;
   if (NATIVE) save();   // the app starts on this page next time
   const setTheme = v => { if (v === THEME) return; S.theme = v; save(); location.href = v + '.html'; };
@@ -1558,10 +1587,11 @@
   }
 
   // Tablet health. Prototype only: tap the cards to preview the warning states.
-  let charging = true, level = 84, temp = 36;
+  // Browser prototype: shown unplugged and with accessibility off, so the status pill's warnings can be reviewed (user, 2026-10-30).
+  let charging = NATIVE, level = 84, temp = 36;
   // nDashMo's accessibility service is off (it goes off after each install): unplug no longer puts the tablet to sleep.
   // Shown as a warning in the status pill; the Accessibility check in Controls > About turns it on.
-  const assistOff = () => NATIVE && !!Android.assistOn && !Android.assistOn();
+  const assistOff = () => NATIVE ? !!Android.assistOn && !Android.assistOn() : !window.APPINFO.sampleAssistOn;
   document.addEventListener('visibilitychange', () => { if (!document.hidden) renderStatus(); });
   if (!NATIVE) {
     $('batCard').addEventListener('click', () => { charging = !charging; apply(); });
@@ -1578,7 +1608,7 @@
       + (assistOff() ? `<i class="ph-fill ph-power"></i>` : '');
     const bat = $('batCard'), tc = $('tempCard');
     bat.classList.toggle('bad', !charging);
-    bat.innerHTML = `<i class="ph-fill ph-battery-${charging ? 'charging-vertical' : 'high'}"></i><span><b>${level}%</b><small>${charging ? 'Charging' : 'Not charging, check the cable'}</small></span>`;
+    bat.innerHTML = `<i class="ph-fill ph-battery-${charging ? 'charging-vertical' : 'high'}"></i><span><b>${level}%</b><small>${charging ? 'Charging' : 'Not charging'}</small></span>`;
     tc.classList.toggle('bad', hot);
     tc.innerHTML = `<i class="ph-fill ph-thermometer-${hot ? 'hot' : 'simple'}"></i><span><b>${temp}°C</b><small>${hot ? 'Too hot, shade it' : 'Normal'}</small></span>`;
   }
@@ -1663,6 +1693,7 @@
   function tick() {
     const d = new Date(), h = pad(d.getHours()), m = pad(d.getMinutes());
     if (!$('cH').dataset.v) { build($('cH'), h); build($('cM'), m); } else { flipTo($('cH'), h); flipTo($('cM'), m); }
+    try { renderStatus(); } catch (e) { }   // once a minute: the accessibility warning clears soon after it is turned on
     $('day').textContent = d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric' });
     const a = new Date(d.getTime() + 17 * 60000);
     if (!NATIVE) $('arrive').textContent = `${pad(a.getHours())}:${pad(a.getMinutes())}`;
@@ -1700,9 +1731,10 @@
     $('hl').textContent = `${s.hi}° / ${s.lo}°`;
     $('cond').textContent = s.cond;
     setIcon(s.kind);
-    const d = new Date(); $('upd').textContent = `Updated ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    const d = new Date(s.at || Date.now()); $('upd').textContent = `Updated ${pad(d.getHours())}:${pad(d.getMinutes())}`;
   }
-  show(STATES[0]);
+  // In the app: placeholders, then the last real weather (below, once kindOf exists), never the sample above.
+  show(!NATIVE ? STATES[0] : { kind: 'cloudy', temp: '--', cond: 'Waiting for weather', hi: '--', lo: '--' });
   // Live weather at the preview location, Sumedang Utara (Open-Meteo, WMO codes). In the app: the last GPS fix, every 20 min.
   // Offline or blocked: the preview state above stays.
   const WX_AT = { lat: -6.842, lon: 107.921 };
@@ -1713,11 +1745,15 @@
   function fetchWx(lat, lon) {
     fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min&forecast_days=1&timezone=auto`)
       .then(r => r.json())
-      .then(j => { const c = j.current.weather_code;
-        show({ kind: kindOf(c), temp: Math.round(j.current.temperature_2m), cond: WX_TEXT[c] || 'Cloudy',
-               hi: Math.round(j.daily.temperature_2m_max[0]), lo: Math.round(j.daily.temperature_2m_min[0]) }); })
-      .catch(() => {});
+      .then(j => {
+        const w = { c: j.current.weather_code, t: Math.round(j.current.temperature_2m), hi: Math.round(j.daily.temperature_2m_max[0]), lo: Math.round(j.daily.temperature_2m_min[0]), at: Date.now() };
+        showWx(w); try { localStorage.setItem('carhome-wx', JSON.stringify(w)); } catch (e) { } })
+      .catch(() => dlog('weather: no answer (offline?)'));
   }
+  // The last real weather, kept as carhome-wx in the same raw form as Matte's ({ c: WMO code, t, hi, lo, at }), so a start
+  // without internet (a dead spot) shows it with its time.
+  function showWx(w) { show({ kind: kindOf(w.c), temp: w.t, cond: WX_TEXT[w.c] || 'Cloudy', hi: w.hi, lo: w.lo, at: w.at }); }
+  if (NATIVE) try { const w = JSON.parse(localStorage.getItem('carhome-wx') || 'null'); if (w && w.c != null) showWx(w); } catch (e) { }
   fetchWx(WX_AT.lat, WX_AT.lon);   // the app refetches at the GPS position (onGps)
 
   // ---- Location. On Android, Geocoder gives the district (locality, e.g. "Sumedang Utara") and the regency or city
@@ -1931,9 +1967,14 @@
     const km = (a, b) => { const dLat = toRad(b.lat - a.lat), dLon = toRad(b.lon - a.lon);
       const h = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLon / 2) ** 2;
       return 12742 * Math.asin(Math.sqrt(h)); };
+    let drv = false, drvRun = 0, drvAt = 0;
     function onGps(f) {
       const kmh = Math.round((f.speed || 0) * 3.6);
       speed = Math.min(GMAX, kmh);
+      // Drive log only: driving started (3 fixes over 10 km/h) / stopped (under 3 km/h for a minute).
+      drvRun = kmh > 10 ? drvRun + 1 : 0;
+      if (!drv && drvRun >= 3) { drv = true; dlog(`driving (${kmh} km/h)`); }
+      if (kmh > 3) drvAt = Date.now(); else if (drv && Date.now() - drvAt > 60000) { drv = false; dlog('stopped'); }
       if (f.heading != null && kmh > 3) heading = f.heading;
       if (f.accuracy <= 20) {
         // A GPS jump (cold start, out of a tunnel) is not driving: a step faster than 200 km/h between two fixes is

@@ -474,6 +474,14 @@ public class Bridge {
         @Override public void onSessionDestroyed() { pickController(null); }
     };
 
+    // ---- Drive log (DriveLog.java): the pages add their own events, and the About page shows the newest lines
+
+    @JavascriptInterface
+    public void log(String what) { if (what != null) DriveLog.add(act, "page: " + (what.length() > 300 ? what.substring(0, 300) : what)); }
+
+    @JavascriptInterface
+    public String driveLog(int lines) { return DriveLog.tail(act, Math.max(1, Math.min(lines, 2000))); }
+
     // ---- About page (Controls > About): the version and what nDashMo needs turned on
 
     @JavascriptInterface

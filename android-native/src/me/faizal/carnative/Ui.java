@@ -25,7 +25,7 @@ final class Ui {
 
     // Palette: lite.html's :root, and body.night for Night.
     static int BG, PANEL, RAISED, LINE, TEXT, MUTED, FAINT;
-    static final int ACCENT = 0xff5aa7ff, WARN = 0xffff7a6b, OK = 0xff34c759;
+    static final int ACCENT = 0xff007aff, WARN = 0xffff7a6b, OK = 0xff34c759;
 
     static void palette(boolean night) {
         if (night) {

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- nDashMo themed (monochrome) icon layer. The system tints it; keep a single colour. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path android:fillColor="#FF000000" android:pathData="M56.575,34.398 A18.557,18.557 0 1 0 38.692,64.848 A24.433,24.433 0 0 1 56.575,34.398 Z"/>
+    <path android:strokeColor="#FF000000" android:strokeWidth="2.165" android:pathData="M41.629,58.175 a20.567,20.567 0 1 0 41.134,0 a20.567,20.567 0 1 0 -41.134,0"/>
+    <path android:strokeColor="#FF000000" android:strokeWidth="1.856" android:strokeLineCap="round" android:pathData="M47.072,63.680 L44.459,64.624 M49.021,48.943 L46.747,47.351 M62.196,42.093 L62.196,39.309 M75.371,48.943 L77.644,47.351 M77.319,63.680 L79.933,64.624"/>
+    <path android:strokeColor="#FF000000" android:strokeWidth="2.474" android:strokeLineCap="round" android:pathData="M62.196,58.175 L66.959,45.093"/>
+    <path android:fillColor="#FF000000" android:pathData="M59.567,58.175 a2.629,2.629 0 1 0 5.258,0 a2.629,2.629 0 1 0 -5.258,0"/>
+</vector>
