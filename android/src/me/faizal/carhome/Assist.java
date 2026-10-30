@@ -1,16 +1,9 @@
 package me.faizal.carhome;
 
 import android.accessibilityservice.AccessibilityService;
-import android.content.BroadcastReceiver;
-import android.content.Context;
 import android.content.Intent;
-import android.content.IntentFilter;
-import android.media.AudioManager;
-import android.os.BatteryManager;
 import android.os.Handler;
 import android.os.Looper;
-import android.os.PowerManager;
-import android.view.KeyEvent;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
 
@@ -37,79 +30,14 @@ public class Assist extends AccessibilityService {
     protected void onServiceConnected() {
         current = this;
         strip = new EdgeStrip(this);
-        IntentFilter f = new IntentFilter(Intent.ACTION_POWER_CONNECTED);
-        f.addAction(Intent.ACTION_POWER_DISCONNECTED);
-        registerReceiver(power, f);
-    }
-
-    /**
-     * The charger is the car's ignition. This service keeps running in the background and while the screen is off.
-     * Charger out = the car is off (#3): pause the music and put the tablet to sleep at once (user, 2026-10-29; it was
-     * the screensaver first, then sleep 2 minutes later). The short wait lets the playing app take the pause key.
-     * Charger in = the car has started (#4): with the screen off, wake it and bring up Car Home's home screen; either
-     * way, resume the music that played last, once the car's Bluetooth has had a moment to connect.
-     */
-    static final long SLEEP_AFTER_MS = 500, RESUME_AFTER_MS = 3_000;
-
-    private final BroadcastReceiver power = new BroadcastReceiver() {
-        @Override
-        public void onReceive(Context c, Intent i) {
-            if (Intent.ACTION_POWER_DISCONNECTED.equals(i.getAction())) unplugged();
-            else pluggedIn();
-        }
-    };
-
-    private void unplugged() {
-        main.removeCallbacks(resume);
-        if (getSystemService(AudioManager.class).isMusicActive()) mediaKey(KeyEvent.KEYCODE_MEDIA_PAUSE);
-        main.removeCallbacks(sleep);
-        main.postDelayed(sleep, SLEEP_AFTER_MS);
-    }
-
-    private void pluggedIn() {
-        main.removeCallbacks(sleep);
-        PowerManager pm = getSystemService(PowerManager.class);
-        if (!pm.isInteractive()) {
-            @SuppressWarnings("deprecation")
-            PowerManager.WakeLock wl = pm.newWakeLock(PowerManager.SCREEN_BRIGHT_WAKE_LOCK | PowerManager.ACQUIRE_CAUSES_WAKEUP, "carhome:carstart");
-            wl.acquire(3000);
-            // As the Home button does (HOME category): an explicit start of MainActivity made a second copy of Car Home
-            // in its own task, next to the home one, both running (found 2026-10-29).
-            startActivity(new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME).setPackage(getPackageName())
-                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
-        }
-        main.removeCallbacks(resume);
-        main.postDelayed(resume, RESUME_AFTER_MS);
-    }
-
-    /** Still unplugged: screen off (this tablet has no lock screen, so "lock" just means sleep). */
-    private final Runnable sleep = () -> {
-        if (!plugged()) performGlobalAction(GLOBAL_ACTION_LOCK_SCREEN);
-    };
-
-    /** Play: Android hands the key to the app that played last (YT Music, Spotify, radio) and restarts it if needed. */
-    private final Runnable resume = () -> {
-        if (plugged() && !getSystemService(AudioManager.class).isMusicActive()) mediaKey(KeyEvent.KEYCODE_MEDIA_PLAY);
-    };
-
-    private boolean plugged() {
-        Intent b = registerReceiver(null, new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
-        return b != null && b.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0) != 0;
-    }
-
-    private void mediaKey(int code) {
-        AudioManager am = getSystemService(AudioManager.class);
-        am.dispatchMediaKeyEvent(new KeyEvent(KeyEvent.ACTION_DOWN, code));
-        am.dispatchMediaKeyEvent(new KeyEvent(KeyEvent.ACTION_UP, code));
+        Power.attach(this, this);
     }
 
     @Override
     public boolean onUnbind(Intent i) {
         current = null;
-        main.removeCallbacks(sleep);
-        main.removeCallbacks(resume);
+        Power.detach(this);
         if (strip != null) strip.destroy();
-        try { unregisterReceiver(power); } catch (Exception ignored) { }
         return super.onUnbind(i);
     }
 

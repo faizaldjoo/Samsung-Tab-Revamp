@@ -29,10 +29,14 @@ public class MediaListener extends NotificationListenerService {
 
     @Override
     public void onListenerConnected() {
+        Power.attach(this, this);   // charger out / in (Power.java), also while accessibility is off
         try {
             for (StatusBarNotification n : getActiveNotifications()) onNotificationPosted(n);
         } catch (Exception ignored) { }
     }
+
+    @Override
+    public void onListenerDisconnected() { Power.detach(this); }
 
     @Override
     public void onNotificationPosted(StatusBarNotification sbn) {

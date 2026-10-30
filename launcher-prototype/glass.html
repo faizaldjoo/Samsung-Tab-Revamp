@@ -1261,9 +1261,9 @@
     openApp(el.dataset.app);
   });
 
-  // Screensaver: swipe right on home, or by itself after IDLE_MIN minutes with no touch while home is showing and the car is
-  // not moving (driving keeps the dashboard). Fades to black, then opens screensaver.html; a tap there comes back here,
-  // and so do moving off or the car starting. In the app only (a browser prototype can try it with glass.html?idle=<sec>).
+  // Screensaver: swipe right on home, or by itself after IDLE_MIN minutes with no touch while home is showing and the tablet
+  // charges, driving or parked. Fades to black, then opens screensaver.html; a tap or swipe there comes back here, and
+  // so does the car starting. In the app only (a browser prototype can try it with glass.html?idle=<sec>).
   // Built into the launcher rather than Android's screen saver (DreamService): that one only starts when the screen would
   // turn off while charging, and this tablet is set to stay on while charging.
   function goSaver() {
@@ -1275,13 +1275,9 @@
   const IDLE_MS = idleParam ? +idleParam * 1000 : IDLE_MIN * 60000;
   let lastTouch = Date.now();
   ['pointerdown', 'keydown', 'wheel'].forEach(ev => addEventListener(ev, () => { lastTouch = Date.now(); }, true));
-  // Driving = the last 3 GPS fixes in a row were over 5 km/h with good accuracy, and the newest is under 5 s old.
-  // A single noisy fix while parked, or the last fix of a drive kept when GPS goes quiet indoors, no longer counts (#1).
-  let moveRun = 0, fixAt = 0;
-  const moving = () => NATIVE ? moveRun >= 3 && Date.now() - fixAt < 5000 : speed > 3;
+  // Driving included (user, 2026-10-29: it never started on a drive while it waited for the car to stop).
   if (NATIVE || idleParam) setInterval(() => {
     if (document.hidden || screen.classList.contains('wp-preview')) return;   // not showing, or trying a wallpaper
-    if (moving()) { lastTouch = Date.now(); return; }                         // driving: keep the dashboard
     if (NATIVE && !charging) { lastTouch = Date.now(); return; }              // unplugged: no screensaver, the tablet sleeps
     if (Date.now() - lastTouch > IDLE_MS) { lastTouch = Date.now(); goSaver(); }
   }, idleParam ? 1000 : 15000);
@@ -1563,6 +1559,10 @@
 
   // Tablet health. Prototype only: tap the cards to preview the warning states.
   let charging = true, level = 84, temp = 36;
+  // nDashMo's accessibility service is off (it goes off after each install): unplug no longer puts the tablet to sleep.
+  // Shown as a warning in the status pill; the Accessibility check in Controls > About turns it on.
+  const assistOff = () => NATIVE && !!Android.assistOn && !Android.assistOn();
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) renderStatus(); });
   if (!NATIVE) {
     $('batCard').addEventListener('click', () => { charging = !charging; apply(); });
     $('tempCard').addEventListener('click', () => { temp = temp >= 45 ? 36 : 47; apply(); });
@@ -1574,7 +1574,8 @@
       : S.wifi ? `<i class="ph-bold ph-wifi-high"></i>` : S.data ? `<i class="ph-fill ph-cell-signal-high"></i>` : `<i class="ph-fill ph-cell-signal-slash off"></i>`;
     $('stBt').innerHTML = S.bt ? `<i class="ph-fill ph-bluetooth-connected"></i>` : `<i class="ph-fill ph-bluetooth-slash off"></i>`;
     $('stBat').textContent = `${level}%`;   // number only; "not charging" and "too hot" show as warning icons below
-    $('stWarn').innerHTML = (hot ? `<i class="ph-fill ph-thermometer-hot"></i>` : '') + (charging ? '' : `<i class="ph-fill ph-plugs"></i>`);
+    $('stWarn').innerHTML = (hot ? `<i class="ph-fill ph-thermometer-hot"></i>` : '') + (charging ? '' : `<i class="ph-fill ph-plugs"></i>`)
+      + (assistOff() ? `<i class="ph-fill ph-power"></i>` : '');
     const bat = $('batCard'), tc = $('tempCard');
     bat.classList.toggle('bad', !charging);
     bat.innerHTML = `<i class="ph-fill ph-battery-${charging ? 'charging-vertical' : 'high'}"></i><span><b>${level}%</b><small>${charging ? 'Charging' : 'Not charging, check the cable'}</small></span>`;
@@ -1933,7 +1934,6 @@
     function onGps(f) {
       const kmh = Math.round((f.speed || 0) * 3.6);
       speed = Math.min(GMAX, kmh);
-      fixAt = Date.now(); moveRun = kmh > 5 && f.accuracy <= 25 ? moveRun + 1 : 0;
       if (f.heading != null && kmh > 3) heading = f.heading;
       if (f.accuracy <= 20) {
         // A GPS jump (cold start, out of a tunnel) is not driving: a step faster than 200 km/h between two fixes is

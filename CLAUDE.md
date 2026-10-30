@@ -259,7 +259,10 @@ Driven over ADB from a computer on the same Wi-Fi (Wireless debugging; pair once
   volume/brightness, media
   transport, setPrefs. Pushes host.on(type, data): battery, net, gps (1 Hz), place (Geocoder), media (MediaSessionManager via
   the MediaListener notification-listener), nav (Waze / Maps notification), home. Pages call Android.ready() when loaded.
-- Unplug / plug in (2026-10-28, issues #3 #4, user): Assist listens for ACTION_POWER_DISCONNECTED too. Unplugged:
+- Unplug / plug in (2026-10-28, issues #3 #4, user): Power.java, attached from Assist and from MediaListener (2026-10-29:
+  on a drive nothing happened, Assist had gone off with the install; notification access survives installs), so pause
+  and resume work with either; sleep needs Assist (lock action), the status pill shows a power warning icon while it is
+  off. Resume sends PLAY at 3 s and again at 10 s if nothing plays (car Bluetooth connecting). Unplugged:
   media key PAUSE if music is active (AudioManager.dispatchMediaKeyEvent, no Notification access needed), then
   0.5 s later (SLEEP_AFTER_MS, time for the app to take the key), if still unplugged,
   performGlobalAction(GLOBAL_ACTION_LOCK_SCREEN) = screen off. 2026-10-29 (user): sleep at once; the first version
@@ -267,10 +270,10 @@ Driven over ADB from a computer on the same Wi-Fi (Wireless debugging; pair once
   (as before), and 3 s later media key PLAY unless music is already playing (Android routes it to the last media app).
   Fallback without the accessibility service: Lite/Glass see charging go false and call Android.media('pause');
   sleep then comes from the screen timeout.
-- Moving (2026-10-28, issues #1 #2): GPS speed alone was trusted, so the last fix of a drive (kept when GPS goes quiet)
-  or one noisy fix blocked the idle screensaver, and the cached fix Bridge.ready() re-sends bounced a fresh screensaver
-  home. Now: home pages count "moving" only after 3 fixes in a row > 5 km/h with accuracy <= 25 m and the newest < 5 s
-  old (moveRun / fixAt / moving()); the screensaver goes home only after 3 such fixes > 10 km/h (fastRun).
+- Moving (issues #1 #2): 2026-10-28 the idle screensaver waited for the car to stop and the screensaver went home on
+  moving off (3 good fixes > 5 / > 10 km/h). On a drive (2026-10-29, user) that meant no idle screensaver and a swiped-in
+  screensaver bouncing home, so both speed rules are gone: idle 5 min while charging = screensaver, driving or parked;
+  only a tap / swipe / Home / plugging in returns home.
 - Network icon (2026-10-28, issue #5): Bridge 'net' has online = NET_CAPABILITY_VALIDATED; when false the pill shows
   wifi-slash (on Wi-Fi) or cell-signal-slash.
 - Sleep and wake (2026-10-28, user's request): unplugged, nothing keeps the screen on (keepAwake(charging) in Lite,
@@ -339,8 +342,8 @@ Driven over ADB from a computer on the same Wi-Fi (Wireless debugging; pair once
 - Pages: NATIVE = !!window.Android. In the app, sample data is off: apps filtered to installed, trip from GPS (starts at 0,
   saved in localStorage carhome-trip), weather at the GPS fix, idle player shows "Nothing playing" (or asks for
   Notification access), Wi-Fi/BT/data/hotspot/DND toggles open system panels, map = live OSM, map tap = nav app full screen.
-- Screensaver by itself (glass.html goSaver): after 5 min with no touch while home is showing and speed <= 3 km/h
-  (glass.html?idle=<sec> to test). It goes back home on a tap, a swipe left, or on moving off (> 10 km/h). Built into the launcher, not a DreamService: Android
+- Screensaver by itself (glass.html / lite.html goSaver): after 5 min with no touch while home is showing and the tablet
+  charges, driving or parked (glass.html?idle=<sec> to test). It goes back home on a tap, a swipe left, Home or plugging in. Built into the launcher, not a DreamService: Android
   only starts those when the screen would sleep while charging, and stay_on_while_plugged_in keeps it on.
 - Nav app in the panel (built, then dropped): One UI added its caption (23 px) above the requested rect; a rect 17.3 dp
   shorter fitted the panel exactly. Removed because the pop-up stays above every app (below). Freeform settings are off again.

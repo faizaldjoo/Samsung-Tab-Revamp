@@ -831,13 +831,18 @@
 
   // ---- Status and tablet health. ----
   let level = 84, charging = true, temp = 36;
+  // nDashMo's accessibility service is off (it goes off after each install): unplug no longer puts the tablet to sleep.
+  // Shown as a warning in the status pill; the Accessibility check in Controls > About turns it on.
+  const assistOff = () => NATIVE && !!Android.assistOn && !Android.assistOn();
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) renderStatus(); });
   function renderStatus() {
     const hot = temp >= 45;
     $('stBat').textContent = `${level}%`;
     $('stNet').className = 'ph-fill ' + (!NET.online ? (S.wifi ? 'ph-wifi-slash off' : 'ph-cell-signal-slash off')
       : S.wifi ? 'ph-wifi-high' : S.data ? 'ph-cell-signal-high' : 'ph-cell-signal-slash off');
     $('stBt').className = 'ph-fill ' + (S.bt ? 'ph-bluetooth' : 'ph-bluetooth-slash off');
-    $('stWarn').innerHTML = (hot ? '<i class="ph-fill ph-thermometer-hot warn"></i>' : '') + (charging ? '' : '<i class="ph-fill ph-plugs warn"></i>');
+    $('stWarn').innerHTML = (hot ? '<i class="ph-fill ph-thermometer-hot warn"></i>' : '') + (charging ? '' : '<i class="ph-fill ph-plugs warn"></i>')
+      + (assistOff() ? '<i class="ph-fill ph-power warn"></i>' : '');
     $('batCard').className = charging ? '' : 'bad';
     $('batCard').innerHTML = `<i class="ph-fill ph-battery-${charging ? 'charging-vertical' : 'high'}"></i><span><b class="num">${level}%</b><small>${charging ? 'Charging' : 'Not charging, check the cable'}</small></span>`;
     $('tempCard').className = hot ? 'bad' : '';
@@ -1258,18 +1263,14 @@
     t.addEventListener('pointerup', () => { t.onpointermove = null; });
   });
 
-  // ---- Screensaver: swipe right on home, or by itself after 5 min without a touch while parked (lite.html?idle=<sec> to try). ----
+  // ---- Screensaver: swipe right on home, or by itself after 5 min without a touch while charging, driving included
+  //      (user, 2026-10-29: it never started on a drive while it waited for the car to stop) (lite.html?idle=<sec> to try). ----
   const goSaver = () => { location.href = 'screensaver.html?from=home&home=lite.html&lite'; };
   const idleParam = new URLSearchParams(location.search).get('idle'), IDLE_MS = idleParam ? +idleParam * 1000 : 5 * 60000;
   let lastTouch = Date.now();
   document.addEventListener('pointerdown', () => { lastTouch = Date.now(); }, true);
-  // Driving = the last 3 GPS fixes in a row were over 5 km/h with good accuracy, and the newest is under 5 s old.
-  // A single noisy fix while parked, or the last fix of a drive kept when GPS goes quiet indoors, no longer counts (#1).
-  let moveRun = 0, fixAt = 0;
-  const moving = () => NATIVE ? moveRun >= 3 && Date.now() - fixAt < 5000 : speed > 3;
   if (NATIVE || idleParam) setInterval(() => {
     if (document.hidden) return;
-    if (moving()) { lastTouch = Date.now(); return; }
     if (NATIVE && !charging) { lastTouch = Date.now(); return; }   // unplugged: no screensaver, the tablet goes to sleep
     if (Date.now() - lastTouch > IDLE_MS) { lastTouch = Date.now(); goSaver(); }
   }, idleParam ? 1000 : 15000);
@@ -1295,7 +1296,6 @@
     function onGps(f) {
       const kmh = Math.round((f.speed || 0) * 3.6);
       speed = Math.min(199, kmh);
-      fixAt = Date.now(); moveRun = kmh > 5 && f.accuracy <= 25 ? moveRun + 1 : 0;
       if (f.heading != null && kmh > 3) heading = f.heading;
       if (f.accuracy <= 20) {
         // A GPS jump (cold start, out of a tunnel) is not driving: a step faster than 200 km/h between two fixes is
