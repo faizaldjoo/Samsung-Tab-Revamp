@@ -11,3 +11,5 @@ android/keystore.properties
 insites-tools.log
 
 offline-map/data/
+# Built APKs for sideloading (attach them to GitHub Releases, not commits)
+release/

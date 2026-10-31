@@ -29,10 +29,13 @@ echo "== aapt2"
     -A "$OUT/assets" "$OUT/res/res.zip" --auto-add-overlay
 
 echo "== javac"
-javac --release 17 -nowarn -Xlint:-options -classpath "$JAR" -d "$OUT/classes" $(find "$HERE/src" -name '*.java')
+# File lists as arrays, so a checkout path with spaces works (macOS bash 3.2 has no mapfile).
+SRCS=(); while IFS= read -r f; do SRCS+=("$f"); done < <(find "$HERE/src" -name '*.java')
+javac --release 17 -nowarn -Xlint:-options -classpath "$JAR" -d "$OUT/classes" "${SRCS[@]}"
 
 echo "== d8"
-"$BT/d8" --release --min-api 26 --lib "$JAR" --output "$OUT/dex" $(find "$OUT/classes" -name '*.class')
+CLS=(); while IFS= read -r f; do CLS+=("$f"); done < <(find "$OUT/classes" -name '*.class')
+"$BT/d8" --release --min-api 26 --lib "$JAR" --output "$OUT/dex" "${CLS[@]}"
 (cd "$OUT/dex" && zip -q -j "$OUT/base.apk" classes.dex)
 
 echo "== sign"
