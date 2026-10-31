@@ -486,5 +486,21 @@ Driven over ADB from a computer on the same Wi-Fi (Wireless debugging; pair once
   closed-eye lines. (A lid stroke was tried first: it drew a ledge and cap on half-closed eyes.) Lite burst mode never pauses with the eyes shut unless
   the mood is sleep (window.faceMood). Published test page (same file, debug bar always on): https://claude.ai/artifact/9XmBNmuNQU7BJHVGpu4E5T
 
+## Matte Light (launcher-prototype/lite-light.html, 2026-10-31, prototype only)
+- A copy of lite.html plus one override block at the end of its <style> ("Light (lite-light.html ..."). Palette after
+  the user's Tesla-style reference: soft grey ground #dfe1e4, flat near-white panels #f6f6f7 (no borders, no shadows),
+  raised #e8e9eb, text #111, muted #686868, accent sky blue #1a9fdc, ok green #2fbf68, warnings strong red #d92d23
+  (the reference's orange washed out: compass N, 120 mark, speeding segments, status warnings).
+- By day only (body:not(.night)): flip clock inverted (dark cards, white digits), map turn card / ETA / hint in the
+  panel colour with a faint shadow, light reels / progress / speed-bar segments, white slider glyphs, the app pill's
+  white logos darkened. Night mode (Auto after 18:00, or Night) keeps Matte's dark set and #007aff.
+- Not in the app yet: Controls > Theme still offers Matte / Glass only; next step is a Light choice inside lite.html.
+- Pin badges (lite.html and lite-light.html): .apps-pg padding-top 6px (the grid clipped the first row's badges) and a
+  2px ring in --bg around each badge.
+
 ## Not decided / parked
+- Head unit mode (2026-10-31, user: later, finish the tablet first): for Android car head units (no battery, ACC
+  power): detect no battery, hide the battery pill, sleep/resume on screen off/on instead of charging, hide split
+  screen off One UI (Assist taps One UI's recents), Bluetooth pop-up falls back to plain settings; old WebViews may
+  not draw the MapLibre map; Geocoder needs Google services. The About blurb is already general.
 - Combined replacement for Easy Slider + Muviz Edge (2-finger volume / 3-finger brightness edge zone + screensaver). User paused it.

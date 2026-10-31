@@ -4,7 +4,7 @@
 window.APPINFO = {
   name: 'nDashMo', tagline: 'Dashboard meets Motion.', version: '1.0',
   sampleAssistOn: false,   // browser prototype: accessibility shown off, like right after an install
-  blurb: 'Map, music, clock and car in one dashboard for the Galaxy Tab A7 Lite.',
+  blurb: 'Map, music, clock and car in one dashboard for an Android tablet as your car head unit.',
   creator: { handle: '@faizald.jo', url: 'https://www.threads.com/@faizald.jo' },
   credits: 'Map data OpenStreetMap contributors, OpenMapTiles, OpenFreeMap. MapLibre GL. Weather Open-Meteo, icons Weatherglass. ' +
     'Icons Phosphor. Speed limits Overpass API.',
