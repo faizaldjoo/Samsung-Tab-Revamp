@@ -2,7 +2,7 @@
 // About page). Each page brings its own CSS for the same markup. Version only, no change list (user, 2026-10-29); the
 // app's own version (Bridge.version) wins over the one here.
 window.APPINFO = {
-  name: 'nDashMo', tagline: 'Dashboard meets Motion.', version: '1.0',
+  name: 'nDashMo', tagline: 'Neue Dashboard in Motion', version: '1.0',
   sampleAssistOn: false,   // browser prototype: accessibility shown off, like right after an install
   blurb: 'Map, music, clock and car in one dashboard for an Android tablet as your car head unit.',
   creator: { handle: '@faizald.jo', url: 'https://www.threads.com/@faizald.jo' },

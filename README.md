@@ -4,7 +4,7 @@
 
 <h1 align="center">nDashMo</h1>
 
-<p align="center"><b>Dashboard meets Motion.</b><br>
+<p align="center"><b>Neue Dashboard in Motion</b><br>
 A car home screen for an Android tablet as your car head unit.</p>
 
 nDashMo puts map, music, clock and car info in one dashboard, with two themes (Matte and Glass). It runs as an

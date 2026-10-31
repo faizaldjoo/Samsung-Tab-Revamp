@@ -5,7 +5,7 @@
 
 ## Working with the user (nDashMo, by @faizald.jo)
 
-The launcher is **nDashMo**, "Dashboard meets Motion.", version 1.0 (package me.faizal.carhome). How the user likes
+The launcher is **nDashMo**, "Neue Dashboard in Motion", version 1.0 (package me.faizal.carhome). How the user likes
 to work, carried here so a Claude Code session on any computer follows it:
 - Don't commit or push until the user asks ("update the repo" = commit and push). Leave edits uncommitted otherwise.
 - Ask before adding CHANGELOG.md entries (2026-10-29: "don't add change log, just version only"; the app shows the
