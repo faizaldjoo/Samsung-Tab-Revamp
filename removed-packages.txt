@@ -33,7 +33,7 @@ com.samsung.android.galaxycontinuity
 com.samsung.android.beaconmanager
 com.sec.android.app.billing
 # Car head-unit trim (round 2)
-com.samsung.android.app.routines
+com.samsung.android.app.routines  # restored 2026-10-31 for a Car off routine
 com.samsung.android.app.appsedge
 com.samsung.android.app.taskedge
 com.samsung.android.app.clipboardedge

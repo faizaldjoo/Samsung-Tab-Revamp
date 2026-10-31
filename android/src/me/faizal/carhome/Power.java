@@ -71,6 +71,9 @@ final class Power {
     };
 
     private static void unplugged() {
+        // When, for the pages: the trip resets on unplug even if no home page was running then (screensaver, Waze in
+        // front, screen off). Bridge.lastUnplug() reads it.
+        app.getSharedPreferences("carhome", Context.MODE_PRIVATE).edit().putLong("unplugAt", System.currentTimeMillis()).apply();
         main.removeCallbacks(resume);
         main.removeCallbacks(btCheck);
         boolean music = app.getSystemService(AudioManager.class).isMusicActive();

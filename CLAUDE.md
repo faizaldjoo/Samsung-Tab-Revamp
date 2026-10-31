@@ -63,6 +63,14 @@ Driven over ADB from a computer on the same Wi-Fi (Wireless debugging; pair once
 - Car tweaks: `stay_on_while_plugged_in=7`, animation scales 0.35, Google TTS as default,
   battery-optimisation exemptions for Waze, CarbitLink, Smart Launcher, music apps, Easy Slider, Muviz Edge, Brightness Dimmer, Volume Button.
 - `restore.sh` undoes all of it (`ADB=/path/to/adb ./restore.sh`).
+- Battery drain (2026-10-31, from dumpsys batterystats + the drive log): nDashMo slept correctly overnight (1 history
+  entry in 6 h). Parked with the screen off the tablet lost 2.2-4.5%/h, mostly the LTE radio (by.U; ~500
+  *telephony-radio* wake locks, high TX power) plus Google Play / GMS jobs. In the car it barely charged (+6% in
+  30 min while driving; the plug flaps at engine start), so it ends days low; it shut down at 14% shown (~3.6 V at
+  30-50%: aging or uncalibrated battery, car heat to 40 C). Advised a 15 W+ USB-C PD car charger.
+  Samsung Modes and Routines (com.samsung.android.app.routines) was restored the same day for a planned "Car off"
+  routine: If Charging status = Not charging -> Power saving on + Mobile data off, reversed when charging. User
+  paused before creating it ("leave it for now").
 - Kept on purpose: Easy Slider (volume/brightness overlay), Muviz Edge (screensaver; installed from a modded APK, flagged to the user),
   Smart Launcher (current home app), Android-side telephony/IMS (LTE model).
 
@@ -116,6 +124,10 @@ Driven over ADB from a computer on the same Wi-Fi (Wireless debugging; pair once
   HOME intent filter. Map = own OSM raster tile view + Waze/Google Maps turn info from a NotificationListenerService.
   The blue route line in glass.html is a hand-drawn placeholder kept for looks; nav apps do not share the route, so the app shows
   live position + turn card + ETA only (tap opens the nav app for the full route).
+  Album art (2026-10-31, user: no song showed its art): YT Music sends a track's title first and its artwork in a
+  later metadata update. Bridge.pushMedia now retries art() until it arrives (art() also tries ART, DISPLAY_ICON and
+  the description's icon; drive log "media art: ..."), and onMedia() in both pages treats a same-title update with
+  new art or artist as a change. Checked on the tablet: 4 songs in a row, all with art.
   Now playing via MediaSessionManager, weather from Open-Meteo (glass.html fetches it live for Sumedang Utara, -6.842, 107.921, the preview location; the app uses the last GPS fix), sliders via AudioManager / Settings.System.
   Blur the wallpaper once at set time instead of live blur (weak GPU).
   Glance-legible text: secondary labels at least 14px and weight 500, --muted 84% / --faint 68% white, text-shadow 0 1px 2px
@@ -145,10 +157,19 @@ Driven over ADB from a computer on the same Wi-Fi (Wireless debugging; pair once
   (GPS: Trip, Drive, Average; prototype OBD sample: Engine, Temp, Battery). Built once; renderCar toggles only changed
   segments and rotates the rose when the heading moves a degree (no easing). The old needle speedometer is gone.
   Prototype default source is now GPS (S.obd false).
+  Heading (2026-10-31, user: parked facing south it said N): the tablet has no compass sensor, so direction comes
+  from GPS only while moving. headingKnown: until a GPS direction arrives the rose is dimmed with "-" (no letters);
+  only fixes over 6 km/h with headingAcc (Bridge: getBearingAccuracyDegrees) <= 30 count; the last one is kept in
+  localStorage carhome-heading (saved at most every 10 s) and restored on load. Both pages.
 - Car panel: OBD (ELM327 over Bluetooth) shows car speed, RPM, coolant, fuel, battery V; without OBD it shows GPS speed,
   heading, trip km, drive time, average. Trip rules: distance summed from fixes with accuracy <= 20 m, drive time counts only
   while speed > 3 km/h, average = trip / drive time. Trip auto-resets after 20 min stationary and on unplug (2026-10-29, user: resetTrip() on any battery update with charging false, saved at once; fixes add nothing while unplugged); manual reset = long-press the
   reset button next to the source chip. Persist counters once a minute.
+  Unplug while no home page ran (2026-10-31, user: last night's trip survived because the screensaver was showing):
+  Power.unplugged() saves SharedPreferences carhome "unplugAt"; Bridge.lastUnplug() returns it; the trip carries
+  `since` (its last reset) in carhome-trip, and an unplug newer than that resets it on page load and on every battery
+  update (drive log "trip reset: unplugged since it started"). Tested on the tablet: 5 km trip, screensaver, dumpsys
+  battery unplug / reset, home showed 0.0 km. Distance is still not counted while the screensaver shows.
 - Navigation: Controls has "Navigation app: Waze / Google Maps" (default Waze). Decided 2026-10-27 after testing the
   pop-up idea on the tablet (see "Pop-up limit" below): the map panel is our own live map, and the nav app opens full screen.
   - Map (app): the Dark map, the same as Lite's (glass.html vmUse / vmMove since 2026-10-28; puck at 66%, so top
@@ -400,6 +421,9 @@ Driven over ADB from a computer on the same Wi-Fi (Wireless debugging; pair once
   idle CPU ~11% app + ~6% renderer; opens in 1.8 s. What did it:
   1. Baked glass (glass.html bakeGlass): wallpaper blurred once into a half-size JPEG, each .glass shows its slice
      (--gx/--gy); gradients are see-through; live backdrop-filter only as a fallback.
+  2026-10-31: with S.titleRun on, a title that fits runs only while playing; paused or idle ("Nothing playing") it is
+  .still and centred (it had parked left-aligned and faded). setPlaying() re-fits short titles; fitTitle() skips a
+  0 px box and a ResizeObserver on #title re-fits when its width changes (both pages).
   S.titleRun (Controls > Scroll title, default off): fitTitle() runs a title that fits too, widening the <i> gaps to
   the label width so one copy shows at a time; screensaver.html reads it from localStorage.carhome in renderPlayer()
   (gap = trailing padding, so translateX(-50%) still loops seamlessly).

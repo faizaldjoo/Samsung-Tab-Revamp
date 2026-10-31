@@ -120,6 +120,12 @@ public class Bridge {
         push("nav", navInfo != null ? navInfo : new JSONObject());
     }
 
+    /** Time of the last unplug (ms since 1970, Power.java), 0 if none yet. The trip resets if it is newer than the trip. */
+    @JavascriptInterface
+    public long lastUnplug() {
+        return prefs.getLong("unplugAt", 0);
+    }
+
     @JavascriptInterface
     public boolean has(String pkg) {
         return pkg != null && pm.getLaunchIntentForPackage(pkg) != null;
@@ -427,6 +433,8 @@ public class Bridge {
             try {
                 gps = new JSONObject().put("lat", l.getLatitude()).put("lon", l.getLongitude())
                         .put("speed", l.hasSpeed() ? l.getSpeed() : 0).put("heading", l.hasBearing() ? l.getBearing() : JSONObject.NULL)
+                        // How sure GPS is of that direction (degrees); pages ignore shaky ones at crawling speed.
+                        .put("headingAcc", l.hasBearing() && l.hasBearingAccuracy() ? l.getBearingAccuracyDegrees() : JSONObject.NULL)
                         .put("accuracy", l.hasAccuracy() ? l.getAccuracy() : 99).put("t", l.getTime());
                 push("gps", gps);
             } catch (Exception ignored) { }
@@ -560,9 +568,15 @@ public class Bridge {
                 o.put("artist", nz(artist));
                 long len = m.getLong(MediaMetadata.METADATA_KEY_DURATION);
                 o.put("len", len > 0 ? len / 1000 : JSONObject.NULL);   // no length = live radio
-                // Album art, small: only re-encoded when the track changes.
+                // Album art, small: encoded once per track, but looked for again until it arrives. YT Music sends a new
+                // track's title first and its artwork in a later metadata update; caching "none" on the first one left
+                // every song without art (2026-10-31).
                 String key = pkg + "|" + o.optString("title");
-                if (!key.equals(lastArtKey)) { lastArtKey = key; lastArt = art(m); }
+                if (!key.equals(lastArtKey) || lastArt == null) {
+                    boolean newTrack = !key.equals(lastArtKey);
+                    lastArtKey = key; lastArt = art(m);
+                    if (newTrack || lastArt != null) DriveLog.add(act, "media art: " + (lastArt != null ? artFrom : "none yet") + " (" + label + ")");
+                }
                 o.put("art", lastArt == null ? JSONObject.NULL : lastArt);
             }
             if (s != null) {
@@ -578,9 +592,14 @@ public class Bridge {
 
     private static String nz(String s) { return s == null ? "" : s; }
 
+    private static String artFrom = "";
+
+    /** The track's artwork from wherever the app put it (album art, art, display icon, the description's icon). */
     private static String art(MediaMetadata m) {
-        Bitmap b = m.getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART);
-        if (b == null) b = m.getBitmap(MediaMetadata.METADATA_KEY_ART);
+        Bitmap b = m.getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART); artFrom = "album art";
+        if (b == null) { b = m.getBitmap(MediaMetadata.METADATA_KEY_ART); artFrom = "art"; }
+        if (b == null) { b = m.getBitmap(MediaMetadata.METADATA_KEY_DISPLAY_ICON); artFrom = "display icon"; }
+        if (b == null && m.getDescription() != null) { b = m.getDescription().getIconBitmap(); artFrom = "description icon"; }
         if (b == null) return null;
         Bitmap small = Bitmap.createScaledBitmap(b, 240, Math.max(1, 240 * b.getHeight() / b.getWidth()), true);
         ByteArrayOutputStream out = new ByteArrayOutputStream();

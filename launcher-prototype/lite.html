@@ -979,7 +979,7 @@
   const strip = n => (n || '').replace(/^(Kabupaten|Kab\.|Kota|Kecamatan|Kec\.)\s+/i, '');
 
   // ---- Car: GPS speed, heading and trip (OBD values are a prototype sample). ----
-  let speed = 0, heading = 0, tripKm = 0, driveS = 0;
+  let speed = 0, heading = 0, tripKm = 0, driveS = 0, headingKnown = !NATIVE;   // known: a real GPS direction (or the sample)
   if (!NATIVE) { speed = 48; heading = 42; tripKm = 12.4; driveS = 38 * 60; }
   function renderCar() {
     $('speed').textContent = speed;
@@ -996,11 +996,18 @@
     const lit = Math.min(SEGS, Math.round(speed / 5));
     if (lit !== segLit) { segEls.forEach((el, i) => { if ((i < lit) !== (i < segLit)) el.classList.toggle('on', i < lit); }); segLit = lit; }
     // Rose: turns only when the heading moves a whole degree.
+    // No direction yet (the tablet has no compass; GPS gives one only while moving): a dimmed rose and "-",
+    // not a made-up "N 0°" (user, 2026-10-31: parked facing south, it said north).
+    if (!headingKnown) {
+      if (roseH !== 'x') { roseH = 'x'; $('rose').style.opacity = '0.35'; $('roseDir').textContent = '-'; $('roseDeg').textContent = ''; }
+    } else {
+    if (roseH === 'x') $('rose').style.opacity = '';
     const h = Math.round(heading) % 360;
     if (h !== roseH) {
       roseH = h; roseG.setAttribute('transform', `rotate(${-h} 33 33)`);
       ROSE_L.forEach((t, i) => { const a = (i * 90 - h) * Math.PI / 180; t.setAttribute('x', (33 + 21 * Math.sin(a)).toFixed(1)); t.setAttribute('y', (33 - 21 * Math.cos(a)).toFixed(1)); });
       $('roseDir').textContent = DIR8[Math.round(h / 45) % 8]; $('roseDeg').textContent = `${h}°`;
+    }
     }
   }
   // Built once: the speed bar (28 segments rising in height, 5 km/h each, 0-140, red from 100; scale every 40) and the rose.
@@ -1287,15 +1294,21 @@
     renderProgress();
   }
   const REST = 2500, SPEED = 45, reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  let titleAnim;
+  let titleAnim, titleFits = false;
   function fitTitle() {
     const box = $('title'), run = box.firstChild; if (!run) return;
+    // Not laid out yet (app starting, page hidden): a 0 px box made every title, even "Nothing playing", count as
+    // too long and sit left-aligned and faded (2026-10-31). The ResizeObserver below fits it once it has a width.
+    if (!box.clientWidth) return;
     titleAnim && titleAnim.cancel(); titleAnim = null;
     box.classList.remove('still');
     const gaps = run.querySelectorAll('i'); gaps.forEach(g => g.style.width = '');
     let travel = run.scrollWidth / 2;                      // one copy plus its gap
     const fits = travel - 48 <= box.clientWidth;
-    if ((fits && !S.titleRun) || reduceMotion) { box.classList.add('still'); return; }
+    titleFits = fits;
+    // A title that fits runs (Scroll song title on) only while music plays; paused or idle ("Nothing playing") it
+    // stays still and centred, not parked left-aligned at the start of the run (user, 2026-10-31).
+    if ((fits && (!S.titleRun || !playing)) || reduceMotion) { box.classList.add('still'); return; }
     // Controls > Scroll song title on: a title that fits runs too, with a gap wide enough that one copy shows at a time.
     if (fits) { gaps.forEach(g => g.style.width = (box.clientWidth - travel + 2 * 48) + 'px'); travel = run.scrollWidth / 2; }
     const slide = travel / SPEED * 1000, total = REST + slide;
@@ -1307,10 +1320,13 @@
     if (!playing) titleAnim.pause();
   }
   document.fonts && document.fonts.ready.then(fitTitle);
-  addEventListener('resize', fitTitle);
+  // Re-fit when the title box's width really changes: first layout, fonts, rotation, the browser window.
+  let titleW = 0;
+  new ResizeObserver(([e]) => { const w = Math.round(e.contentRect.width); if (w && w !== titleW) { titleW = w; fitTitle(); } }).observe($('title'));
   function setPlaying(on) {
     playing = on;
-    titleAnim && (playing ? titleAnim.play() : titleAnim.pause());
+    if (S.titleRun && titleFits) fitTitle();   // a short title starts or stops running with the music
+    else titleAnim && (playing ? titleAnim.play() : titleAnim.pause());
     $('play').innerHTML = `<i class="ph-fill ph-${on ? 'pause' : 'play'}"></i>`; $('play').setAttribute('aria-label', on ? 'Pause' : 'Play');
   }
   $('prev').onclick = () => { if (NATIVE) Android.media('prev'); };
@@ -1371,11 +1387,18 @@
 
   // ---- The tablet (app only): Bridge.java calls host.on(type, data). Trip rules as in glass.html (CLAUDE.md "Car panel"). ----
   if (NATIVE) {
-    try { const t = JSON.parse(localStorage.getItem('carhome-trip') || 'null'); if (t) { tripKm = t.tripKm; driveS = t.driveS; } } catch (e) { }
-    setInterval(() => localStorage.setItem('carhome-trip', JSON.stringify({ tripKm, driveS })), 60000);
+    let headingSavedAt = 0;
+    { const h = parseFloat(localStorage.getItem('carhome-heading')); if (!isNaN(h)) { heading = h; headingKnown = true; renderCar(); } }
+    let tripSince = 0;   // when this trip started counting (its last reset)
+    try { const t = JSON.parse(localStorage.getItem('carhome-trip') || 'null'); if (t) { tripKm = t.tripKm; driveS = t.driveS; tripSince = t.since || 0; } } catch (e) { }
+    setInterval(() => localStorage.setItem('carhome-trip', JSON.stringify({ tripKm, driveS, since: tripSince })), 60000);
     // Unplugged = the trip is over (user, 2026-10-29): back to 0 and saved at once, so it holds even if this page is
     // replaced by the screensaver right after. Checked on every battery update, so a page that loads unplugged clears it too.
-    const resetTrip = () => { tripKm = 0; driveS = 0; localStorage.setItem('carhome-trip', JSON.stringify({ tripKm, driveS })); renderCar(); };
+    const resetTrip = () => { tripKm = 0; driveS = 0; tripSince = Date.now(); localStorage.setItem('carhome-trip', JSON.stringify({ tripKm, driveS, since: tripSince })); renderCar(); };
+    // An unplug while no home page ran (screensaver showing, Waze in front, screen off) still ends the trip: Android
+    // records every unplug (Bridge.lastUnplug); one newer than this trip's start resets it (user, 2026-10-31).
+    const unpluggedSinceTrip = () => { try { return !!(Android.lastUnplug && Android.lastUnplug() > tripSince); } catch (e) { return false; } };
+    if (unpluggedSinceTrip()) { dlog('trip reset: unplugged since it started'); resetTrip(); }
     let lastFix = null, stillSince = Date.now(), gotFix = false;
     const rad = x => x * Math.PI / 180, km = (a, b) => { const h = Math.sin(rad(b.lat - a.lat) / 2) ** 2 + Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(rad(b.lon - a.lon) / 2) ** 2; return 12742 * Math.asin(Math.sqrt(h)); };
     let drv = false, drvRun = 0, drvAt = 0;
@@ -1386,7 +1409,12 @@
       drvRun = kmh > 10 ? drvRun + 1 : 0;
       if (!drv && drvRun >= 3) { drv = true; dlog(`driving (${kmh} km/h)`); }
       if (kmh > 3) drvAt = Date.now(); else if (drv && Date.now() - drvAt > 60000) { drv = false; dlog('stopped'); }
-      if (f.heading != null && kmh > 3) heading = f.heading;
+      // Direction only from a moving fix GPS is sure of: at a crawl (or a shaky bearing) it swings around. Kept across
+      // restarts, so a parked car shows the way it last drove.
+      if (f.heading != null && kmh > 6 && (f.headingAcc == null || f.headingAcc <= 30)) {
+        heading = f.heading; headingKnown = true;
+        if (Date.now() - headingSavedAt > 10000) { headingSavedAt = Date.now(); localStorage.setItem('carhome-heading', String(Math.round(heading))); }
+      }
       if (f.accuracy <= 20) {
         // A GPS jump (cold start, out of a tunnel) is not driving: a step faster than 200 km/h between two fixes is
         // skipped, distance and time both (found 2026-10-29: a 1 km jump made the average 189 km/h).
@@ -1408,7 +1436,10 @@
       }
       $('appPill').onclick = null;
       const app = appByPkg(m.pkg);
-      if (cur && !cur.idle && cur.pkg === m.pkg && cur.title === m.title) { cur.pos = m.pos || 0; cur.len = m.len; renderProgress(); }
+      // Same song only if its art and artist match too: YT Music sends the artwork in a later update with the same
+      // title, which used to be taken as a progress tick, so no song showed its art (2026-10-31).
+      if (cur && !cur.idle && cur.pkg === m.pkg && cur.title === m.title
+        && cur.art === (m.art || '') && cur.artist === (m.artist || '')) { cur.pos = m.pos || 0; cur.len = m.len; renderProgress(); }
       else setSource({ id: app ? app.id : null, pkg: m.pkg, app: app ? app.name : m.app, icon: app ? app.icon : ph('music-notes'),
         title: m.title, artist: m.artist || '', art: m.art || '', len: m.len, pos: m.pos || 0, skip: m.skip !== false });
       setPlaying(!!m.playing);
@@ -1418,7 +1449,7 @@
         if (type === 'battery') {
           const unplugged = charging && !d.charging;
           level = d.level; charging = d.charging; temp = d.temp; renderStatus(); awake();
-          if (!charging && (tripKm || driveS)) resetTrip();
+          if ((!charging && (tripKm || driveS)) || unpluggedSinceTrip()) resetTrip();
           // Charger out (#3): Assist pauses the music and puts the tablet to sleep. Without the accessibility service,
           // pause from here; the screen then sleeps on its timeout.
           if (unplugged && !(Android.assistOn && Android.assistOn())) Android.media('pause');
