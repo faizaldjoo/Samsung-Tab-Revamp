@@ -414,6 +414,18 @@ Driven over ADB from a computer on the same Wi-Fi (Wireless debugging; pair once
   Accent blue is #007AFF (user, 2026-10-30; was #5aa7ff) in both themes, the app icon and android-native.
   Controls 2026-10-30 (user): the title bar (Controls / About with Close or Back) at the bottom, within reach; no
   Hotspot tile (Mobile data spans the Quick grid's second row); battery card says just "Not charging".
+  Controls fill (2026-10-30, user: big empty space at the foot of the columns): each column shares out its own spare
+  height (DOM-position selectors, so the sidebar-side order doesn't matter): Quick's tiles stretch (rows 1.4fr / 1fr,
+  heights are minimums; Mobile data stacked like Wi-Fi / Bluetooth), Display and driving's .field groups flex: 1
+  (align-content: start, title stays tight), the About card's .chk flex: 1 with space-evenly. Glass's Display column is
+  already full, so it barely changes.
+  Glass Controls / About text (2026-10-30, user: too small on the tablet): Glass shows at 0.75, so its sizes were 20-25%
+  under Matte's on screen (section labels and second lines 9.8 px). Overrides scoped to .cc / .ab-page (the shared
+  .lbl / .seg / .tog also draw the wallpaper picker and home tiles): labels and second lines 18 (13.5 on screen),
+  choices 19 (14.3), names 20-21 (15-15.8), segments 56 tall. To make room, Wallpaper left the Display and driving
+  column for the title bar (#wpBtn, .bar-btn pill beside Close, within thumb reach). Display and driving then decluttered (user,
+  same day: too crowded): one line per setting, the toggles' state line, Sidebar side's note and Night mode's sunset
+  hint hidden in that column (CSS only, the markup and JS stay).
   Controls (2026-10-29, user, option A of controls-wireframe.html): a full page (#cc) beside the rail in three columns
   (.cc-cols: Quick / Display and driving / About card; CSS order puts Quick next to the sidebar, so with the sidebar
   on the right the columns read About / Display / Quick, user 2026-10-29), plus #about (About nDashMo). Matte: .page sections shown by

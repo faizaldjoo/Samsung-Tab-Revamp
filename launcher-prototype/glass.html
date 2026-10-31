@@ -509,10 +509,18 @@
   .ab-cols { display: grid; grid-template-columns: 1fr 1.15fr; gap: 18px; min-height: 0; }
   .ccol { padding: 20px; display: flex; flex-direction: column; gap: 14px; overflow: hidden; }
   .ccol > .lbl { margin-bottom: 0; }
+  /* No dead space at the foot of the columns (user, 2026-10-30): each column shares out its own spare height, so it
+     still fits when a row is added or removed. Quick: the toggle tiles grow (bigger targets in the car), Mobile data laid out
+     like Wi-Fi and Bluetooth; Display and driving: each choice takes an equal share under the column title; About card: the checks spread down to the meters and Details. */
+  .cc-cols > :first-child > .quick { flex: 1; min-height: 0; grid-template-rows: 1.4fr 1fr; }
+  .cc-cols > :first-child > .quick > [data-t="data"] { flex-direction: column; align-items: flex-start; justify-content: space-between; }
+  .cc-cols > :nth-child(2) > .field { flex: 1; align-content: start; }
+  .about-card .chk { flex: 1; align-content: space-evenly; }
+
   .quick { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-  .quick .card { height: 136px; }
+  .quick .card { min-height: 136px; }
   /* No Hotspot (user, 2026-10-30): Mobile data is one wide tile under Wi-Fi and Bluetooth. */
-  .quick .card[data-t="data"] { grid-column: span 2; height: 96px; flex-direction: row; align-items: center; justify-content: flex-start; gap: 16px; }
+  .quick .card[data-t="data"] { grid-column: span 2; min-height: 96px; flex-direction: row; align-items: center; justify-content: flex-start; gap: 16px; }
   .quick .card[data-t="data"] b { margin-top: 0; }
   .quick .tog > span:last-child { min-width: 0; max-width: 100%; }
   .quick .tog b, .quick .tog small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -568,6 +576,37 @@
   .chk-row > span { min-width: 0; text-align: left; }
   .chk-row em { display: block; font-style: normal; font-size: 15px; color: var(--muted); margin-top: 2px; }
   #abChk .chk-row { min-height: 76px; }
+  /* Car-legible text in Controls and About (user, 2026-10-30: too small on the tablet). Glass is drawn at 1340 x 800 and
+     shown at 0.75, so a size here is 3/4 of it on screen: these give section labels and second lines 13.5 px on the
+     tablet, choices 14.3, names 15.8 (Matte: 13 / 14 / 15). Scoped to these pages; the shared .lbl / .seg / .tog rules
+     also draw the wallpaper picker and the home tiles. */
+  .cc .ccol > .lbl { font-size: 18px; }
+  .cc .flbl { font-size: 19px; }
+  .cc .flbl .hint { font-size: 17px; }
+  .cc .seg button { height: 56px; font-size: 19px; }
+  .cc .seg button img { width: 22px; height: 22px; }
+  .cc .seg.mini { width: 210px; }
+  .cc .seg.mini button { height: 52px; }
+  .cc .row b, .cc .quick .tog b { font-size: 21px; }
+  .cc .row small, .cc .quick .tog small { font-size: 18px; margin-top: 3px; }
+  .cc .ab-app small, .ab-page .ab-app small, .cc .ab-meta, .ab-page .ab-meta { font-size: 18px; }
+  .cc .chk-row, .ab-page .chk-row { font-size: 20px; }
+  .cc .chk-row small, .ab-page .chk-row small, .ab-page .chk-row em { font-size: 18px; }
+  .cc .meter small { font-size: 16px; }
+  /* Display and driving, decluttered (user, 2026-10-30: too crowded): one line per setting. The toggles' second line
+     only repeated what the switch shows, Sidebar side's note wrapped beside its control, and Night mode's hint was
+     squeezed in next to its label; the freed height becomes space between the groups. */
+  .cc .cc-cols > :nth-child(2) .row small, .cc .cc-cols > :nth-child(2) .flbl .hint { display: none; }
+  .cc .cc-cols > :nth-child(2) .rows.sep { padding-top: 8px; }
+  .ab-page .ccol > .lbl { font-size: 18px; } .ab-page .blurb { font-size: 20px; } .ab-page .cred { font-size: 16px; }
+  .cc .meter > button { gap: 8px; padding: 12px; } .cc .meter i { font-size: 22px; }
+  /* Wallpaper opens a page rather than changing a setting, so it sits in the title bar next to Close, within thumb reach,
+     and the Display and driving column keeps room for the larger text. */
+  .cc .cc-head .bar-btn { margin-left: auto; height: 60px; padding: 0 24px; border-radius: 999px; display: flex; align-items: center; gap: 10px;
+    background: rgba(255,255,255,0.12); box-shadow: var(--rim); font-size: 20px; font-weight: 600; }
+  .cc .cc-head .bar-btn i { font-size: 24px; }
+  .cc .cc-head .bar-btn + .round { margin-left: 0; }
+  .cc .btn, .ab-page .btn { font-size: 20px; }
 
   /* Wallpaper picker: a page in the same cell as home and all apps. "From gallery" first, then the user's photo (if any),
      then the built-in set; the current one is outlined and ticked. Tapping a tile previews it on the real home screen. */
@@ -817,7 +856,7 @@
        All apps and Wallpaper, with three frosted columns by job over the wallpaper: Quick, Display and driving, nDashMo
        (the About card). Same data-t / data-seg wiring as before. -->
   <section class="cc" id="cc" aria-label="Controls">
-    <div class="cc-head pnl"><h2>Controls</h2><button class="round press" id="ccClose" aria-label="Close controls"><i class="ph-bold ph-x"></i></button></div>
+    <div class="cc-head pnl"><h2>Controls</h2><button class="bar-btn press" id="wpBtn"><i class="ph-fill ph-image"></i>Wallpaper</button><button class="round press" id="ccClose" aria-label="Close controls"><i class="ph-bold ph-x"></i></button></div>
     <div class="cc-cols">
       <div class="ccol pnl">
         <div class="lbl">Quick</div>
@@ -842,7 +881,6 @@
           <div class="row"><span><b>Sidebar side</b><small>Right sits closer to the driver</small></span><div class="seg mini" data-seg="side"><button data-v="left">Left</button><button data-v="right">Right</button></div></div>
           <button class="row tog press" data-t="glass"><span><b>Glass effect</b><small></small></span><span class="sw"></span></button>
           <button class="row tog press" data-t="titleRun"><span><b>Scroll song title</b><small></small></span><span class="sw"></span></button>
-          <button class="row press" id="wpBtn"><span><b>Wallpaper</b><small>Photos, gradients, your gallery</small></span><i class="ph-bold ph-caret-right chev"></i></button>
         </div>
       </div>
       <div class="ccol pnl about-card">

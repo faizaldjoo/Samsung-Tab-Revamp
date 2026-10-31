@@ -324,6 +324,13 @@
   body:not(.left) .cc-cols > :first-child { order: 3; } body:not(.left) .cc-cols > .about-card { order: 1; }
   .ab-cols { display: grid; grid-template-columns: 1fr 1.15fr; gap: 10px; min-height: 0; }
   .cc-col { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 14px; display: flex; flex-direction: column; gap: 10px; min-height: 0; min-width: 0; overflow: hidden; }
+  /* No dead space at the foot of the columns (user, 2026-10-30): each column shares out its own spare height, so it
+     still fits when a row is added or removed. Quick: the toggle tiles grow (bigger targets in the car), Mobile data laid out
+     like Wi-Fi and Bluetooth; Display and driving: each choice takes an equal share under the column title; About card: the checks spread down to the meters and Details. */
+  .cc-cols > :first-child > .quick { flex: 1; min-height: 0; grid-template-rows: 1.4fr 1fr; }
+  #cc .cc-cols > :first-child > .quick > [data-t="data"] { flex-direction: column; align-items: flex-start; justify-content: space-between; }
+  .cc-cols > :nth-child(2) > .field { flex: 1; align-content: start; }
+  .about-card .chk { flex: 1; align-content: space-evenly; }
   .cc-col > .lbl { font-size: 13px; font-weight: 600; color: var(--faint); }
   #cc .seg, #about .seg { margin-top: 0; background: var(--bg); }
   #cc .seg button { display: flex; align-items: center; justify-content: center; gap: 6px; }
@@ -332,11 +339,11 @@
   .flbl { font-size: 13px; font-weight: 600; color: var(--muted); }
   /* Quick: the four connectivity switches as big tiles (they open Android's panels); the disc fills when on. */
   .quick { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-  #cc .qt { height: 96px; border-radius: 14px; background: var(--raised); padding: 12px; display: flex; flex-direction: column; align-items: flex-start; justify-content: space-between; min-width: 0; }
+  #cc .qt { min-height: 96px; border-radius: 14px; background: var(--raised); padding: 12px; display: flex; flex-direction: column; align-items: flex-start; justify-content: space-between; min-width: 0; }
   #cc .qt .disc { width: 36px; height: 36px; border-radius: 50%; background: var(--bg); display: grid; place-items: center; font-size: 18px; }
   #cc .qt.on .disc { background: var(--accent); color: #fff; }
   /* No Hotspot (user, 2026-10-30): Mobile data is one wide tile under Wi-Fi and Bluetooth. */
-  #cc .qt[data-t="data"] { grid-column: span 2; height: 72px; flex-direction: row; align-items: center; justify-content: flex-start; gap: 12px; }
+  #cc .qt[data-t="data"] { grid-column: span 2; min-height: 72px; flex-direction: row; align-items: center; justify-content: flex-start; gap: 12px; }
   .qt > span:last-child { max-width: 100%; min-width: 0; }
   .qt b { display: block; font-size: 15px; font-weight: 600; } .qt small { display: block; font-size: 12px; color: var(--muted); }
   .qt b, .qt small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
