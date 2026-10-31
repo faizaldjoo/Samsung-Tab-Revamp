@@ -312,7 +312,7 @@
   /* The title bar (title, Close / Back) sits at the bottom, within thumb reach (user, 2026-10-30). */
   #cc, #about { grid-template-rows: minmax(0, 1fr) auto; gap: 10px; }
   #cc > .cc-head, #about > .cc-head { grid-row: 2; } #cc > .cc-cols, #about > .ab-cols { grid-row: 1; }
-  .cc-head { display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 4px 4px 4px 16px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); }
+  .cc-head { cursor: pointer; display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 4px 4px 4px 16px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); }
   #about .cc-head { padding-left: 4px; }
   .cc-head h2 { font-size: 21px; font-weight: 600; letter-spacing: -0.01em; }
   .cc-head .x { margin-left: auto; width: 48px; height: 48px; border-radius: 12px; background: var(--raised); display: grid; place-items: center; font-size: 20px; }
@@ -359,7 +359,10 @@
   /* About card and page */
   .ab-app { display: flex; align-items: center; gap: 12px; }
   /* The nDashMo mark from the app icon kit (vendor/brand), on the icon's dark tile (user, 2026-10-30). */
-  .mark { width: 52px; height: 52px; border-radius: 14px; background: #0e1117; border: 1px solid var(--line); display: grid; place-items: center; flex: none; }
+  /* Logo tile: the app icon's day tile (#f3f5f8) on Matte and at night, where the icon's dark tile vanished into the
+     dark panel (user, 2026-10-31); Light by day keeps the dark tile, which stands out on its light panels. */
+  .mark { width: 52px; height: 52px; border-radius: 14px; background: #f3f5f8; border: 1px solid var(--line); display: grid; place-items: center; flex: none; }
+  body.light-ui:not(.night) .mark { background: #0e1117; }
   .mark img { width: 88%; height: 88%; }
   .ab-app b { display: block; font-size: 19px; font-weight: 700; letter-spacing: -0.01em; } .ab-app small { display: block; font-size: 13px; color: var(--muted); margin-top: 2px; }
   .chk { display: grid; gap: 2px; }
@@ -414,6 +417,37 @@
 
   .toast { position: absolute; left: 50%; bottom: 20px; transform: translateX(-50%); padding: 10px 18px; border-radius: 999px; background: var(--text); color: var(--bg); font-size: 15px; font-weight: 600; z-index: 9; display: none; }
   .toast.show { display: block; }
+  /* ---- Light colours (Controls > Appearance > Light, or Auto by day: body.light-ui; 2026-10-31, user; first built as lite-light.html). Palette after the user's
+     Tesla-style reference (2026-10-31): soft grey ground, flat near-white panels with no borders or shadows, near-black
+     text and icons, sky-blue accent, green for good; warnings in a strong red (the reference's orange
+     washed out on white: compass N, the 120 mark, the speeding segments, the status pill's warnings). Day uses these values; Night mode (Auto
+     after 18:00, or Night) keeps Matte's dark set from body.night, so the screen never glares at night.
+     Hard-coded dark surfaces get light ones only by day (body.light-ui:not(.night)). ---- */
+  html:has(> body.light-ui:not(.night)) { background: #dfe1e4; }   /* edges outside the scaled body, in a browser */
+  body.light-ui:not(.night) {
+    --bg: #dfe1e4; --panel: #f6f6f7; --raised: #e8e9eb; --line: #f6f6f7;   /* soft grey ground, not white (user) */
+    --text: #111111; --muted: #686868; --faint: #9a9a9a;
+    --accent: #1a9fdc; --warn: #d92d23; --ok: #2fbf68;
+  }
+  body.light-ui:not(.night) .rose-tk { stroke: rgba(17,17,17,0.3); }
+  body.light-ui:not(.night) .seg { fill: #dcdcdc; }
+  body.light-ui:not(.night) .seg.red { fill: #f4cfcc; }
+  body.light-ui:not(.night) .seg.on { fill: var(--accent); } body.light-ui:not(.night) .seg.red.on { fill: var(--warn); }
+  body.light-ui:not(.night) .reel { background: #dcdcdc; }
+  body.light-ui:not(.night) .art { background-color: #dcdcdc; }
+  body.light-ui:not(.night) .prog .bar { background: #d4d4d4; }
+  body.light-ui:not(.night) .track i { color: #fff; }
+  body.light-ui:not(.night) .track.low i { color: var(--text); }
+  body.light-ui:not(.night) .app-pill { background: var(--raised); }
+  body.light-ui:not(.night) .app-pill img { filter: brightness(0) opacity(0.85); }   /* the pill's logos are white */
+  /* Map overlays (turn card, arrival row, hint) in the panels' near-white by day (user, 2026-10-31), with a faint
+     shadow so they still lift off the light map. */
+  body.light-ui:not(.night) .turn, body.light-ui:not(.night) .eta, body.light-ui:not(.night) .hint { background: var(--panel); box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+  /* Flip clock inverted by day (user, 2026-10-31): dark cards, white digits, so it stands out on the light panel. */
+  body.light-ui:not(.night) .today { --card-top: #2c2e33; --card-top2: #24262a; --card-bot: #1f2124; --card-bot2: #16171a; --digit: #f5f5f5; }
+  body.light-ui:not(.night) .today .fcard { filter: drop-shadow(0 6px 10px rgba(0,0,0,0.22)); }
+  body.light-ui:not(.night) .today .half { box-shadow: inset 0 0 0 1px rgba(255,255,255,0.05); }
+  body.light-ui:not(.night) .today .fcard::before { background: linear-gradient(90deg, #6b6e74 0 5px, transparent 5px calc(100% - 5px), #6b6e74 calc(100% - 5px)); }
 </style>
 </head>
 <body>
@@ -508,7 +542,7 @@
   <!-- Controls, full screen (2026-10-29, user, option A of controls-wireframe.html): three columns by job. Quick switches
        on the left, how the screen behaves in the middle, the app itself (About card) on the right. Same data-t / data-seg
        wiring as before. -->
-  <div class="cc-head"><h2>Controls</h2><button class="x press" id="ccClose" aria-label="Close controls"><i class="ph-fill ph-x"></i></button></div>
+  <div class="cc-head press" id="ccHead"><h2>Controls</h2><button class="x" id="ccClose" aria-label="Close controls"><i class="ph-fill ph-x"></i></button></div>
   <div class="cc-cols">
     <div class="cc-col">
       <span class="lbl">Quick</span>
@@ -524,8 +558,8 @@
     </div>
     <div class="cc-col">
       <span class="lbl">Display and driving</span>
-      <div class="field"><span class="flbl">Theme</span><div class="seg" data-seg="theme"><button data-v="lite"><i class="ph-fill ph-square"></i>Matte</button><button data-v="glass"><i class="ph-fill ph-drop"></i>Glass</button></div></div>
-      <div class="field"><span class="flbl">Night mode</span><div class="seg" data-seg="night"><button data-v="auto">Auto</button><button data-v="day">Day</button><button data-v="night">Night</button></div></div>
+      <div class="field"><span class="flbl">Style</span><div class="seg" data-seg="theme"><button data-v="lite"><i class="ph-fill ph-square"></i>Matte</button><button data-v="glass"><i class="ph-fill ph-drop"></i>Glass</button></div></div>
+      <div class="field"><span class="flbl">Appearance</span><div class="seg" data-seg="appear"><button data-v="light"><i class="ph-fill ph-sun"></i>Light</button><button data-v="dark"><i class="ph-fill ph-moon"></i>Dark</button><button data-v="auto"><i class="ph-fill ph-circle-half"></i>Auto</button></div></div>
       <div class="field"><span class="flbl">Navigation app</span><div class="seg" data-seg="nav"><button data-v="waze">Waze</button><button data-v="maps">Google Maps</button></div></div>
       <div class="rows sep">
         <div class="row"><span><b>Sidebar side</b><small>Right sits closer to the driver</small></span><div class="seg mini" data-seg="side"><button data-v="left">Left</button><button data-v="right">Right</button></div></div>
@@ -545,7 +579,7 @@
 <section class="page" id="about" aria-label="About nDashMo">
   <!-- About nDashMo (from the About card): name, tagline, version and creator on the left, what it needs from
        Android on the right (version only, no change list: user, 2026-10-29). Content in about.js. -->
-  <div class="cc-head"><button class="x press" id="aboutBack" aria-label="Back to controls"><i class="ph-fill ph-arrow-left"></i></button><h2>About nDashMo</h2></div>
+  <div class="cc-head press" id="aboutHead"><button class="x" id="aboutBack" aria-label="Back to controls"><i class="ph-fill ph-arrow-left"></i></button><h2>About nDashMo</h2></div>
   <div class="ab-cols">
       <div class="cc-col ab-id">
         <div class="ab-app"><span class="mark"><img src="vendor/brand/ndashmo-mark-matte.svg" alt=""></span><span><b>nDashMo</b><small id="abTag"></small></span></div>
@@ -697,9 +731,10 @@
   }
   $('homeBtn').onclick = () => show(document.body.classList.contains('show-apps') ? null : 'apps');
   $('statusBtn').onclick = () => show(document.body.classList.contains('show-cc') || document.body.classList.contains('show-about') ? null : 'cc');
-  $('ccClose').onclick = $('ccOut').onclick = () => show(null);
+  // The whole title bar is the Close / Back button (user, 2026-10-31: the X alone was a small target).
+  $('ccHead').onclick = $('ccOut').onclick = () => show(null);
   $('aboutBtn').onclick = () => show('about');
-  $('aboutBack').onclick = () => show('cc');
+  $('aboutHead').onclick = () => show('cc');
   $('about').addEventListener('click', e => AppInfo.click(e));
   $('aboutChk').addEventListener('click', e => AppInfo.click(e));
   // Back from Android's settings (an access turned on): show the checks as they are now.
@@ -834,6 +869,8 @@
   $('cc').addEventListener('click', e => {
     const t = e.target.closest('[data-t]'), sb = e.target.closest('[data-seg] button');
     if (sb && sb.closest('[data-seg]').dataset.seg === 'theme') { setTheme(sb.dataset.v); return; }
+    // Appearance (Light / Dark / Auto) is stored as Night mode: day / night / auto (user, 2026-10-31).
+    if (sb && sb.closest('[data-seg]').dataset.seg === 'appear') { S.night = APPEAR[sb.dataset.v]; save(); apply(); return; }
     if (t && NATIVE && ['wifi', 'bt', 'data', 'hotspot', 'dnd'].includes(t.dataset.t)) { Android.openPanel(t.dataset.t); return; }
     if (t && NATIVE && t.dataset.t === 'autoBri' && !Android.setAutoBrightness(!S.autoBri)) return;
     if (t) { S[t.dataset.t] = !S[t.dataset.t]; if (t.dataset.t === 'titleRun') fitTitle(); }
@@ -841,15 +878,20 @@
     else return;
     save(); apply();
   });
+  // Appearance <-> Night mode. Light = day, Dark = night, Auto = by the clock (18:00-06:00).
+  const APPEAR = { light: 'day', dark: 'night', auto: 'auto' };
+  const appearOf = () => S.night === 'night' ? 'dark' : S.night === 'day' ? 'light' : 'auto';
+  delete S.look;   // the short-lived Theme > Light setting (2026-10-31), replaced by Appearance
   const isNight = () => { const h = new Date().getHours(); return S.night === 'night' || (S.night === 'auto' && (h >= 18 || h < 6)); };
   function apply() {
     document.body.classList.toggle('left', S.side === 'left');
     document.body.classList.toggle('night', isNight()); mapTheme();
+    document.body.classList.toggle('light-ui', S.night !== 'night');   // Matte's light colours whenever it isn't night (CSS: :not(.night))
     document.querySelectorAll('[data-t]').forEach(el => {
       el.classList.toggle('on', !!S[el.dataset.t]);
       const sm = el.querySelector('small'); if (SUB[el.dataset.t]) sm.textContent = SUB[el.dataset.t](S[el.dataset.t]);
     });
-    document.querySelectorAll('[data-seg]').forEach(seg => seg.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === S[seg.dataset.seg])));
+    document.querySelectorAll('[data-seg]').forEach(seg => seg.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === (seg.dataset.seg === 'appear' ? appearOf() : S[seg.dataset.seg]))));
     const nav = byId[S.nav] || APPS[0];
     $('map').dataset.app = nav.id; $('mapHint').textContent = `Tap for ${nav.name}`;
     vmUse(true);

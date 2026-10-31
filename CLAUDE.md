@@ -486,16 +486,22 @@ Driven over ADB from a computer on the same Wi-Fi (Wireless debugging; pair once
   closed-eye lines. (A lid stroke was tried first: it drew a ledge and cap on half-closed eyes.) Lite burst mode never pauses with the eyes shut unless
   the mood is sleep (window.faceMood). Published test page (same file, debug bar always on): https://claude.ai/artifact/9XmBNmuNQU7BJHVGpu4E5T
 
-## Matte Light (launcher-prototype/lite-light.html, 2026-10-31, prototype only)
-- A copy of lite.html plus one override block at the end of its <style> ("Light (lite-light.html ..."). Palette after
+## Matte Light (Controls > Appearance > Light or Auto by day, lite.html, 2026-10-31)
+- One override block at the end of lite.html's <style> ("Light colours (Controls > Appearance ..."). Palette after
   the user's Tesla-style reference: soft grey ground #dfe1e4, flat near-white panels #f6f6f7 (no borders, no shadows),
   raised #e8e9eb, text #111, muted #686868, accent sky blue #1a9fdc, ok green #2fbf68, warnings strong red #d92d23
   (the reference's orange washed out: compass N, 120 mark, speeding segments, status warnings).
 - By day only (body:not(.night)): flip clock inverted (dark cards, white digits), map turn card / ETA / hint in the
   panel colour with a faint shadow, light reels / progress / speed-bar segments, white slider glyphs, the app pill's
   white logos darkened. Night mode (Auto after 18:00, or Night) keeps Matte's dark set and #007aff.
-- Not in the app yet: Controls > Theme still offers Matte / Glass only; next step is a Light choice inside lite.html.
-- Pin badges (lite.html and lite-light.html): .apps-pg padding-top 6px (the grid clipped the first row's badges) and a
+- Controls rows (2026-10-31, user: Theme > Light next to Night mode > Day was confusing): **Style** = Matte / Glass
+  (data-seg="theme", still S.theme 'lite' / 'glass') and **Appearance** = Light / Dark / Auto (data-seg="appear"),
+  in both pages. Appearance is stored as the old Night mode setting: Light = S.night 'day', Dark = 'night', Auto =
+  'auto' (dark 18:00-06:00); APPEAR / appearOf() map between them, so isNight(), the minute tick and the map need
+  no change. Matte gets body.light-ui whenever S.night isn't 'night' (the light colours apply only :not(.night)), so
+  Matte by day is light unless Dark is chosen; Glass by day is its usual look. The short-lived S.look is deleted on load.
+  The first standalone copy, lite-light.html, was deleted the same day.
+- Pin badges (lite.html): .apps-pg padding-top 6px (the grid clipped the first row's badges) and a
   2px ring in --bg around each badge.
 
 ## Not decided / parked

@@ -40,7 +40,7 @@ python3 -m http.server 8765 --directory launcher-prototype
 
 Then open http://localhost:8765/lite.html (Matte) or http://localhost:8765/glass.html (Glass). Add `?drive` to either
 for a simulated drive. The browser shows sample data; the real data comes from the tablet.
-`lite-light.html` is a light version of Matte (prototype, not in the app yet).
+Controls > Appearance switches between Light, Dark and Auto (dark from 18:00 to 06:00).
 
 ## Moving to another computer
 

@@ -872,8 +872,8 @@
       </div>
       <div class="ccol pnl">
         <div class="lbl">Display and driving</div>
-        <div class="field"><span class="flbl">Theme</span><div class="seg" data-seg="theme"><button data-v="lite"><i class="ph-fill ph-square"></i>Matte</button><button data-v="glass"><i class="ph-fill ph-drop"></i>Glass</button></div></div>
-        <div class="field"><span class="flbl">Night mode <small class="hint" id="nightHint"></small></span><div class="seg" data-seg="night"><button data-v="auto">Auto</button><button data-v="day">Day</button><button data-v="night">Night</button></div></div>
+        <div class="field"><span class="flbl">Style</span><div class="seg" data-seg="theme"><button data-v="lite"><i class="ph-fill ph-square"></i>Matte</button><button data-v="glass"><i class="ph-fill ph-drop"></i>Glass</button></div></div>
+        <div class="field"><span class="flbl">Appearance <small class="hint" id="nightHint"></small></span><div class="seg" data-seg="appear"><button data-v="light"><i class="ph-fill ph-sun"></i>Light</button><button data-v="dark"><i class="ph-fill ph-moon"></i>Dark</button><button data-v="auto"><i class="ph-fill ph-circle-half"></i>Auto</button></div></div>
         <div class="field"><span class="flbl">Navigation app</span><div class="seg" data-seg="nav">
           <button data-v="waze"><img src="vendor/simpleicons/waze.svg" alt="">Waze</button>
           <button data-v="maps"><img src="vendor/simpleicons/googlemaps.svg" alt="">Google Maps</button></div></div>
@@ -1600,6 +1600,8 @@
   $('cc').addEventListener('click', e => {
     const t = e.target.closest('[data-t]'), sb = e.target.closest('[data-seg] button');
     if (sb && sb.closest('[data-seg]').dataset.seg === 'theme') { setTheme(sb.dataset.v); return; }
+    // Appearance (Light / Dark / Auto) is stored as Night mode: day / night / auto (user, 2026-10-31).
+    if (sb && sb.closest('[data-seg]').dataset.seg === 'appear') { S.night = APPEAR[sb.dataset.v]; save(); apply(); return; }
     if (t && NATIVE && PANEL.includes(t.dataset.t)) { Android.openPanel(t.dataset.t); return; }
     if (t && NATIVE && t.dataset.t === 'autoBri' && !Android.setAutoBrightness(!S.autoBri)) return;
     if (t) { S[t.dataset.t] = !S[t.dataset.t]; if (t.dataset.t === 'titleRun') fitTitle(); }
@@ -1608,19 +1610,23 @@
     save(); apply();
   });
 
+  // Appearance <-> Night mode. Light = day, Dark = night, Auto = by the clock (18:00-06:00).
+  const APPEAR = { light: 'day', dark: 'night', auto: 'auto' };
+  const appearOf = () => S.night === 'night' ? 'dark' : S.night === 'day' ? 'light' : 'auto';
+  delete S.look;
   function isNight() { const h = new Date().getHours(); return S.night === 'night' || (S.night === 'auto' && (h >= 18 || h < 6)); }
   function apply() {
     screen.classList.toggle('side-left', S.side === 'left');
     screen.classList.toggle('night', isNight()); mapTheme();
     screen.classList.toggle('fx-transparent', !S.glass);
     if (wallSrc) { bakeGlass(); requestAnimationFrame(glassSlices); }   // night / glass changes re-bake; sidebar side moves panels
-    $('nightHint').textContent = S.night === 'auto' ? 'Switches to Night at sunset' : S.night === 'night' ? 'Night until you change it' : 'Day until you change it';
+    $('nightHint').textContent = S.night === 'auto' ? 'Dark from 18:00 to 06:00' : '';
     document.querySelectorAll('[data-t]').forEach(el => {
       el.classList.toggle('on', !!S[el.dataset.t]);
       const sm = el.querySelector('small'); if (SUB[el.dataset.t]) sm.textContent = SUB[el.dataset.t](S[el.dataset.t]);
     });
     document.querySelectorAll('[data-seg]').forEach(seg =>
-      seg.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === S[seg.dataset.seg])));
+      seg.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === (seg.dataset.seg === 'appear' ? appearOf() : S[seg.dataset.seg]))));
     $('mapPanel').dataset.app = S.nav;
     $('mapHint').textContent = `Tap for ${byId[S.nav].name}`;
     renderStatus(); renderCar();
